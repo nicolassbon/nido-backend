@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Infrastructure.Persistence;
@@ -16,6 +17,14 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
+
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "ConnectionStrings:Nido", "DummyConnectionStringForTests" }
+            });
+        });
 
         builder.ConfigureServices(services =>
         {
