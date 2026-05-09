@@ -1,3 +1,4 @@
+using System;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -13,6 +14,14 @@ namespace Nido.Api.IntegrationTests.Households;
 public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program>, IDisposable
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
+
+    public IntegrationTestWebAppFactory()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ConnectionStrings__Nido")))
+        {
+            Environment.SetEnvironmentVariable("ConnectionStrings__Nido", "DummyConnectionStringForTests");
+        }
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
