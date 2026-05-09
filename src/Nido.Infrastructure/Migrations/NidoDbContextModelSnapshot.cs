@@ -18,14 +18,12 @@ namespace Nido.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "9.0.0")
-                .HasAnnotation("Relational:MaxIdentifierLength", 64);
-
-            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             modelBuilder.Entity("Nido.Domain.Households.Household", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -37,11 +35,11 @@ namespace Nido.Infrastructure.Migrations
                     b.OwnsOne("Nido.Domain.Households.HouseholdName", "Name", b1 =>
                         {
                             b1.Property<Guid>("HouseholdId")
-                                .HasColumnType("char(36)");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("Value")
                                 .IsRequired()
-                                .HasColumnType("longtext")
+                                .HasColumnType("nvarchar(max)")
                                 .HasColumnName("Name");
 
                             b1.HasKey("HouseholdId");

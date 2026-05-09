@@ -17,10 +17,8 @@ public static class DependencyInjection
             throw new InvalidOperationException("Missing required configuration: ConnectionStrings:Nido");
         }
 
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
-
         services.AddDbContext<NidoDbContext>(options =>
-            options.UseMySql(connectionString, serverVersion));
+            options.UseSqlServer(connectionString));
 
         services.AddScoped<IHouseholdRepository, EfHouseholdRepository>();
 

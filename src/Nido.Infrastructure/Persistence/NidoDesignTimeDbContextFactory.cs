@@ -5,14 +5,12 @@ namespace Nido.Infrastructure.Persistence;
 
 public sealed class NidoDesignTimeDbContextFactory : IDesignTimeDbContextFactory<NidoDbContext>
 {
-    private static readonly MySqlServerVersion ServerVersion = new(new Version(8, 0, 36));
-
     public NidoDbContext CreateDbContext(string[] args)
     {
         var connectionString = ResolveConnectionString();
 
         var optionsBuilder = new DbContextOptionsBuilder<NidoDbContext>();
-        optionsBuilder.UseMySql(connectionString, ServerVersion);
+        optionsBuilder.UseSqlServer(connectionString);
 
         return new NidoDbContext(optionsBuilder.Options);
     }

@@ -10,12 +10,17 @@ builder.Services.AddControllers();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CreateHouseholdHandler>();
 
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()
+    ?? ["http://localhost:4200"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200")
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

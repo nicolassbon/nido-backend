@@ -1,62 +1,97 @@
 # Nido Backend
 
-.NET 10 backend for the Nido MVP 1. This folder contains the API, domain, use cases, infrastructure, and tests for the first real `Household` flow.
+.NET 10 backend for Nido MVP 1. This repository owns the HTTP contract and implements the backend Clean Architecture layers.
 
-## Quick path
+## Role in the architecture
 
-1. Create a repository-root `.env` file with `ConnectionStrings__Nido=...`.
-2. Start MySQL by whatever local method you are using in this migration stage.
-3. Apply EF migrations from repository root with `dotnet ef database update --project src/Nido.Infrastructure/Nido.Infrastructure.csproj --context NidoDbContext`.
-4. From `src/Nido.Api`, run `dotnet run`.
-5. Smoke-check API with `curl http://localhost:8080/hello`.
-6. Run backend tests with `dotnet test Nido.slnx --configuration Release`.
+- `nido-backend` and `nido-frontend` are separate repositories.
+- This repo is the **source of truth** for API endpoints, payloads, and response semantics.
+- Frontend integration must happen through HTTP, based on this contract.
 
-## Structure
+## MVP HTTP contract (owned here)
+
+### `GET /hello`
+
+- Purpose: integration smoke check between the two repos.
+- Response `200 OK`:
+
+```json
+{ "message": "Bienvenido a Nido!" }
+```
+
+### `POST /household`
+
+- Purpose: create a household.
+- Request body:
+
+```json
+{ "name": "Casa de Nico" }
+```
+
+- Response `201 Created`:
+
+```json
+{ "id": "uuid", "name": "Casa de Nico" }
+```
+
+- Validation: `400 Bad Request` (Problem Details) when `name` is missing or invalid.
+
+## Clean Architecture split
 
 | Path | Responsibility |
 |------|----------------|
-| `src/Nido.Api` | HTTP exposure, controllers, contracts, Program wiring |
+| `src/Nido.Api` | HTTP exposure (controllers, contracts, startup wiring) |
 | `src/Nido.Application` | Use cases and ports |
 | `src/Nido.Domain` | Entities, value objects, pure business rules |
 | `src/Nido.Infrastructure` | EF Core, repositories, persistence wiring |
 | `tests/` | Domain, Application, and API integration tests |
 
-## Notes
+## Configuration rules
 
-- The backend follows the Clean Architecture split defined in `Arquitectura-MVP1.md`.
-- Database schema changes must go through **EF Core migrations**.
-- Generated outputs such as `bin/`, `obj/`, and `TestResults/` should not be tracked in git.
+- Do not hardcode integration values in code.
+- Use configuration files/environment variables for runtime settings.
+- CORS origins come from `Cors:AllowedOrigins` (default local: `http://localhost:4200`).
+- Database connection comes from `ConnectionStrings__Nido`.
 
-## EF Core migrations (standard workflow)
+## Local environment (Phase 5 MVP)
 
-The API startup does **not** run `Database.Migrate()` automatically. Apply migrations explicitly before using flows that depend on the schema (for example, `POST /household`).
+`docker-compose.yml` lives in this repository by design for MVP simplicity.
 
-From repository root:
+1. Create local env file:
+
+```bash
+cp .env.example .env
+```
+
+2. Start SQL Server for local development:
+
+```bash
+docker compose up -d sqlserver
+```
+
+3. Apply migrations:
 
 ```bash
 dotnet ef database update --project src/Nido.Infrastructure/Nido.Infrastructure.csproj --context NidoDbContext
 ```
 
-`ConnectionStrings__Nido` is the source of truth for the .NET runtime and EF tooling.
-`MYSQL_*` variables are for Docker/MySQL only.
-
-## Run API locally (host)
-
-From `src/Nido.Api/`:
+4. Run the API from `src/Nido.Api`:
 
 ```bash
 dotnet run
 ```
 
-## NuGet packages (standard workflow)
-
-Add or remove NuGet packages through the **.NET CLI first**, not by manually editing `.csproj` files.
-
-Recommended commands on .NET 10:
+5. Verify backend:
 
 ```bash
-dotnet package add <PackageName> --project <ProjectPath>
-dotnet package remove <PackageName> --project <ProjectPath>
+curl http://localhost:8080/hello
 ```
 
-Use manual `.csproj` edits only for follow-up metadata that the CLI does not express well, such as `PrivateAssets` or `IncludeAssets`.
+## Frontend local connection
+
+`nido-frontend` must call this backend through HTTP (no monorepo coupling):
+
+- Backend base URL for local dev: `http://localhost:8080`
+- Health/integration endpoint: `GET http://localhost:8080/hello`
+
+In the frontend local environment config, point the API base URL to `http://localhost:8080`.
