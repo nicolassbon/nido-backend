@@ -53,35 +53,42 @@
 - CORS origins come from `Cors:AllowedOrigins` (default local: `http://localhost:4200`).
 - Database connection comes from `ConnectionStrings__Nido`.
 
-## Local environment (Phase 5 MVP)
+## Local Development Setup
 
-`docker-compose.yml` lives in this repository by design for MVP simplicity.
+`docker-compose.yml` lives in this repository to provide local infrastructure (SQL Server).
 
-1. Create local env file:
+### 1. Start the Database
+Create your local environment file (if you haven't already) and start the SQL Server container:
 
 ```bash
 cp .env.example .env
+docker compose up -d
 ```
 
-2. Start SQL Server for local development:
+### 2. Run Database Migrations
+Apply the EF Core migrations to create the database schema:
 
 ```bash
-docker compose up -d sqlserver
+dotnet ef database update --project src/Nido.Infrastructure --startup-project src/Nido.Api
 ```
+*(Note: If the `ef` command is not found, install it via: `dotnet tool install --global dotnet-ef`)*
 
-3. Apply migrations:
+### 3. Run Tests
+Run the full suite of Domain, Application, and Integration tests:
 
 ```bash
-dotnet ef database update --project src/Nido.Infrastructure/Nido.Infrastructure.csproj --context NidoDbContext
+dotnet test
 ```
 
-4. Run the API from `src/Nido.Api`:
+### 4. Start the Application
+Run the API project:
 
 ```bash
-dotnet run
+dotnet run --project src/Nido.Api
 ```
 
-5. Verify backend:
+### 5. Verify Health
+Check if the API is up and running by hitting the integration smoke endpoint:
 
 ```bash
 curl http://localhost:8080/hello
