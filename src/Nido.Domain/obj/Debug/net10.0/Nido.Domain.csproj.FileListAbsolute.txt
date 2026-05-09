@@ -1,0 +1,11 @@
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/bin/Debug/net10.0/Nido.Domain.deps.json
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/bin/Debug/net10.0/Nido.Domain.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/bin/Debug/net10.0/Nido.Domain.pdb
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/Nido.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/Nido.Domain.AssemblyInfoInputs.cache
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/Nido.Domain.AssemblyInfo.cs
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/Nido.Domain.csproj.CoreCompileInputs.cache
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/Nido.Domain.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/refint/Nido.Domain.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/Nido.Domain.pdb
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/obj/Debug/net10.0/ref/Nido.Domain.dll

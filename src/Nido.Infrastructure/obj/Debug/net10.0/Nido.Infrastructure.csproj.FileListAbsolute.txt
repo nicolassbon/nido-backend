@@ -1,0 +1,17 @@
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Infrastructure.deps.json
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Infrastructure.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Infrastructure.pdb
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Application.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Domain.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Application.pdb
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/bin/Debug/net10.0/Nido.Domain.pdb
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.csproj.AssemblyReference.cache
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.AssemblyInfoInputs.cache
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.AssemblyInfo.cs
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.csproj.CoreCompileInputs.cache
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Inf.E2436355.Up2Date
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/refint/Nido.Infrastructure.dll
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/Nido.Infrastructure.pdb
+/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/obj/Debug/net10.0/ref/Nido.Infrastructure.dll
