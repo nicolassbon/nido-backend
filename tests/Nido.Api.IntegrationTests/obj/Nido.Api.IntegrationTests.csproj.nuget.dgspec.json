@@ -52,9 +52,15 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "dependencies": {
-            "Microsoft.AspNetCore.OpenApi": {
+            "DotNetEnv": {
               "target": "Package",
-              "version": "[10.0.7, )"
+              "version": "[3.2.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.0, )"
             }
           },
           "imports": [
@@ -1213,6 +1219,22 @@
       "frameworks": {
         "net10.0": {
           "targetAlias": "net10.0",
+          "dependencies": {
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Pomelo.EntityFrameworkCore.MySql": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",
@@ -1533,12 +1555,6 @@
               "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Api/Nido.Api.csproj": {
                 "projectPath": "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Api/Nido.Api.csproj"
               },
-              "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Application/Nido.Application.csproj": {
-                "projectPath": "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Application/Nido.Application.csproj"
-              },
-              "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/Nido.Domain.csproj": {
-                "projectPath": "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Domain/Nido.Domain.csproj"
-              },
               "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/Nido.Infrastructure.csproj": {
                 "projectPath": "/home/nico/proyectos/nido-workspace/nido-backend/src/Nido.Infrastructure/Nido.Infrastructure.csproj"
               }
@@ -1561,6 +1577,14 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Mvc.Testing": {
+              "target": "Package",
+              "version": "[10.0.7, )"
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
             "Microsoft.NET.Test.Sdk": {
               "target": "Package",
               "version": "[17.14.1, )"

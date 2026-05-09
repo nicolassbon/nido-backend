@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Nido.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cec3a65aacb195a9f674b35ae07de7e7e40105f9")]
 [assembly: System.Reflection.AssemblyProductAttribute("Nido.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Nido.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
