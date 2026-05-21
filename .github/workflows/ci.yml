@@ -1,4 +1,4 @@
-name: Backend CI
+name: Backend CI/CD
 
 on:
   push:
@@ -11,18 +11,74 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-        
-    - name: Restore dependencies
-      run: dotnet restore Nido.slnx
-      
-    - name: Build
-      run: dotnet build Nido.slnx --no-restore
-      
-    - name: Test
-      run: dotnet test Nido.slnx --no-build --verbosity normal
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Nido.slnx
+
+      - name: Build
+        run: dotnet build Nido.slnx --no-restore
+
+      - name: Test
+        run: dotnet test Nido.slnx --no-build --verbosity normal
+
+      - name: Build Docker image
+        run: docker build -t nido-api:test .
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/nido-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/nido-api:${{ github.sha }}
+
+      - name: Build and push migrator image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: migrator
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:${{ github.sha }}
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: nido
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /app/nido
+            docker compose pull nido-api nido-migrator
+            docker compose run --rm nido-migrator
+            docker compose up -d --remove-orphans nido-api
+            docker image prune -f
+            docker ps
