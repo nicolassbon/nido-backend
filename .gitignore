@@ -3,3 +3,4 @@ obj/
 TestResults/
 .env
 .DS_Store
+.atl/
