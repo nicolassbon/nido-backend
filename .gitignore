@@ -3,4 +3,5 @@ obj/
 TestResults/
 .env
 .DS_Store
+openspec/
 .atl/

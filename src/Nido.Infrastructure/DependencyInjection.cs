@@ -11,14 +11,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddNidoInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Nido");
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? configuration.GetConnectionString("Nido");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            throw new InvalidOperationException("Missing required configuration: ConnectionStrings:Nido");
+            throw new InvalidOperationException("Missing required configuration: ConnectionStrings:DefaultConnection (or legacy ConnectionStrings:Nido)");
         }
 
         services.AddDbContext<NidoDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            options.UseNpgsql(connectionString));
 
         services.AddScoped<IHouseholdRepository, EfHouseholdRepository>();
 

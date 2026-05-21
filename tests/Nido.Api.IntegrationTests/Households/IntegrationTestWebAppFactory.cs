@@ -17,9 +17,9 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
 
     public IntegrationTestWebAppFactory()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ConnectionStrings__Nido")))
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")))
         {
-            Environment.SetEnvironmentVariable("ConnectionStrings__Nido", "DummyConnectionStringForTests");
+            Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", "DummyConnectionStringForTests");
         }
     }
 
@@ -31,7 +31,7 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                { "ConnectionStrings:Nido", "DummyConnectionStringForTests" }
+                { "ConnectionStrings:DefaultConnection", "DummyConnectionStringForTests" }
             });
         });
 
