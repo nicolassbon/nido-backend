@@ -51,18 +51,33 @@
 - Do not hardcode integration values in code.
 - Use configuration files/environment variables for runtime settings.
 - CORS origins come from `Cors:AllowedOrigins` (default local: `http://localhost:4200`).
-- Database connection comes from `ConnectionStrings__Nido`.
+- Database connection comes from `ConnectionStrings__DefaultConnection` (legacy `ConnectionStrings__Nido` still supported as fallback).
 
 ## Local Development Setup
 
-`docker-compose.yml` lives in this repository to provide local infrastructure (SQL Server).
+`docker-compose.yml` lives in this repository to provide local infrastructure (PostgreSQL).
 
 ### 1. Start the Database
-Create your local environment file (if you haven't already) and start the SQL Server container:
+Create your local environment file (if you haven't already) and start the PostgreSQL container:
 
 ```bash
 cp .env.example .env
 docker compose up -d
+```
+
+Connection string host depends on where the API runs:
+
+- **API running from host (`dotnet run`)**: use `Host=localhost`.
+- **API running inside Docker/Compose**: use `Host=postgres` (the Compose service name).
+
+Example:
+
+```dotenv
+# Host runtime example
+ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=nido;Username=nido;Password=Your_password123
+
+# Compose runtime example (API container)
+ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=nido;Username=nido;Password=Your_password123
 ```
 
 ### 2. Run Database Migrations
@@ -79,6 +94,8 @@ Run the full suite of Domain, Application, and Integration tests:
 ```bash
 dotnet test
 ```
+
+> Note: integration tests use in-memory SQLite via `WebApplicationFactory` to keep test runs fast and isolated.
 
 ### 4. Start the Application
 Run the API project:
