@@ -4,6 +4,7 @@
     <Project Path="src/Nido.Application/Nido.Application.csproj" />
     <Project Path="src/Nido.Domain/Nido.Domain.csproj" />
     <Project Path="src/Nido.Infrastructure/Nido.Infrastructure.csproj" />
+    <Project Path="src/Nido.Migrator/Nido.Migrator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Nido.Api.IntegrationTests/Nido.Api.IntegrationTests.csproj" />
