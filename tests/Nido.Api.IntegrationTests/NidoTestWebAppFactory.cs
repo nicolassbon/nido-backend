@@ -49,11 +49,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
             services.AddDbContext<NidoDbContext>(options =>
                 options.UseSqlite(_connection)
                        .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
-
-            // Create the schema so controllers can query/insert without crashing.
-            using var scope = services.BuildServiceProvider().CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-            db.Database.EnsureCreated();
+            // Schema is created by MigrateAsync() in Program.cs startup.
         });
     }
 
