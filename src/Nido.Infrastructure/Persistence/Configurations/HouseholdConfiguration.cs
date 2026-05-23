@@ -8,15 +8,18 @@ public sealed class HouseholdConfiguration : IEntityTypeConfiguration<Household>
 {
     public void Configure(EntityTypeBuilder<Household> builder)
     {
-        builder.ToTable("Household");
+        builder.ToTable("hogares");
 
         builder.HasKey(household => household.Id);
-        builder.Property(household => household.Id).ValueGeneratedNever();
+        builder.Property(household => household.Id)
+            .HasColumnName("id")
+            .ValueGeneratedNever();
 
         builder.OwnsOne(household => household.Name, nameBuilder =>
         {
             nameBuilder.Property(name => name.Value)
-                .HasColumnName("Name")
+                .HasColumnName("nombre")
+                .HasMaxLength(255)
                 .IsRequired();
         });
 

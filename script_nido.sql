@@ -1,17 +1,12 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+-- =============================================
+-- BASE DE DATOS: NIDO
+-- =============================================
 
-#nullable disable
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-namespace Nido.Infrastructure.Migrations
-{
-    /// <inheritdoc />
-    public partial class InitialCreate : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql(@"
-CREATE EXTENSION IF NOT EXISTS ""uuid-ossp"";
+-- =============================================
+-- TABLAS SIN DEPENDENCIAS (se crean primero)
+-- =============================================
 
 CREATE TABLE usuarios (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -31,8 +26,8 @@ CREATE TABLE hogares (
 );
 
 CREATE TABLE categorias_producto (
-    id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre    VARCHAR(255) NOT NULL,
+    id      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre  VARCHAR(255) NOT NULL,
     ttl_dias  INT
 );
 
@@ -61,6 +56,10 @@ CREATE TABLE electrodomesticos (
     estado      VARCHAR(100),
     FOREIGN KEY (hogar_id) REFERENCES hogares(id)
 );
+
+-- =============================================
+-- TABLAS CON DEPENDENCIAS DE PRIMER NIVEL
+-- =============================================
 
 CREATE TABLE miembros_hogar (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -170,15 +169,19 @@ CREATE TABLE info_nutricional_producto (
 );
 
 CREATE TABLE ingredientes_receta (
-    id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    receta_id            UUID NOT NULL,
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    receta_id           UUID NOT NULL,
     nombre_ingrediente   VARCHAR(255) NOT NULL,
-    producto_id          UUID NOT NULL,
-    cantidad             DECIMAL(10,2),
-    unidad               VARCHAR(100),
-    FOREIGN KEY (receta_id)   REFERENCES recetas(id),
-    FOREIGN KEY (producto_id) REFERENCES productos(id)
+    producto_id         UUID NOT NULL,
+    cantidad            DECIMAL(10,2),
+    unidad              VARCHAR(100),
+    FOREIGN KEY (receta_id)     REFERENCES recetas(id),
+    FOREIGN KEY (producto_id)   REFERENCES productos(id)
 );
+
+-- =============================================
+-- TABLAS CON DEPENDENCIAS DE SEGUNDO NIVEL
+-- =============================================
 
 CREATE TABLE stock_hogar (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -186,15 +189,15 @@ CREATE TABLE stock_hogar (
     producto_id         UUID NOT NULL,
     cargado_por         UUID NOT NULL,
     cantidad_actual     DECIMAL(10,2),
-    unidad_medida       VARCHAR(100),
+    unidad_medida              VARCHAR(100),
     fecha_vencimiento   DATE,
     created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_by          UUID NOT NULL,
     updated_at          TIMESTAMP,
-    FOREIGN KEY (hogar_id)    REFERENCES hogares(id),
-    FOREIGN KEY (producto_id) REFERENCES productos(id),
-    FOREIGN KEY (cargado_por) REFERENCES usuarios(id),
-    FOREIGN KEY (updated_by)  REFERENCES usuarios(id)
+    FOREIGN KEY (hogar_id)      REFERENCES hogares(id),
+    FOREIGN KEY (producto_id)   REFERENCES productos(id),
+    FOREIGN KEY (cargado_por)   REFERENCES usuarios(id),
+    FOREIGN KEY (updated_by)    REFERENCES usuarios(id)
 );
 
 CREATE TABLE lista_compras (
@@ -206,9 +209,9 @@ CREATE TABLE lista_compras (
     unidad                  VARCHAR(100),
     comprado                BOOLEAN DEFAULT FALSE,
     agregado_al_inventario  BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (hogar_id)    REFERENCES hogares(id),
-    FOREIGN KEY (producto_id) REFERENCES productos(id),
-    FOREIGN KEY (agregado_por) REFERENCES usuarios(id)
+    FOREIGN KEY (hogar_id)      REFERENCES hogares(id),
+    FOREIGN KEY (producto_id)   REFERENCES productos(id),
+    FOREIGN KEY (agregado_por)  REFERENCES usuarios(id)
 );
 
 CREATE TABLE tareas (
@@ -222,9 +225,9 @@ CREATE TABLE tareas (
     completado_por      UUID NOT NULL,
     fecha_completado    TIMESTAMP,
     created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (hogar_id)        REFERENCES hogares(id),
-    FOREIGN KEY (creado_por)      REFERENCES usuarios(id),
-    FOREIGN KEY (completado_por)  REFERENCES usuarios(id)
+    FOREIGN KEY (hogar_id)      REFERENCES hogares(id),
+    FOREIGN KEY (creado_por)    REFERENCES usuarios(id),
+    FOREIGN KEY (completado_por) REFERENCES usuarios(id)
 );
 
 CREATE TABLE gastos (
@@ -241,66 +244,35 @@ CREATE TABLE gastos (
 );
 
 CREATE TABLE asignaciones_tarea (
-    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tarea_id         UUID NOT NULL,
-    usuario_id       UUID NOT NULL,
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tarea_id        UUID NOT NULL,
+    usuario_id      UUID NOT NULL,
     fecha_asignacion TIMESTAMP NOT NULL DEFAULT NOW(),
     FOREIGN KEY (tarea_id)   REFERENCES tareas(id),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
+
 CREATE TABLE resenias_receta (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     receta_id   UUID NOT NULL,
     usuario_id  UUID NOT NULL,
-    puntuacion  INT CHECK (puntuacion >= 1 AND puntuacion <= 5),
-    comentario  TEXT,
+    puntuacion INT CHECK (puntuacion >= 1 AND puntuacion <= 5),
+    comentario   TEXT,
     created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (receta_id)  REFERENCES recetas(id),
+    FOREIGN KEY (receta_id)   REFERENCES recetas(id),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
-CREATE INDEX idx_miembros_hogar_hogar   ON miembros_hogar(hogar_id);
-CREATE INDEX idx_miembros_hogar_usuario ON miembros_hogar(usuario_id);
-CREATE INDEX idx_stock_hogar_hogar      ON stock_hogar(hogar_id);
-CREATE INDEX idx_lista_compras_hogar    ON lista_compras(hogar_id);
-CREATE INDEX idx_tareas_hogar           ON tareas(hogar_id);
-CREATE INDEX idx_gastos_hogar           ON gastos(hogar_id);
-CREATE INDEX idx_notificaciones_usuario ON notificaciones(usuario_id);
-CREATE INDEX idx_ingredientes_receta    ON ingredientes_receta(receta_id);
-");
-        }
+-- =============================================
+-- ÍNDICES útiles para búsquedas frecuentes
+-- =============================================
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql(@"
-DROP TABLE IF EXISTS resenias_receta CASCADE;
-DROP TABLE IF EXISTS asignaciones_tarea CASCADE;
-DROP TABLE IF EXISTS gastos CASCADE;
-DROP TABLE IF EXISTS tareas CASCADE;
-DROP TABLE IF EXISTS lista_compras CASCADE;
-DROP TABLE IF EXISTS stock_hogar CASCADE;
-DROP TABLE IF EXISTS ingredientes_receta CASCADE;
-DROP TABLE IF EXISTS info_nutricional_producto CASCADE;
-DROP TABLE IF EXISTS info_nutricional_receta CASCADE;
-DROP TABLE IF EXISTS receta_electrodomestico CASCADE;
-DROP TABLE IF EXISTS recetas_cocinadas CASCADE;
-DROP TABLE IF EXISTS logros_hogar CASCADE;
-DROP TABLE IF EXISTS logros_usuario CASCADE;
-DROP TABLE IF EXISTS productos CASCADE;
-DROP TABLE IF EXISTS invitaciones_hogar CASCADE;
-DROP TABLE IF EXISTS notificaciones CASCADE;
-DROP TABLE IF EXISTS restricciones_usuario CASCADE;
-DROP TABLE IF EXISTS miembros_hogar CASCADE;
-DROP TABLE IF EXISTS electrodomesticos CASCADE;
-DROP TABLE IF EXISTS recetas CASCADE;
-DROP TABLE IF EXISTS logros CASCADE;
-DROP TABLE IF EXISTS categorias_producto CASCADE;
-DROP TABLE IF EXISTS hogares CASCADE;
-DROP TABLE IF EXISTS usuarios CASCADE;
-DROP EXTENSION IF EXISTS ""uuid-ossp"";
-");
-        }
-    }
-}
+CREATE INDEX idx_miembros_hogar_hogar     ON miembros_hogar(hogar_id);
+CREATE INDEX idx_miembros_hogar_usuario   ON miembros_hogar(usuario_id);
+CREATE INDEX idx_stock_hogar_hogar        ON stock_hogar(hogar_id);
+CREATE INDEX idx_lista_compras_hogar      ON lista_compras(hogar_id);
+CREATE INDEX idx_tareas_hogar             ON tareas(hogar_id);
+CREATE INDEX idx_gastos_hogar             ON gastos(hogar_id);
+CREATE INDEX idx_notificaciones_usuario   ON notificaciones(usuario_id);
+CREATE INDEX idx_ingredientes_receta      ON ingredientes_receta(receta_id);

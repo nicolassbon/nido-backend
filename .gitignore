@@ -5,3 +5,5 @@ TestResults/
 .DS_Store
 openspec/
 .atl/
+.claude/
+context.md

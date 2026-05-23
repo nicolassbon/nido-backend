@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Nido.Application.Households;
 using Nido.Infrastructure;
+using Nido.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +29,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 app.UseCors("Frontend");
 
