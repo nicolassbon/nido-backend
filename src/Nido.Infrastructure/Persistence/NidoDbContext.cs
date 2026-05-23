@@ -678,6 +678,18 @@ public partial class NidoDbContext : DbContext
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.Ubicacion)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasDefaultValue("Alacena")
+                .HasColumnName("ubicacion");
+            entity.Property(e => e.EstaAbierto)
+                .HasDefaultValue(false)
+                .HasColumnName("esta_abierto");
+            entity.Property(e => e.PorcentajeConsumido)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(0m)
+                .HasColumnName("porcentaje_consumido");
 
             entity.HasOne(d => d.CargadoPorNavigation).WithMany(p => p.StockHogarCargadoPorNavigations)
                 .HasForeignKey(d => d.CargadoPor)
