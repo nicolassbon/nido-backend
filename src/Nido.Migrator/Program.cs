@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Infrastructure.Persistence;
+using Nido.Application.Electrodomesticos;
 
 DotNetEnv.Env.TraversePath().Load();
 

@@ -4,6 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Households;
 using Nido.Infrastructure.Households;
 using Nido.Infrastructure.Persistence;
+using Nido.Domain.Electrodomesticos;
+using Nido.Infrastructure.Electrodomesticos;
+using Nido.Application.Electrodomesticos;
 
 namespace Nido.Infrastructure;
 
@@ -22,6 +25,8 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<IHouseholdRepository, EfHouseholdRepository>();
+        services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
+        services.AddScoped<GetElectrodomesticosHandler>();
 
         return services;
     }
