@@ -1,4 +1,3 @@
-using Nido.Application.Households;
 using Nido.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,7 +7,6 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
-builder.Services.AddScoped<CreateHouseholdHandler>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
