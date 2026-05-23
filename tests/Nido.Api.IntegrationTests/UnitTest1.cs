@@ -1,13 +1,12 @@
 ﻿using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Nido.Api.IntegrationTests;
 
-public class HelloEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class HelloEndpointTests : IClassFixture<NidoTestWebAppFactory>
 {
     private readonly HttpClient _client;
 
-    public HelloEndpointTests(WebApplicationFactory<Program> factory)
+    public HelloEndpointTests(NidoTestWebAppFactory factory)
     {
         _client = factory.CreateClient();
     }

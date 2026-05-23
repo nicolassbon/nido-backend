@@ -108,6 +108,7 @@ CREATE TABLE productos (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre          VARCHAR(255) NOT NULL,
     codigo_barras   VARCHAR(255),
+    imagen_url      VARCHAR(500),
     categoria_id    UUID,
     FOREIGN KEY (categoria_id) REFERENCES categorias_producto(id)
 );
@@ -184,16 +185,19 @@ CREATE TABLE ingredientes_receta (
 -- =============================================
 
 CREATE TABLE stock_hogar (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    hogar_id            UUID NOT NULL,
-    producto_id         UUID NOT NULL,
-    cargado_por         UUID NOT NULL,
-    cantidad_actual     DECIMAL(10,2),
-    unidad_medida              VARCHAR(100),
-    fecha_vencimiento   DATE,
-    created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_by          UUID NOT NULL,
-    updated_at          TIMESTAMP,
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    hogar_id              UUID NOT NULL,
+    producto_id           UUID NOT NULL,
+    cargado_por           UUID NOT NULL,
+    cantidad_actual       DECIMAL(10,2),
+    unidad_medida         VARCHAR(100),
+    fecha_vencimiento     DATE,
+    ubicacion             VARCHAR(100) NOT NULL DEFAULT 'Alacena',
+    esta_abierto          BOOLEAN NOT NULL DEFAULT FALSE,
+    porcentaje_consumido  DECIMAL(5,2) NOT NULL DEFAULT 0,
+    created_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_by            UUID NOT NULL,
+    updated_at            TIMESTAMP,
     FOREIGN KEY (hogar_id)      REFERENCES hogares(id),
     FOREIGN KEY (producto_id)   REFERENCES productos(id),
     FOREIGN KEY (cargado_por)   REFERENCES usuarios(id),
@@ -276,3 +280,24 @@ CREATE INDEX idx_tareas_hogar             ON tareas(hogar_id);
 CREATE INDEX idx_gastos_hogar             ON gastos(hogar_id);
 CREATE INDEX idx_notificaciones_usuario   ON notificaciones(usuario_id);
 CREATE INDEX idx_ingredientes_receta      ON ingredientes_receta(receta_id);
+
+-- =============================================
+-- SEED DE DESARROLLO
+-- Placeholder hasta que haya login implementado.
+-- El front usa hogarId/usuarioId = 000...001
+-- =============================================
+
+INSERT INTO hogares (id, nombre)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Hogar de Prueba')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO usuarios (id, nombre, email)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Usuario Dev', 'dev@nido.test')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO miembros_hogar (id, hogar_id, usuario_id, rol)
+VALUES ('00000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-000000000001',
+        'admin')
+ON CONFLICT (id) DO NOTHING;

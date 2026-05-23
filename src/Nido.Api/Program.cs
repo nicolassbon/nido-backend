@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Nido.Application.Households;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 
@@ -10,7 +9,6 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
-builder.Services.AddScoped<CreateHouseholdHandler>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
