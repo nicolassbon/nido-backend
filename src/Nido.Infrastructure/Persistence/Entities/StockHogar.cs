@@ -32,4 +32,9 @@ public partial class StockHogar
     public virtual Producto Producto { get; set; } = null!;
 
     public virtual Usuario UpdatedByNavigation { get; set; } = null!;
+
+    // Added post-scaffold (not in original schema)
+    public string Ubicacion { get; set; } = null!;
+    public bool EstaAbierto { get; set; }
+    public decimal PorcentajeConsumido { get; set; }
 }

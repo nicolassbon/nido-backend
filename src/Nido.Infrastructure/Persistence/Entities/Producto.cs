@@ -11,6 +11,8 @@ public partial class Producto
 
     public string? CodigoBarras { get; set; }
 
+    public string? ImagenUrl { get; set; }
+
     public Guid? CategoriaId { get; set; }
 
     public virtual CategoriasProducto? Categoria { get; set; }
