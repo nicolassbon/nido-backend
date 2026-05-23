@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence;
@@ -46,7 +47,8 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
             _connection.Open();
 
             services.AddDbContext<NidoDbContext>(options =>
-                options.UseSqlite(_connection));
+                options.UseSqlite(_connection)
+                       .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
             // Create the schema so controllers can query/insert without crashing.
             using var scope = services.BuildServiceProvider().CreateScope();
