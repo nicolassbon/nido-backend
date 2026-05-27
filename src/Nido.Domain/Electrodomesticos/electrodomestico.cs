@@ -15,6 +15,15 @@ public sealed class Electrodomestico
         Estado = estado;
     }
 
+    public Electrodomestico(Guid id, Guid hogarId, string nombre, string? tipo, string? estado)
+    {
+        Id = id;
+        HogarId = hogarId;
+        Nombre = nombre;
+        Tipo = tipo;
+        Estado = estado;
+    }
+
     public Guid Id { get; private set; }
 
     public Guid HogarId { get; private set; }

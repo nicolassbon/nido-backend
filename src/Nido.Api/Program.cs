@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Electrodomesticos;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 
@@ -9,6 +10,9 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
+
+builder.Services.AddScoped<CreateElectrodomesticoHandler>();
+builder.Services.AddScoped<GetElectrodomesticosHandler>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -42,7 +46,4 @@ app.MapGet("/hello", () => Results.Ok(new { message = "Bienvenido a Nido!" }));
 
 app.Run();
 
-/// <summary>
-/// Exposed for integration tests via WebApplicationFactory.
-/// </summary>
 public partial class Program { }
