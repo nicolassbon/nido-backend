@@ -1,6 +1,6 @@
-using Nido.Application.Households;
+using Microsoft.EntityFrameworkCore;
 using Nido.Infrastructure;
-using Nido.Application.Electrodomesticos;
+using Nido.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,8 +9,6 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
-builder.Services.AddScoped<CreateHouseholdHandler>();
-builder.Services.AddScoped<CreateElectrodomesticoHandler>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -29,6 +27,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 app.UseCors("Frontend");
 

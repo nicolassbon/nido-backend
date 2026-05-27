@@ -27,8 +27,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    profiles:
-      - migrate
 
   nido-api:
     build:
@@ -42,6 +40,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      nido-migrator:
+        condition: service_completed_successfully
 
 volumes:
   postgres-data:
