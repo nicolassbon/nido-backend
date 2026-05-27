@@ -108,10 +108,7 @@ CREATE TABLE productos (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre          VARCHAR(255) NOT NULL,
     codigo_barras   VARCHAR(255),
-<<<<<<< HEAD
-=======
     imagen_url      VARCHAR(500),
->>>>>>> origin/dev
     categoria_id    UUID,
     FOREIGN KEY (categoria_id) REFERENCES categorias_producto(id)
 );
