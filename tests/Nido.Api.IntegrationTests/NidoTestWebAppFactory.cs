@@ -44,6 +44,8 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
             // Keep one open connection so the SQLite in-memory DB persists
             // across all requests within this factory's lifetime.
+            _connection.CreateFunction<string>("now", () => DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+            _connection.CreateFunction<string>("uuid_generate_v4", () => Guid.NewGuid().ToString());
             _connection.Open();
 
             services.AddDbContext<NidoDbContext>(options =>

@@ -1,18 +1,56 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using Nido.Application.Electrodomesticos;
+using Nido.Application.Auth;
+using Nido.Application.Onboarding;
+using Nido.Application.Common.Security;
+using Nido.Api.Errors;
+using Nido.Api.Security;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
 DotNetEnv.Env.TraversePath().Load();
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
 
 builder.Services.AddScoped<CreateElectrodomesticoHandler>();
 builder.Services.AddScoped<GetElectrodomesticosHandler>();
+builder.Services.AddScoped<RegisterUserHandler>();
+builder.Services.AddScoped<SaveHouseholdStepHandler>();
+builder.Services.AddScoped<SaveEquipmentStepHandler>();
+builder.Services.AddScoped<SaveWellnessStepHandler>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "local-dev-super-secret-key-for-tests-only";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "nido-api";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "nido-clients";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+builder.Services.AddAuthorization();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -39,6 +77,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("Frontend");
+app.UseExceptionHandler();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

@@ -5,6 +5,10 @@ using Nido.Infrastructure.Persistence;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Electrodomesticos;
 using Nido.Application.Electrodomesticos;
+using Nido.Application.Auth;
+using Nido.Application.Onboarding;
+using Nido.Infrastructure.Auth;
+using Nido.Infrastructure.Onboarding;
 
 namespace Nido.Infrastructure;
 
@@ -24,6 +28,10 @@ public static class DependencyInjection
 
         services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
         services.AddScoped<GetElectrodomesticosHandler>();
+        services.AddScoped<IAuthRepository, AuthRepository>();
+        services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 
         return services;
     }
