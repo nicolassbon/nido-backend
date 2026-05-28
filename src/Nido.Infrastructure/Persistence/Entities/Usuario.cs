@@ -17,6 +17,10 @@ public partial class Usuario
 
     public string? OauthId { get; set; }
 
+    public string Sexo { get; set; } = null!;
+
+    public string? FotoUrl { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
@@ -40,6 +44,8 @@ public partial class Usuario
     public virtual ICollection<ReseniasRecetum> ReseniasReceta { get; set; } = new List<ReseniasRecetum>();
 
     public virtual ICollection<RestriccionesUsuario> RestriccionesUsuarios { get; set; } = new List<RestriccionesUsuario>();
+
+    public virtual ICollection<OnboardingState> OnboardingStates { get; set; } = new List<OnboardingState>();
 
     public virtual ICollection<StockHogar> StockHogarCargadoPorNavigations { get; set; } = new List<StockHogar>();
 

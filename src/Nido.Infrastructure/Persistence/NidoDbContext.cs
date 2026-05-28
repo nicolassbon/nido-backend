@@ -50,6 +50,10 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<RecetasCocinada> RecetasCocinadas { get; set; }
 
+    public virtual DbSet<OnboardingState> OnboardingStates { get; set; }
+
+    public virtual DbSet<OnboardingGoal> OnboardingGoals { get; set; }
+
     public virtual DbSet<ReseniasRecetum> ReseniasReceta { get; set; }
 
     public virtual DbSet<RestriccionesUsuario> RestriccionesUsuarios { get; set; }
@@ -453,6 +457,9 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Rol)
                 .HasMaxLength(100)
                 .HasColumnName("rol");
+            entity.Property(e => e.NombreRepresentado)
+                .HasMaxLength(255)
+                .HasColumnName("nombre_representado");
             entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.MiembrosHogars)
@@ -498,6 +505,46 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.UsuarioId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("notificaciones_usuario_id_fkey");
+        });
+
+        modelBuilder.Entity<OnboardingGoal>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("onboarding_goals_pkey");
+            entity.ToTable("onboarding_goals");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Titulo).HasMaxLength(255).HasColumnName("titulo");
+            entity.Property(e => e.Descripcion).HasMaxLength(500).HasColumnName("descripcion");
+            entity.HasOne(d => d.Hogar).WithMany(p => p.OnboardingGoals)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("onboarding_goals_hogar_id_fkey");
+        });
+
+        modelBuilder.Entity<OnboardingState>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("onboarding_state_pkey");
+            entity.ToTable("onboarding_state");
+            entity.HasIndex(e => new { e.UsuarioId, e.HogarId }, "ux_onboarding_state_usuario_hogar").IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Step1CompletedAt).HasColumnType("timestamp without time zone").HasColumnName("step1_completed_at");
+            entity.Property(e => e.Step2CompletedAt).HasColumnType("timestamp without time zone").HasColumnName("step2_completed_at");
+            entity.Property(e => e.Step2Skipped).HasColumnName("step2_skipped");
+            entity.Property(e => e.Step3CompletedAt).HasColumnType("timestamp without time zone").HasColumnName("step3_completed_at");
+            entity.Property(e => e.Step3Skipped).HasColumnName("step3_skipped");
+            entity.Property(e => e.Step4CompletedAt).HasColumnType("timestamp without time zone").HasColumnName("step4_completed_at");
+            entity.Property(e => e.Step4Skipped).HasColumnName("step4_skipped");
+            entity.Property(e => e.UpdatedAt).HasColumnType("timestamp without time zone").HasColumnName("updated_at");
+            entity.HasOne(d => d.Usuario).WithMany(p => p.OnboardingStates)
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("onboarding_state_usuario_id_fkey");
+            entity.HasOne(d => d.Hogar).WithMany(p => p.OnboardingStates)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("onboarding_state_hogar_id_fkey");
         });
 
         modelBuilder.Entity<Producto>(entity =>
@@ -789,6 +836,12 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.OauthProvider)
                 .HasMaxLength(100)
                 .HasColumnName("oauth_provider");
+            entity.Property(e => e.Sexo)
+                .HasMaxLength(30)
+                .HasColumnName("sexo");
+            entity.Property(e => e.FotoUrl)
+                .HasMaxLength(500)
+                .HasColumnName("foto_url");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");
