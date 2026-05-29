@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Nido.Application.Electrodomesticos;
@@ -64,8 +65,15 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
+});
+
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.Lax;
+    options.Secure = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
 
 var app = builder.Build();
@@ -77,6 +85,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("Frontend");
+app.UseCookiePolicy();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();

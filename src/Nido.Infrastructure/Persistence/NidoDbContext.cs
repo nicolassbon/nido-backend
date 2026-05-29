@@ -50,6 +50,8 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<RecetasCocinada> RecetasCocinadas { get; set; }
 
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+
     public virtual DbSet<OnboardingState> OnboardingStates { get; set; }
 
     public virtual DbSet<OnboardingGoal> OnboardingGoals { get; set; }
@@ -849,6 +851,36 @@ public partial class NidoDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("refresh_tokens_pkey");
+
+            entity.ToTable("refresh_tokens");
+
+            entity.HasIndex(e => e.TokenHash, "idx_refresh_tokens_hash");
+            entity.HasIndex(e => e.UsuarioId, "idx_refresh_tokens_usuario");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("expires_at");
+            entity.Property(e => e.TokenHash)
+                .HasMaxLength(255)
+                .HasColumnName("token_hash");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+
+            entity.HasOne(d => d.Usuario).WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("refresh_tokens_usuario_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

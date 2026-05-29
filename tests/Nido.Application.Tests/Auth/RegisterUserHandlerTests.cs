@@ -40,15 +40,31 @@ public sealed class RegisterUserHandlerTests
             StoredHash = passwordHash;
             return Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
         }
+
+        public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
+
+        public Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
+
+        public Task AddRefreshTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<RefreshTokenInfo?> GetValidRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) => Task.FromResult<RefreshTokenInfo?>(null);
+
+        public Task RemoveRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UpdateUserAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakeHasher : IPasswordHasher
     {
         public string Hash(string password) => $"hashed:{password}";
+        public bool Verify(string password, string hash) => hash == $"hashed:{password}";
     }
 
     private sealed class FakeJwt : IJwtTokenService
     {
         public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string GenerateRefreshToken() => "refresh";
+        public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
+        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
     }
 }
