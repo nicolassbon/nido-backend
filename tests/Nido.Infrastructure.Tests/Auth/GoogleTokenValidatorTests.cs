@@ -17,4 +17,20 @@ public sealed class GoogleTokenValidatorTests
 
         var exception = await Assert.ThrowsAsync<InvalidJwtException>(() => validator.ValidateAsync("invalid-token", CancellationToken.None));
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ValidateAsync_MissingClientId_ThrowsInvalidOperation(string? clientId)
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Google:ClientId"] = clientId })
+            .Build();
+        var validator = new GoogleTokenValidator(config);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => validator.ValidateAsync("any-token", CancellationToken.None));
+
+        Assert.Contains("Google:ClientId is not configured", exception.Message);
+    }
 }

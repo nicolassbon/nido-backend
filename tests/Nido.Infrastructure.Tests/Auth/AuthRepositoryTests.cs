@@ -98,6 +98,15 @@ public sealed class AuthRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveChanges_DuplicateOAuthIdentity_ThrowsDbUpdateException()
+    {
+        _dbContext.Usuarios.Add(CreateUsuario("google-1@mail.com", oauthProvider: "google", oauthId: "g123"));
+        _dbContext.Usuarios.Add(CreateUsuario("google-2@mail.com", oauthProvider: "google", oauthId: "g123"));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => _dbContext.SaveChangesAsync());
+    }
+
+    [Fact]
     public async Task AddRefreshTokenAsync_AddsToken()
     {
         var usuario = CreateUsuario("token@mail.com");

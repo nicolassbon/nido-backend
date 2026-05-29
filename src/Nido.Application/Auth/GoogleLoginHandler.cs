@@ -29,7 +29,20 @@ public sealed class GoogleLoginHandler
         }
 
         var normalizedEmail = payload.Email.Trim().ToLowerInvariant();
-        var user = await _repository.FindByEmailAsync(normalizedEmail, cancellationToken);
+        var user = await _repository.FindByGoogleIdAsync(payload.GoogleId, cancellationToken);
+
+        if (user is null)
+        {
+            user = await _repository.FindByEmailAsync(normalizedEmail, cancellationToken);
+
+            if (user is not null
+                && string.Equals(user.OauthProvider, "google", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(user.OauthId)
+                && user.OauthId != payload.GoogleId)
+            {
+                throw new UnauthorizedAccessException("GOOGLE_ACCOUNT_MISMATCH");
+            }
+        }
 
         if (user is not null && !string.IsNullOrEmpty(user.PasswordHash) && string.IsNullOrEmpty(user.OauthId))
         {
@@ -48,10 +61,9 @@ public sealed class GoogleLoginHandler
                 string.Empty,
                 "U",
                 null,
-                cancellationToken);
-
-            var createdUser = new User(newUsuarioId, normalizedEmail, null, "google", payload.GoogleId);
-            await _repository.UpdateUserAsync(createdUser, cancellationToken);
+                cancellationToken,
+                oauthProvider: "google",
+                oauthId: payload.GoogleId);
 
             usuarioId = newUsuarioId;
             hogarId = newHogarId;
@@ -65,7 +77,7 @@ public sealed class GoogleLoginHandler
             isNewUser = false;
         }
 
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(usuarioId, hogarId, normalizedEmail);
+        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(usuarioId, hogarId, user?.Email ?? normalizedEmail);
         var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
         var expiresAt = DateTime.UtcNow.AddDays(7);
 

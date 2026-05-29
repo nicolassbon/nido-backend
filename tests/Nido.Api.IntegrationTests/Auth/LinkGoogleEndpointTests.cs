@@ -1,10 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Application.Auth;
-using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Auth;
 
@@ -20,20 +20,18 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
     }
 
     [Fact]
-    public async Task LinkGoogle_ValidTokenAndPassword_ReturnsOkWithAccessTokenAndCookie()
+    public async Task LinkGoogle_AuthenticatedUser_LinksGoogleAndReturnsTokens()
     {
         var email = $"link-ok-{Guid.NewGuid()}@test.com";
         const string password = "Password123!";
 
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
-        }
+        await RegisterUserAsync(email, password);
 
+        var accessToken = await LoginAsync(email, password);
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-link-1"));
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token", password });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -44,49 +42,28 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
     }
 
     [Fact]
-    public async Task LinkGoogle_WrongPassword_ReturnsUnauthorized()
+    public async Task LinkGoogle_NoJwt_ReturnsUnauthorized()
     {
-        var email = $"link-wrong-{Guid.NewGuid()}@test.com";
-        const string password = "Password123!";
+        var client = CreateClientWithFakeValidator(new GooglePayload("any@test.com", "google-no-jwt"));
 
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
-        }
-
-        var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-link-2"));
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token", password = "WrongPassword1!" });
+        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
-    public async Task LinkGoogle_NonExistentUser_ReturnsNotFound()
-    {
-        const string email = "missing-link@test.com";
-        var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-link-3"));
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token", password = "Password123!" });
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task LinkGoogle_InvalidToken_ReturnsUnauthorized()
+    public async Task LinkGoogle_InvalidGoogleToken_ReturnsUnauthorized()
     {
         var email = $"link-invalid-{Guid.NewGuid()}@test.com";
         const string password = "Password123!";
 
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
-        }
+        await RegisterUserAsync(email, password);
+        var accessToken = await LoginAsync(email, password);
 
         var client = CreateClientWithFakeValidator(null, shouldThrow: true);
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "invalid-token", password });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "invalid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -102,29 +79,97 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var email = $"link-conflict-{Guid.NewGuid()}@test.com";
         const string password = "Password123!";
 
+        Guid userId;
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-            var (userId, _) = await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
-
-            var user = await db.Usuarios.FindAsync(userId);
-            user!.OauthProvider = "google";
-            user.OauthId = "google-link-4";
-            await db.SaveChangesAsync();
+            (userId, _) = await repo.CreateUserWithDefaultHouseholdAsync(
+                "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None,
+                oauthProvider: "google", oauthId: "google-link-4");
         }
 
+        var accessToken = await LoginAsync(email, password);
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-link-4"));
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token", password });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
         Assert.Equal(409, problem!.Status);
-        Assert.Equal("Conflict", problem.Title);
         Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Detail);
+    }
+
+    [Fact]
+    public async Task LinkGoogle_GoogleEmailDoesNotMatchAuthenticatedUser_ReturnsUnauthorized()
+    {
+        var email = $"link-email-mismatch-{Guid.NewGuid()}@test.com";
+        const string password = "Password123!";
+
+        await RegisterUserAsync(email, password);
+        var accessToken = await LoginAsync(email, password);
+
+        var client = CreateClientWithFakeValidator(new GooglePayload("other@test.com", "google-email-mismatch"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("GOOGLE_EMAIL_MISMATCH", problem!.Title);
+    }
+
+    [Fact]
+    public async Task LinkGoogle_GoogleIdLinkedToDifferentUser_ReturnsConflict()
+    {
+        var email = $"link-owner-{Guid.NewGuid()}@test.com";
+        var otherEmail = $"link-other-{Guid.NewGuid()}@test.com";
+        const string password = "Password123!";
+        const string googleId = "google-owned-by-other";
+
+        await RegisterUserAsync(email, password);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            await repo.CreateUserWithDefaultHouseholdAsync(
+                "Other User", otherEmail, string.Empty, "U", null, CancellationToken.None,
+                oauthProvider: "google", oauthId: googleId);
+        }
+
+        var accessToken = await LoginAsync(email, password);
+        var client = CreateClientWithFakeValidator(new GooglePayload(email, googleId));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Detail);
+    }
+
+
+    private async Task RegisterUserAsync(string email, string password)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+    }
+
+    private async Task<string> LoginAsync(string email, string password)
+    {
+        var response = await _client.PostAsJsonAsync("/auth/login", new { email, password });
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<LoginBody>();
+        return body!.AccessToken;
     }
 
     private HttpClient CreateClientWithFakeValidator(GooglePayload? payload, bool shouldThrow = false)
@@ -163,5 +208,6 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
     }
 
     private sealed record LinkGoogleBody(string AccessToken);
+    private sealed record LoginBody(string AccessToken);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

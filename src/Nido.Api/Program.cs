@@ -15,8 +15,10 @@ using Nido.Infrastructure.Persistence;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
-DotNetEnv.Env.TraversePath().Load();
-builder.Configuration.AddEnvironmentVariables();
+if (builder.Environment.IsDevelopment())
+{
+    DotNetEnv.Env.TraversePath().Load();
+}
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
@@ -37,7 +39,7 @@ builder.Services.AddScoped<SaveWellnessStepHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "local-dev-super-secret-key-for-tests-only";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "nido-api";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "nido-clients";
 

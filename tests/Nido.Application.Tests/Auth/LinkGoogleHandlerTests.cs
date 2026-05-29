@@ -15,9 +15,9 @@ public sealed class LinkGoogleHandlerTests
             HogarId = hogarId
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
-        var handler = new LinkGoogleHandler(repo, new FakeHasher(), validator, new FakeJwt());
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        var result = await handler.Handle(new LinkGoogleCommand("valid-token", "Password1"), CancellationToken.None);
+        var result = await handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None);
 
         Assert.Equal(userId, result.UsuarioId);
         Assert.Equal(hogarId, result.HogarId);
@@ -31,42 +31,79 @@ public sealed class LinkGoogleHandlerTests
     {
         var repo = new FakeAuthRepository();
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
-        var handler = new LinkGoogleHandler(repo, new FakeHasher(), validator, new FakeJwt());
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            handler.Handle(new LinkGoogleCommand("valid-token", "Password1"), CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Handle_WrongPassword_ThrowsUnauthorized()
-    {
-        var repo = new FakeAuthRepository
-        {
-            User = new User(Guid.NewGuid(), "nico@mail.com", "hashed:Password1", null, null)
-        };
-        var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
-        var handler = new LinkGoogleHandler(repo, new FakeHasher(), validator, new FakeJwt());
-
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            handler.Handle(new LinkGoogleCommand("valid-token", "WrongPassword"), CancellationToken.None));
-
-        Assert.Equal("Invalid email or password", ex.Message);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            handler.Handle(new LinkGoogleCommand(Guid.NewGuid(), "valid-token"), CancellationToken.None));
     }
 
     [Fact]
     public async Task Handle_AlreadyLinked_ThrowsInvalidOperation()
     {
+        var userId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "nico@mail.com", "hashed:Password1", "google", "google-id-123")
+            User = new User(userId, "nico@mail.com", "hashed:Password1", "google", "google-id-123")
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
-        var handler = new LinkGoogleHandler(repo, new FakeHasher(), validator, new FakeJwt());
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            handler.Handle(new LinkGoogleCommand("valid-token", "Password1"), CancellationToken.None));
+            handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
 
         Assert.Equal("ACCOUNT_ALREADY_LINKED", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_GoogleEmailDoesNotMatchUserEmail_ThrowsUnauthorized()
+    {
+        var userId = Guid.NewGuid();
+        var repo = new FakeAuthRepository
+        {
+            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null)
+        };
+        var validator = new FakeGoogleValidator { Payload = new GooglePayload("other@mail.com", "google-id-123") };
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
+
+        Assert.Equal("GOOGLE_EMAIL_MISMATCH", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_GoogleIdLinkedToDifferentUser_ThrowsInvalidOperation()
+    {
+        var userId = Guid.NewGuid();
+        var repo = new FakeAuthRepository
+        {
+            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null),
+            GoogleUser = new User(Guid.NewGuid(), "other@mail.com", null, "google", "google-id-123")
+        };
+        var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
+
+        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_GoogleEmailMatchesAfterNormalization_LinksGoogle()
+    {
+        var userId = Guid.NewGuid();
+        var repo = new FakeAuthRepository
+        {
+            User = new User(userId, "NICO@MAIL.COM", "hashed:Password1", null, null)
+        };
+        var validator = new FakeGoogleValidator { Payload = new GooglePayload(" nico@mail.com ", "google-id-123") };
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
+
+        var result = await handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None);
+
+        Assert.Equal(userId, result.UsuarioId);
+        Assert.Equal("google-id-123", repo.UpdatedUserOauthId);
     }
 
     [Fact]
@@ -74,10 +111,10 @@ public sealed class LinkGoogleHandlerTests
     {
         var repo = new FakeAuthRepository();
         var validator = new FakeGoogleValidator { ThrowInvalid = true };
-        var handler = new LinkGoogleHandler(repo, new FakeHasher(), validator, new FakeJwt());
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
         var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            handler.Handle(new LinkGoogleCommand("invalid-token", "Password1"), CancellationToken.None));
+            handler.Handle(new LinkGoogleCommand(Guid.NewGuid(), "invalid-token"), CancellationToken.None));
 
         Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Message);
     }
@@ -85,6 +122,7 @@ public sealed class LinkGoogleHandlerTests
     private sealed class FakeAuthRepository : IAuthRepository
     {
         public User? User { get; set; }
+        public User? GoogleUser { get; set; }
         public string? StoredRefreshTokenHash { get; private set; }
         public string? UpdatedUserOauthProvider { get; private set; }
         public string? UpdatedUserOauthId { get; private set; }
@@ -93,12 +131,12 @@ public sealed class LinkGoogleHandlerTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(Existing);
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken, string? oauthProvider = null, string? oauthId = null)
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);
 
-        public Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
+        public Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken) => Task.FromResult(GoogleUser);
 
         public Task AddRefreshTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken)
         {
@@ -119,13 +157,7 @@ public sealed class LinkGoogleHandlerTests
 
         public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult<Guid?>(HogarId ?? Guid.NewGuid());
 
-        public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
-    }
-
-    private sealed class FakeHasher : IPasswordHasher
-    {
-        public string Hash(string password) => $"hashed:{password}";
-        public bool Verify(string password, string hash) => hash == $"hashed:{password}";
+        public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(User);
     }
 
     private sealed class FakeGoogleValidator : IGoogleTokenValidator

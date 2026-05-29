@@ -1,13 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Auth;
+using Nido.Api.Security;
 using Nido.Application.Auth;
+using Nido.Application.Common.Security;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
 [Route("auth")]
-[AllowAnonymous]
 public sealed class AuthController : ControllerBase
 {
     private readonly RegisterUserHandler _registerUserHandler;
@@ -16,6 +18,8 @@ public sealed class AuthController : ControllerBase
     private readonly RefreshTokenHandler _refreshTokenHandler;
     private readonly LogoutHandler _logoutHandler;
     private readonly LinkGoogleHandler _linkGoogleHandler;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IWebHostEnvironment _env;
 
     public AuthController(
         RegisterUserHandler registerUserHandler,
@@ -23,7 +27,9 @@ public sealed class AuthController : ControllerBase
         GoogleLoginHandler googleLoginHandler,
         RefreshTokenHandler refreshTokenHandler,
         LogoutHandler logoutHandler,
-        LinkGoogleHandler linkGoogleHandler)
+        LinkGoogleHandler linkGoogleHandler,
+        ICurrentUserContext currentUser,
+        IWebHostEnvironment env)
     {
         _registerUserHandler = registerUserHandler;
         _loginHandler = loginHandler;
@@ -31,8 +37,11 @@ public sealed class AuthController : ControllerBase
         _refreshTokenHandler = refreshTokenHandler;
         _logoutHandler = logoutHandler;
         _linkGoogleHandler = linkGoogleHandler;
+        _currentUser = currentUser;
+        _env = env;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -48,6 +57,7 @@ public sealed class AuthController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, new RegisterResponse(result.UsuarioId, result.HogarId, result.AccessToken));
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
@@ -59,6 +69,7 @@ public sealed class AuthController : ControllerBase
         return Ok(new LoginResponse(result.UsuarioId, result.HogarId, result.AccessToken));
     }
 
+    [AllowAnonymous]
     [HttpPost("google-login")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request, CancellationToken cancellationToken)
     {
@@ -70,6 +81,7 @@ public sealed class AuthController : ControllerBase
         return Ok(new GoogleLoginResponse(result.UsuarioId, result.HogarId, result.AccessToken, result.IsNewUser));
     }
 
+    [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
     {
@@ -81,6 +93,7 @@ public sealed class AuthController : ControllerBase
         return Ok(new RefreshResponse(result.AccessToken));
     }
 
+    [AllowAnonymous]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
@@ -93,11 +106,12 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    [Authorize]
     [HttpPost("link-google")]
     public async Task<IActionResult> LinkGoogle([FromBody] LinkGoogleRequest request, CancellationToken cancellationToken)
     {
         var result = await _linkGoogleHandler.Handle(
-            new LinkGoogleCommand(request.IdToken, request.Password),
+            new LinkGoogleCommand(_currentUser.UsuarioId, request.IdToken),
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
@@ -108,7 +122,7 @@ public sealed class AuthController : ControllerBase
     {
         if (refreshToken is null) return;
 
-        var isProduction = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
+        var isProduction = _env.IsProduction();
 
         Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
         {

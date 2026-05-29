@@ -16,9 +16,15 @@ public sealed class GoogleTokenValidator : IGoogleTokenValidator
     public async Task<GooglePayload> ValidateAsync(string idToken, CancellationToken cancellationToken)
     {
         var clientId = _configuration["Google:ClientId"];
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            throw new InvalidOperationException(
+                "Google:ClientId is not configured. Set the 'Google__ClientId' environment variable or 'Google:ClientId' in appsettings.");
+        }
+
         var settings = new GoogleJsonWebSignature.ValidationSettings
         {
-            Audience = !string.IsNullOrEmpty(clientId) ? [clientId] : null
+            Audience = [clientId]
         };
         var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
         return new GooglePayload(payload.Email, payload.Subject);

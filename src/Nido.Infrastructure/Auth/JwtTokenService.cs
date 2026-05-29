@@ -20,7 +20,13 @@ public sealed class JwtTokenService : IJwtTokenService
 
     public string CreateToken(Guid usuarioId, Guid hogarId, string email)
     {
-        var key = _configuration["Jwt:Key"] ?? "local-dev-super-secret-key-for-tests-only";
+        var key = _configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new InvalidOperationException(
+                "Jwt:Key is not configured. Set the 'Jwt__Key' environment variable or 'Jwt:Key' in appsettings.");
+        }
+
         var issuer = _configuration["Jwt:Issuer"] ?? "nido-api";
         var audience = _configuration["Jwt:Audience"] ?? "nido-clients";
         var expiryMinutes = int.TryParse(_configuration["Jwt:AccessTokenExpiryMinutes"], out var parsed) ? parsed : 60;

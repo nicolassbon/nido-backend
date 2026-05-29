@@ -23,7 +23,9 @@ public sealed class AuthRepository : IAuthRepository
         string passwordHash,
         string sexo,
         string? fotoUrl,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? oauthProvider = null,
+        string? oauthId = null)
     {
         var usuario = new Usuario
         {
@@ -33,6 +35,8 @@ public sealed class AuthRepository : IAuthRepository
             PasswordHash = passwordHash,
             Sexo = sexo,
             FotoUrl = fotoUrl,
+            OauthProvider = oauthProvider,
+            OauthId = oauthId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -84,7 +88,7 @@ public sealed class AuthRepository : IAuthRepository
     {
         var usuario = await _dbContext.Usuarios
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.OauthId == googleId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.OauthProvider == "google" && x.OauthId == googleId, cancellationToken);
         if (usuario is null) return null;
         return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
     }

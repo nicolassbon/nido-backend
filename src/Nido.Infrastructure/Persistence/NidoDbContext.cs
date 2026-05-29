@@ -818,6 +818,9 @@ public partial class NidoDbContext : DbContext
             entity.ToTable("usuarios");
 
             entity.HasIndex(e => e.Email, "usuarios_email_key").IsUnique();
+            entity.HasIndex(e => new { e.OauthProvider, e.OauthId }, "ux_usuarios_oauth_identity")
+                .IsUnique()
+                .HasFilter("oauth_provider IS NOT NULL AND oauth_id IS NOT NULL");
 
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")

@@ -41,6 +41,41 @@ public sealed class GoogleLoginHandlerTests
     }
 
     [Fact]
+    public async Task Handle_GoogleIdMatchWithChangedEmail_ReturnsLinkedUserTokens()
+    {
+        var userId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var googleValidator = new FakeGoogleValidator("new-email@gmail.com", "google-id-1");
+        var repo = new FakeAuthRepository
+        {
+            GoogleUser = new User(userId, "old-email@gmail.com", null, "google", "google-id-1"),
+            HogarId = hogarId
+        };
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+
+        var result = await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
+
+        Assert.False(result.IsNewUser);
+        Assert.Equal(userId, result.UsuarioId);
+    }
+
+    [Fact]
+    public async Task Handle_EmailMatchesDifferentLinkedGoogleId_ThrowsUnauthorized()
+    {
+        var googleValidator = new FakeGoogleValidator("existing@gmail.com", "google-id-new");
+        var repo = new FakeAuthRepository
+        {
+            User = new User(Guid.NewGuid(), "existing@gmail.com", null, "google", "google-id-existing")
+        };
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None));
+
+        Assert.Equal("GOOGLE_ACCOUNT_MISMATCH", ex.Message);
+    }
+
+    [Fact]
     public async Task Handle_PasswordOnlyUser_ThrowsAccountLinkRequired()
     {
         var googleValidator = new FakeGoogleValidator("user@gmail.com", "google-id-1");
@@ -92,6 +127,7 @@ public sealed class GoogleLoginHandlerTests
     private sealed class FakeAuthRepository : IAuthRepository
     {
         public User? User { get; set; }
+        public User? GoogleUser { get; set; }
         public string? StoredRefreshTokenHash { get; private set; }
         public Guid? HogarId { get; set; }
         public string? CreatedEmail { get; private set; }
@@ -99,7 +135,7 @@ public sealed class GoogleLoginHandlerTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User is not null);
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken, string? oauthProvider = null, string? oauthId = null)
         {
             CreatedEmail = email;
             var id = Guid.NewGuid();
@@ -109,7 +145,7 @@ public sealed class GoogleLoginHandlerTests
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);
 
-        public Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
+        public Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken) => Task.FromResult(GoogleUser);
 
         public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(User);
 

@@ -102,6 +102,29 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         Assert.Equal("ACCOUNT_EXISTS_WITH_PASSWORD", problem.Title);
     }
 
+    [Fact]
+    public async Task GoogleLogin_EmailMatchesDifferentGoogleId_ReturnsUnauthorized()
+    {
+        var email = $"google-mismatch-{Guid.NewGuid()}@test.com";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            await repo.CreateUserWithDefaultHouseholdAsync(
+                "Google User", email, string.Empty, "U", null, CancellationToken.None,
+                oauthProvider: "google", oauthId: "google-existing");
+        }
+
+        var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-new"));
+        var response = await client.PostAsJsonAsync("/auth/google-login", new { idToken = "valid-token" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("GOOGLE_ACCOUNT_MISMATCH", problem!.Title);
+    }
+
     private HttpClient CreateClientWithFakeValidator(GooglePayload? payload, bool shouldThrow = false)
     {
         return _factory.WithWebHostBuilder(builder =>
