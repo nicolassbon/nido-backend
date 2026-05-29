@@ -134,4 +134,21 @@ public sealed class AuthRepository : IAuthRepository
         usuario.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        var miembro = await _dbContext.MiembrosHogars
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UsuarioId == usuarioId, cancellationToken);
+        return miembro?.HogarId;
+    }
+
+    public async Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (usuario is null) return null;
+        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+    }
 }

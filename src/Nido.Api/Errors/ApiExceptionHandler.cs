@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Nido.Application.Auth;
 
 namespace Nido.Api.Errors;
 
@@ -42,14 +43,32 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             return (StatusCodes.Status400BadRequest, "Validation error");
         }
 
-        if (exception is UnauthorizedAccessException && httpContext.Request.Path.StartsWithSegments("/onboarding", StringComparison.OrdinalIgnoreCase))
+        if (exception is AccountLinkRequiredException accountLink)
+        {
+            return (StatusCodes.Status409Conflict, accountLink.Code);
+        }
+
+        if (exception is UnauthorizedAccessException
+            && httpContext.Request.Path.StartsWithSegments("/onboarding", StringComparison.OrdinalIgnoreCase))
         {
             return (StatusCodes.Status403Forbidden, "Forbidden");
         }
 
-        if (exception is InvalidOperationException && httpContext.Request.Path.StartsWithSegments("/auth/register", StringComparison.OrdinalIgnoreCase))
+        if (exception is UnauthorizedAccessException)
+        {
+            return (StatusCodes.Status401Unauthorized, exception.Message);
+        }
+
+        if (exception is InvalidOperationException
+            && (httpContext.Request.Path.StartsWithSegments("/auth/register", StringComparison.OrdinalIgnoreCase)
+                || httpContext.Request.Path.StartsWithSegments("/auth/link-google", StringComparison.OrdinalIgnoreCase)))
         {
             return (StatusCodes.Status409Conflict, "Conflict");
+        }
+
+        if (exception is KeyNotFoundException)
+        {
+            return (StatusCodes.Status404NotFound, "Not found");
         }
 
         return (StatusCodes.Status500InternalServerError, "Server error");
