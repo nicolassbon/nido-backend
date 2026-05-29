@@ -1,3 +1,3 @@
 namespace Nido.Api.Contracts.Auth;
 
-public sealed record LoginResponse(string AccessToken);
+public sealed record LoginResponse(Guid UsuarioId, Guid HogarId, string AccessToken);

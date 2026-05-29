@@ -56,7 +56,7 @@ public sealed class AuthController : ControllerBase
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
-        return Ok(new LoginResponse(result.AccessToken));
+        return Ok(new LoginResponse(result.UsuarioId, result.HogarId, result.AccessToken));
     }
 
     [HttpPost("google-login")]
@@ -67,7 +67,7 @@ public sealed class AuthController : ControllerBase
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
-        return Ok(new GoogleLoginResponse(result.AccessToken, result.IsNewUser));
+        return Ok(new GoogleLoginResponse(result.UsuarioId, result.HogarId, result.AccessToken, result.IsNewUser));
     }
 
     [HttpPost("refresh")]
@@ -101,7 +101,7 @@ public sealed class AuthController : ControllerBase
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
-        return Ok(new LinkGoogleResponse(result.AccessToken));
+        return Ok(new LinkGoogleResponse(result.UsuarioId, result.HogarId, result.AccessToken));
     }
 
     private void SetRefreshTokenCookie(string? refreshToken)
