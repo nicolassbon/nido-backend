@@ -60,6 +60,12 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<RestriccionesUsuario> RestriccionesUsuarios { get; set; }
 
+    public virtual DbSet<RestriccionesCatalogo> RestriccionesCatalogo { get; set; }
+
+    public virtual DbSet<MetasCatalogo> MetasCatalogo { get; set; }
+
+    public virtual DbSet<HogarMeta> HogarMetas { get; set; }
+
     public virtual DbSet<StockHogar> StockHogars { get; set; }
 
     public virtual DbSet<Tarea> Tareas { get; set; }
@@ -682,25 +688,61 @@ public partial class NidoDbContext : DbContext
 
         modelBuilder.Entity<RestriccionesUsuario>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("restricciones_usuario_pkey");
+            entity.HasKey(e => new { e.UsuarioId, e.RestriccionId }).HasName("restricciones_usuario_pkey");
 
             entity.ToTable("restricciones_usuario");
 
-            entity.Property(e => e.Id)
-                .HasDefaultValueSql("uuid_generate_v4()")
-                .HasColumnName("id");
-            entity.Property(e => e.Descripcion)
-                .HasMaxLength(500)
-                .HasColumnName("descripcion");
-            entity.Property(e => e.Tipo)
-                .HasMaxLength(100)
-                .HasColumnName("tipo");
             entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.Property(e => e.RestriccionId).HasColumnName("restriccion_id");
 
             entity.HasOne(d => d.Usuario).WithMany(p => p.RestriccionesUsuarios)
                 .HasForeignKey(d => d.UsuarioId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("restricciones_usuario_usuario_id_fkey");
+
+            entity.HasOne(d => d.Restriccion).WithMany(p => p.RestriccionesUsuarios)
+                .HasForeignKey(d => d.RestriccionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("restricciones_usuario_restriccion_id_fkey");
+        });
+
+        modelBuilder.Entity<RestriccionesCatalogo>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("restricciones_catalogo_pkey");
+            entity.ToTable("restricciones_catalogo");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+            entity.Property(e => e.Tipo).HasMaxLength(50).HasColumnName("tipo");
+        });
+
+        modelBuilder.Entity<MetasCatalogo>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("metas_catalogo_pkey");
+            entity.ToTable("metas_catalogo");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+        });
+
+        modelBuilder.Entity<HogarMeta>(entity =>
+        {
+            entity.HasKey(e => new { e.HogarId, e.MetaId }).HasName("hogar_metas_pkey");
+            entity.ToTable("hogar_metas");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.MetaId).HasColumnName("meta_id");
+
+            entity.HasOne(d => d.Hogar).WithMany(p => p.HogarMetas)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("hogar_metas_hogar_id_fkey");
+
+            entity.HasOne(d => d.Meta).WithMany(p => p.HogarMetas)
+                .HasForeignKey(d => d.MetaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("hogar_metas_meta_id_fkey");
         });
 
         modelBuilder.Entity<StockHogar>(entity =>

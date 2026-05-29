@@ -11,6 +11,34 @@ namespace Nido.Api.Controllers;
 [Route("onboarding")]
 public sealed class OnboardingController : ControllerBase
 {
+    [HttpGet("preferencias-alimentarias")]
+    public async Task<IActionResult> GetPreferenciasAlimentarias(
+        [FromServices] GetPreferenciasAlimentariasHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var results = await handler.Handle(cancellationToken);
+        return Ok(results.Select(x => new RestriccionCatalogoResponse(x.Id, x.Nombre, x.Tipo)));
+    }
+
+    [HttpGet("alergias")]
+    public async Task<IActionResult> GetAlergias(
+        [FromQuery] string? q,
+        [FromServices] GetAlergiasHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var results = await handler.Handle(q, cancellationToken);
+        return Ok(results.Select(x => new RestriccionCatalogoResponse(x.Id, x.Nombre, x.Tipo)));
+    }
+
+    [HttpGet("metas")]
+    public async Task<IActionResult> GetMetas(
+        [FromServices] GetMetasHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var results = await handler.Handle(cancellationToken);
+        return Ok(results.Select(x => new MetaCatalogoResponse(x.Id, x.Nombre)));
+    }
+
     [HttpPatch("step-2")]
     public async Task<IActionResult> SaveHousehold(
         [FromBody] HouseholdOnboardingRequest request,
@@ -56,8 +84,8 @@ public sealed class OnboardingController : ControllerBase
             currentUser.UsuarioId,
             currentUser.HogarId,
             request.Skip,
-            (request.Restricciones ?? []).Select(x => new RestrictionInput(x.Tipo, x.Descripcion)).ToList(),
-            (request.Goals ?? []).Select(x => new HouseholdGoalInput(x.Titulo, x.Descripcion)).ToList(),
+            request.RestriccionIds ?? [],
+            request.MetaIds ?? [],
             request.UsuarioId,
             request.HogarId), cancellationToken);
 

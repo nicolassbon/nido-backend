@@ -32,4 +32,6 @@ public partial class Hogare
     public virtual ICollection<StockHogar> StockHogars { get; set; } = new List<StockHogar>();
 
     public virtual ICollection<Tarea> Tareas { get; set; } = new List<Tarea>();
+
+    public virtual ICollection<HogarMeta> HogarMetas { get; set; } = [];
 }

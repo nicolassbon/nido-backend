@@ -43,7 +43,8 @@ public partial class Usuario
 
     public virtual ICollection<ReseniasRecetum> ReseniasReceta { get; set; } = new List<ReseniasRecetum>();
 
-    public virtual ICollection<RestriccionesUsuario> RestriccionesUsuarios { get; set; } = new List<RestriccionesUsuario>();
+    public virtual ICollection<RestriccionesUsuario> RestriccionesUsuarios { get; set; } = [];
+
 
     public virtual ICollection<OnboardingState> OnboardingStates { get; set; } = new List<OnboardingState>();
 

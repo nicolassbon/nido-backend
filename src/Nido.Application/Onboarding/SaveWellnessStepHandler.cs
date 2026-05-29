@@ -20,8 +20,8 @@ public sealed class SaveWellnessStepHandler
 
         if (!command.Skip)
         {
-            await _repository.ReplaceRestrictionsAsync(command.UsuarioId, command.Restricciones, cancellationToken);
-            await _repository.ReplaceGoalsAsync(command.HogarId, command.Goals, cancellationToken);
+            await _repository.ReplaceUserRestriccionesAsync(command.UsuarioId, command.RestriccionIds, cancellationToken);
+            await _repository.ReplaceHogarMetasAsync(command.HogarId, command.MetaIds, cancellationToken);
         }
 
         await _repository.MarkStepAsync(command.UsuarioId, command.HogarId, 4, command.Skip, cancellationToken);

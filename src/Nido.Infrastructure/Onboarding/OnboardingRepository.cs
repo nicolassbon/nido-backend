@@ -65,36 +65,63 @@ public sealed class OnboardingRepository : IOnboardingRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task ReplaceRestrictionsAsync(Guid usuarioId, IReadOnlyList<RestrictionInput> restrictions, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<RestriccionCatalogoResult>> GetRestriccionesCatalogoAsync(string? tipo, string? search, CancellationToken cancellationToken)
+    {
+        var query = _dbContext.RestriccionesCatalogo.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(tipo))
+            query = query.Where(x => x.Tipo == tipo);
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(x => x.Nombre.ToLower().Contains(search.ToLower()));
+
+        var results = await query
+            .OrderBy(x => x.Nombre)
+            .Select(x => new RestriccionCatalogoResult(x.Id, x.Nombre, x.Tipo))
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<MetaCatalogoResult>> GetMetasCatalogoAsync(CancellationToken cancellationToken)
+    {
+        var results = await _dbContext.MetasCatalogo
+            .AsNoTracking()
+            .OrderBy(x => x.Nombre)
+            .Select(x => new MetaCatalogoResult(x.Id, x.Nombre))
+            .ToListAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task ReplaceUserRestriccionesAsync(Guid usuarioId, IReadOnlyList<Guid> restriccionIds, CancellationToken cancellationToken)
     {
         var existing = await _dbContext.RestriccionesUsuarios.Where(x => x.UsuarioId == usuarioId).ToListAsync(cancellationToken);
         _dbContext.RestriccionesUsuarios.RemoveRange(existing);
-        foreach (var restriction in restrictions)
+
+        foreach (var restriccionId in restriccionIds)
         {
             _dbContext.RestriccionesUsuarios.Add(new RestriccionesUsuario
             {
-                Id = Guid.NewGuid(),
                 UsuarioId = usuarioId,
-                Tipo = restriction.Tipo,
-                Descripcion = restriction.Descripcion
+                RestriccionId = restriccionId
             });
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task ReplaceGoalsAsync(Guid hogarId, IReadOnlyList<HouseholdGoalInput> goals, CancellationToken cancellationToken)
+    public async Task ReplaceHogarMetasAsync(Guid hogarId, IReadOnlyList<Guid> metaIds, CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.OnboardingGoals.Where(x => x.HogarId == hogarId).ToListAsync(cancellationToken);
-        _dbContext.OnboardingGoals.RemoveRange(existing);
-        foreach (var goal in goals)
+        var existing = await _dbContext.HogarMetas.Where(x => x.HogarId == hogarId).ToListAsync(cancellationToken);
+        _dbContext.HogarMetas.RemoveRange(existing);
+
+        foreach (var metaId in metaIds)
         {
-            _dbContext.OnboardingGoals.Add(new OnboardingGoal
+            _dbContext.HogarMetas.Add(new HogarMeta
             {
-                Id = Guid.NewGuid(),
                 HogarId = hogarId,
-                Titulo = goal.Titulo,
-                Descripcion = goal.Descripcion
+                MetaId = metaId
             });
         }
 

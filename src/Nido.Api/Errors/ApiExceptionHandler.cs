@@ -50,6 +50,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             && httpContext.Request.Path.StartsWithSegments("/onboarding", StringComparison.OrdinalIgnoreCase))
         {
             return (StatusCodes.Status403Forbidden, "Forbidden");
+        }
 
         if (exception is UnauthorizedAccessException)
         {
@@ -61,6 +62,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
                 || httpContext.Request.Path.StartsWithSegments("/auth/link-google", StringComparison.OrdinalIgnoreCase)))
         {
             return (StatusCodes.Status409Conflict, "Conflict");
+        }
 
         if (exception is KeyNotFoundException)
         {
