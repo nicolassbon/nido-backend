@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Nido.Application.Electrodomesticos;
@@ -15,8 +16,10 @@ using Nido.Infrastructure.Persistence;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
-DotNetEnv.Env.TraversePath().Load();
-builder.Configuration.AddEnvironmentVariables();
+if (builder.Environment.IsDevelopment())
+{
+    DotNetEnv.Env.TraversePath().Load();
+}
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
@@ -26,6 +29,11 @@ builder.Services.AddNidoInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CreateElectrodomesticoHandler>();
 builder.Services.AddScoped<GetElectrodomesticosHandler>();
 builder.Services.AddScoped<RegisterUserHandler>();
+builder.Services.AddScoped<LoginHandler>();
+builder.Services.AddScoped<GoogleLoginHandler>();
+builder.Services.AddScoped<RefreshTokenHandler>();
+builder.Services.AddScoped<LogoutHandler>();
+builder.Services.AddScoped<LinkGoogleHandler>();
 builder.Services.AddScoped<SaveHouseholdStepHandler>();
 builder.Services.AddScoped<SaveEquipmentStepHandler>();
 builder.Services.AddScoped<SaveWellnessStepHandler>();
@@ -35,7 +43,7 @@ builder.Services.AddScoped<GetMiembrosHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "local-dev-super-secret-key-for-tests-only";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "nido-api";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "nido-clients";
 
@@ -68,8 +76,15 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
+});
+
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.Lax;
+    options.Secure = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
 
 var app = builder.Build();
@@ -81,6 +96,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("Frontend");
+app.UseCookiePolicy();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();

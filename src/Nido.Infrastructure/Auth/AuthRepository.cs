@@ -23,7 +23,9 @@ public sealed class AuthRepository : IAuthRepository
         string passwordHash,
         string sexo,
         string? fotoUrl,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? oauthProvider = null,
+        string? oauthId = null)
     {
         var usuario = new Usuario
         {
@@ -33,6 +35,8 @@ public sealed class AuthRepository : IAuthRepository
             PasswordHash = passwordHash,
             Sexo = sexo,
             FotoUrl = fotoUrl,
+            OauthProvider = oauthProvider,
+            OauthId = oauthId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -69,5 +73,86 @@ public sealed class AuthRepository : IAuthRepository
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return (usuario.Id, hogar.Id);
+    }
+
+    public async Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
+        if (usuario is null) return null;
+        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+    }
+
+    public async Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.OauthProvider == "google" && x.OauthId == googleId, cancellationToken);
+        if (usuario is null) return null;
+        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+    }
+
+    public async Task AddRefreshTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken)
+    {
+        var token = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UsuarioId = usuarioId,
+            TokenHash = tokenHash,
+            ExpiresAt = expiresAt,
+            CreatedAt = DateTime.UtcNow
+        };
+        _dbContext.RefreshTokens.Add(token);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<RefreshTokenInfo?> GetValidRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        var token = await _dbContext.RefreshTokens
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.ExpiresAt > DateTime.UtcNow, cancellationToken);
+        if (token is null) return null;
+        return new RefreshTokenInfo(token.Id, token.UsuarioId, token.TokenHash, token.ExpiresAt);
+    }
+
+    public async Task RemoveRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        var token = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
+        if (token is not null)
+        {
+            _dbContext.RefreshTokens.Remove(token);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    public async Task UpdateUserAsync(User user, CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios.FindAsync(new object[] { user.Id }, cancellationToken);
+        if (usuario is null) return;
+        usuario.Email = user.Email;
+        usuario.PasswordHash = user.PasswordHash;
+        usuario.OauthProvider = user.OauthProvider;
+        usuario.OauthId = user.OauthId;
+        usuario.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        var miembro = await _dbContext.MiembrosHogars
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UsuarioId == usuarioId, cancellationToken);
+        return miembro?.HogarId;
+    }
+
+    public async Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (usuario is null) return null;
+        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
     }
 }

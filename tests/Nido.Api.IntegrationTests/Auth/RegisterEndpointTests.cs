@@ -7,7 +7,9 @@ using System.Net.Http.Headers;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Nido.Application.Auth;
 using Nido.Application.Common.Security;
+using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Auth;
 
@@ -72,6 +74,43 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
         Assert.Equal(400, problem!.Status);
+    }
+
+    [Fact]
+    public async Task Register_GoogleOnlyAccount_AddsPasswordAndReturnsCreatedWithTokens()
+    {
+        var email = $"google-add-pw-{Guid.NewGuid()}@test.com";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var (userId, hogarId) = await repo.CreateUserWithDefaultHouseholdAsync("Google User", email, "placeholder", "U", null, CancellationToken.None);
+
+            var user = await db.Usuarios.FindAsync(userId);
+            user!.PasswordHash = null;
+            user.OauthProvider = "google";
+            user.OauthId = "google-123";
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync("/auth/register", new
+        {
+            nombre = "Google User",
+            email,
+            password = "Password123!",
+            sexo = "U"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<RegisterBody>();
+        Assert.NotNull(body);
+        Assert.False(string.IsNullOrEmpty(body!.AccessToken));
+        Assert.NotEqual(Guid.Empty, body.UsuarioId);
+        Assert.NotEqual(Guid.Empty, body.HogarId);
+
+        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var values) && values.Any(v => v.StartsWith("refreshToken=")));
     }
 
     [Fact]

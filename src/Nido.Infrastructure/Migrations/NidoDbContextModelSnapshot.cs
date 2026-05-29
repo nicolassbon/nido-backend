@@ -836,6 +836,44 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("recetas_cocinadas", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("refresh_tokens_pkey");
+
+                    b.HasIndex(new[] { "TokenHash" }, "idx_refresh_tokens_hash");
+
+                    b.HasIndex(new[] { "UsuarioId" }, "idx_refresh_tokens_usuario");
+
+                    b.ToTable("refresh_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ReseniasRecetum", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1113,6 +1151,10 @@ namespace Nido.Infrastructure.Migrations
 
                     b.HasIndex(new[] { "Email" }, "usuarios_email_key")
                         .IsUnique();
+
+                    b.HasIndex(new[] { "OauthProvider", "OauthId" }, "ux_usuarios_oauth_identity")
+                        .IsUnique()
+                        .HasFilter("oauth_provider IS NOT NULL AND oauth_id IS NOT NULL");
 
                     b.ToTable("usuarios", (string)null);
                 });
@@ -1399,6 +1441,18 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("Receta");
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("refresh_tokens_usuario_id_fkey");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ReseniasRecetum", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
@@ -1576,6 +1630,8 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("OnboardingStates");
 
                     b.Navigation("RecetasCocinada");
+
+                    b.Navigation("RefreshTokens");
 
                     b.Navigation("ReseniasReceta");
 

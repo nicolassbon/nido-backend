@@ -1,6 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Auth;
+using Nido.Api.Security;
 using Nido.Application.Auth;
+using Nido.Application.Common.Security;
 
 namespace Nido.Api.Controllers;
 
@@ -9,12 +13,35 @@ namespace Nido.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly RegisterUserHandler _registerUserHandler;
+    private readonly LoginHandler _loginHandler;
+    private readonly GoogleLoginHandler _googleLoginHandler;
+    private readonly RefreshTokenHandler _refreshTokenHandler;
+    private readonly LogoutHandler _logoutHandler;
+    private readonly LinkGoogleHandler _linkGoogleHandler;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(RegisterUserHandler registerUserHandler)
+    public AuthController(
+        RegisterUserHandler registerUserHandler,
+        LoginHandler loginHandler,
+        GoogleLoginHandler googleLoginHandler,
+        RefreshTokenHandler refreshTokenHandler,
+        LogoutHandler logoutHandler,
+        LinkGoogleHandler linkGoogleHandler,
+        ICurrentUserContext currentUser,
+        IWebHostEnvironment env)
     {
         _registerUserHandler = registerUserHandler;
+        _loginHandler = loginHandler;
+        _googleLoginHandler = googleLoginHandler;
+        _refreshTokenHandler = refreshTokenHandler;
+        _logoutHandler = logoutHandler;
+        _linkGoogleHandler = linkGoogleHandler;
+        _currentUser = currentUser;
+        _env = env;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -22,6 +49,99 @@ public sealed class AuthController : ControllerBase
             new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, request.FotoUrl),
             cancellationToken);
 
+        if (result.RefreshToken is not null)
+        {
+            SetRefreshTokenCookie(result.RefreshToken);
+        }
+
         return StatusCode(StatusCodes.Status201Created, new RegisterResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _loginHandler.Handle(
+            new LoginCommand(request.Email, request.Password),
+            cancellationToken);
+
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(new LoginResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("google-login")]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _googleLoginHandler.Handle(
+            new GoogleLoginCommand(request.IdToken),
+            cancellationToken);
+
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(new GoogleLoginResponse(result.UsuarioId, result.HogarId, result.AccessToken, result.IsNewUser));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
+    {
+        var refreshToken = Request.Cookies["refreshToken"];
+        var result = await _refreshTokenHandler.Handle(
+            new RefreshTokenCommand(refreshToken ?? string.Empty),
+            cancellationToken);
+
+        return Ok(new RefreshResponse(result.AccessToken));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        var refreshToken = Request.Cookies["refreshToken"];
+        await _logoutHandler.Handle(
+            new LogoutCommand(refreshToken ?? string.Empty),
+            cancellationToken);
+
+        DeleteRefreshTokenCookie();
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPost("link-google")]
+    public async Task<IActionResult> LinkGoogle([FromBody] LinkGoogleRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _linkGoogleHandler.Handle(
+            new LinkGoogleCommand(_currentUser.UsuarioId, request.IdToken),
+            cancellationToken);
+
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(new LinkGoogleResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+    }
+
+    private void SetRefreshTokenCookie(string? refreshToken)
+    {
+        if (refreshToken is null) return;
+
+        var isProduction = _env.IsProduction();
+
+        Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = isProduction,
+            Path = "/auth",
+            MaxAge = TimeSpan.FromDays(7)
+        });
+    }
+
+    private void DeleteRefreshTokenCookie()
+    {
+        Response.Cookies.Append("refreshToken", "", new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/auth",
+            Expires = DateTimeOffset.UnixEpoch
+        });
     }
 }
