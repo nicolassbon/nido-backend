@@ -15,6 +15,8 @@ public partial class InvitacionesHogar
 
     public string? Token { get; set; }
 
+    public string? EmailInvitado { get; set; }
+
     public string? Estado { get; set; }
 
     public DateTime? ExpiraEn { get; set; }

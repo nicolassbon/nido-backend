@@ -38,19 +38,13 @@ public sealed class ApiExceptionHandler : IExceptionHandler
     private static (int Status, string Title) MapException(HttpContext httpContext, Exception exception)
     {
         if (exception is ArgumentException)
-        {
             return (StatusCodes.Status400BadRequest, "Validation error");
-        }
 
-        if (exception is UnauthorizedAccessException && httpContext.Request.Path.StartsWithSegments("/onboarding", StringComparison.OrdinalIgnoreCase))
-        {
+        if (exception is UnauthorizedAccessException)
             return (StatusCodes.Status403Forbidden, "Forbidden");
-        }
 
-        if (exception is InvalidOperationException && httpContext.Request.Path.StartsWithSegments("/auth/register", StringComparison.OrdinalIgnoreCase))
-        {
+        if (exception is InvalidOperationException)
             return (StatusCodes.Status409Conflict, "Conflict");
-        }
 
         return (StatusCodes.Status500InternalServerError, "Server error");
     }

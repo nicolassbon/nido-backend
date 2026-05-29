@@ -5,6 +5,7 @@ using System.Text;
 using Nido.Application.Electrodomesticos;
 using Nido.Application.Auth;
 using Nido.Application.Onboarding;
+using Nido.Application.Hogares;
 using Nido.Application.Common.Security;
 using Nido.Api.Errors;
 using Nido.Api.Security;
@@ -28,6 +29,9 @@ builder.Services.AddScoped<RegisterUserHandler>();
 builder.Services.AddScoped<SaveHouseholdStepHandler>();
 builder.Services.AddScoped<SaveEquipmentStepHandler>();
 builder.Services.AddScoped<SaveWellnessStepHandler>();
+builder.Services.AddScoped<InvitarConviventeHandler>();
+builder.Services.AddScoped<AceptarInvitacionHandler>();
+builder.Services.AddScoped<GetMiembrosHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 

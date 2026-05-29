@@ -7,8 +7,11 @@ using Nido.Infrastructure.Electrodomesticos;
 using Nido.Application.Electrodomesticos;
 using Nido.Application.Auth;
 using Nido.Application.Onboarding;
+using Nido.Application.Hogares;
 using Nido.Infrastructure.Auth;
 using Nido.Infrastructure.Onboarding;
+using Nido.Infrastructure.Hogares;
+using Nido.Infrastructure.Email;
 
 namespace Nido.Infrastructure;
 
@@ -32,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
+        services.AddScoped<IInvitacionRepository, InvitacionRepository>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         return services;
     }

@@ -314,6 +314,9 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Token)
                 .HasMaxLength(255)
                 .HasColumnName("token");
+            entity.Property(e => e.EmailInvitado)
+                .HasMaxLength(255)
+                .HasColumnName("email_invitado");
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.InvitacionesHogars)
                 .HasForeignKey(d => d.HogarId)
