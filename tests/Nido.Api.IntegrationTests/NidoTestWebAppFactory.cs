@@ -5,6 +5,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence;
 
@@ -20,11 +21,32 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
+
         // Provide a dummy connection string so DependencyInjection.cs doesn't throw
         // before ConfigureTestServices has a chance to replace the DbContext.
         builder.UseSetting(
             "ConnectionStrings:DefaultConnection",
             "Host=localhost;Database=nido_ci;Username=ci;Password=ci");
+
+        // Provide a JWT key so JwtTokenService doesn't throw in tests.
+        // This key has no security value — it is only used in the in-memory test environment.
+        builder.UseSetting("Jwt:Key", "integration-test-jwt-key-minimum-32-bytes-long!!");
+        builder.UseSetting("Jwt:Issuer", "nido-api-tests");
+        builder.UseSetting("Jwt:Audience", "nido-clients-tests");
+        builder.UseSetting("Google:ClientId", "test-google-client-id.apps.googleusercontent.com");
+
+        // Override any .env / environment-variable values that would otherwise leak into tests.
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "integration-test-jwt-key-minimum-32-bytes-long!!",
+                ["Jwt:Issuer"] = "nido-api-tests",
+                ["Jwt:Audience"] = "nido-clients-tests",
+                ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com"
+            });
+        });
 
         // ConfigureTestServices runs AFTER the app's own ConfigureServices,
         // so we can cleanly replace the Npgsql registration with SQLite.
@@ -44,6 +66,8 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
             // Keep one open connection so the SQLite in-memory DB persists
             // across all requests within this factory's lifetime.
+            _connection.CreateFunction<string>("now", () => DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+            _connection.CreateFunction<string>("uuid_generate_v4", () => Guid.NewGuid().ToString());
             _connection.Open();
 
             services.AddDbContext<NidoDbContext>(options =>

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.Electrodomesticos;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 DotNetEnv.Env.TraversePath().Load();
 
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")

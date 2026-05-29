@@ -10,5 +10,6 @@
     <Project Path="tests/Nido.Api.IntegrationTests/Nido.Api.IntegrationTests.csproj" />
     <Project Path="tests/Nido.Application.Tests/Nido.Application.Tests.csproj" />
     <Project Path="tests/Nido.Domain.Tests/Nido.Domain.Tests.csproj" />
+    <Project Path="tests/Nido.Infrastructure.Tests/Nido.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

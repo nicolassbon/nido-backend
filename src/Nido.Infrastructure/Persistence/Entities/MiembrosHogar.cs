@@ -15,6 +15,8 @@ public partial class MiembrosHogar
 
     public int? Puntos { get; set; }
 
+    public string? NombreRepresentado { get; set; }
+
     public virtual Hogare Hogar { get; set; } = null!;
 
     public virtual Usuario Usuario { get; set; } = null!;
