@@ -52,7 +52,7 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
-    public async Task Handle_GoogleOnlyUser_ThrowsUnauthorized()
+    public async Task Handle_GoogleOnlyUser_ThrowsAccountLinkRequired()
     {
         var repo = new FakeAuthRepository
         {
@@ -60,10 +60,11 @@ public sealed class LoginHandlerTests
         };
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<AccountLinkRequiredException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None));
 
-        Assert.Equal("Invalid email or password", ex.Message);
+        Assert.Equal("ACCOUNT_EXISTS_WITH_GOOGLE", ex.Code);
+        Assert.Equal("This account was created with Google. Use Google login or set a password from account linking.", ex.Message);
     }
 
     [Fact]

@@ -35,6 +35,8 @@ services:
     container_name: nido-api
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - Jwt__Key=${Jwt__Key}
+      - Google__ClientId=${Google__ClientId}
     ports:
       - "8080:8080"
     depends_on:

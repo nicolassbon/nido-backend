@@ -30,6 +30,14 @@ public sealed class LoginHandler
 
         if (string.IsNullOrEmpty(user.PasswordHash))
         {
+            if (string.Equals(user.OauthProvider, "google", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(user.OauthId))
+            {
+                throw new AccountLinkRequiredException(
+                    "ACCOUNT_EXISTS_WITH_GOOGLE",
+                    "This account was created with Google. Use Google login or set a password from account linking.");
+            }
+
             throw new UnauthorizedAccessException("Invalid email or password");
         }
 

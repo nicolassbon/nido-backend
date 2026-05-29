@@ -80,7 +80,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task Login_GoogleOnlyAccount_ReturnsUnauthorized()
+    public async Task Login_GoogleOnlyAccount_ReturnsConflictWithGoogleContract()
     {
         var email = $"login-google-{Guid.NewGuid()}@test.com";
 
@@ -99,7 +99,13 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         var response = await _client.PostAsJsonAsync("/auth/login", new { email, password = "AnyPassword1!" });
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(409, problem!.Status);
+        Assert.Equal("ACCOUNT_EXISTS_WITH_GOOGLE", problem.Title);
+        Assert.Equal("This account was created with Google. Use Google login or set a password from account linking.", problem.Detail);
     }
 
     private static bool HasRefreshTokenCookie(HttpResponseMessage response) =>
