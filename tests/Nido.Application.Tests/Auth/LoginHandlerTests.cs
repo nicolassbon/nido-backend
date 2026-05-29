@@ -66,6 +66,30 @@ public sealed class LoginHandlerTests
         Assert.Equal("Invalid email or password", ex.Message);
     }
 
+    [Fact]
+    public async Task Handle_EmptyEmail_ThrowsArgumentException()
+    {
+        var repo = new FakeAuthRepository();
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.Handle(new LoginCommand("", "Password1"), CancellationToken.None));
+
+        Assert.Equal("Email and password are required.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_EmptyPassword_ThrowsArgumentException()
+    {
+        var repo = new FakeAuthRepository();
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.Handle(new LoginCommand("nico@mail.com", ""), CancellationToken.None));
+
+        Assert.Equal("Email and password are required.", ex.Message);
+    }
+
     private sealed class FakeAuthRepository : IAuthRepository
     {
         public User? User { get; set; }

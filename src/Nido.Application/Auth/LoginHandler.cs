@@ -15,6 +15,11 @@ public sealed class LoginHandler
 
     public async Task<LoginResult> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(command.Email) || string.IsNullOrWhiteSpace(command.Password))
+        {
+            throw new ArgumentException("Email and password are required.");
+        }
+
         var normalizedEmail = command.Email.Trim().ToLowerInvariant();
         var user = await _repository.FindByEmailAsync(normalizedEmail, cancellationToken);
 
