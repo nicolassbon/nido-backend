@@ -4,27 +4,31 @@ namespace Nido.Application.Tests.Onboarding;
 
 public sealed class OnboardingWellnessTests
 {
+   
+
     [Fact]
-    public async Task SaveWellness_WhenRestrictionsAndGoalsAreProvided_PersistsBothCollections()
+    public async Task SaveWellness_CuandoSeEnvianRestriccionesYMetas_GuardaAmbosEnElRepositorio()
     {
         var repo = new FakeOnboardingRepository();
         var handler = new SaveWellnessStepHandler(repo);
+        var restriccionId = Guid.NewGuid();
+        var metaId = Guid.NewGuid();
 
         await handler.Handle(new SaveWellnessStepCommand(
             repo.UsuarioId,
             repo.HogarId,
-            false,
-            [new RestrictionInput("allergy", "nuts")],
-            [new HouseholdGoalInput("Eat better", "More veggies")],
-            null,
-            null), CancellationToken.None);
+            Skip: false,
+            RestriccionIds: [restriccionId],
+            MetaIds: [metaId],
+            ClientUsuarioId: null,
+            ClientHogarId: null), CancellationToken.None);
 
-        Assert.Single(repo.Restrictions);
-        Assert.Single(repo.Goals);
+        Assert.Equal([restriccionId], repo.RestriccionesGuardadas);
+        Assert.Equal([metaId], repo.MetasGuardadas);
     }
 
     [Fact]
-    public async Task SaveWellness_WhenClientSendsForgedIds_ThrowsUnauthorizedAccessException()
+    public async Task SaveWellness_CuandoSeMandanIdsForjadosPorElCliente_LanzaUnauthorizedAccessException()
     {
         var repo = new FakeOnboardingRepository();
         var handler = new SaveWellnessStepHandler(repo);
@@ -32,15 +36,55 @@ public sealed class OnboardingWellnessTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new SaveWellnessStepCommand(
             repo.UsuarioId,
             repo.HogarId,
-            false,
-            [],
-            [],
-            Guid.NewGuid(),
-            null), CancellationToken.None));
+            Skip: false,
+            RestriccionIds: [],
+            MetaIds: [],
+            ClientUsuarioId: Guid.NewGuid(), // distinto al UsuarioId real → intento de forja
+            ClientHogarId: null), CancellationToken.None));
     }
 
     [Fact]
-    public async Task SaveWellness_WhenOnlyRestrictionsAreProvided_AllowsPartialSubmission()
+    public async Task SaveWellness_CuandoSoloSeEnvianRestricciones_GuardaSoloRestricciones()
+    {
+        var repo = new FakeOnboardingRepository();
+        var handler = new SaveWellnessStepHandler(repo);
+        var restriccionId = Guid.NewGuid();
+
+        await handler.Handle(new SaveWellnessStepCommand(
+            repo.UsuarioId,
+            repo.HogarId,
+            Skip: false,
+            RestriccionIds: [restriccionId],
+            MetaIds: [],
+            ClientUsuarioId: null,
+            ClientHogarId: null), CancellationToken.None);
+
+        Assert.Equal([restriccionId], repo.RestriccionesGuardadas);
+        Assert.Empty(repo.MetasGuardadas);
+    }
+
+    [Fact]
+    public async Task SaveWellness_CuandoSoloSeEnvianMetas_GuardaSoloMetas()
+    {
+        var repo = new FakeOnboardingRepository();
+        var handler = new SaveWellnessStepHandler(repo);
+        var metaId = Guid.NewGuid();
+
+        await handler.Handle(new SaveWellnessStepCommand(
+            repo.UsuarioId,
+            repo.HogarId,
+            Skip: false,
+            RestriccionIds: [],
+            MetaIds: [metaId],
+            ClientUsuarioId: null,
+            ClientHogarId: null), CancellationToken.None);
+
+        Assert.Empty(repo.RestriccionesGuardadas);
+        Assert.Equal([metaId], repo.MetasGuardadas);
+    }
+
+    [Fact]
+    public async Task SaveWellness_CuandoSeSkipea_NoGuardaNadaYMarcaPasoComoSalteado()
     {
         var repo = new FakeOnboardingRepository();
         var handler = new SaveWellnessStepHandler(repo);
@@ -48,48 +92,61 @@ public sealed class OnboardingWellnessTests
         await handler.Handle(new SaveWellnessStepCommand(
             repo.UsuarioId,
             repo.HogarId,
-            false,
-            [new RestrictionInput("allergy", "gluten")],
-            [],
-            null,
-            null), CancellationToken.None);
+            Skip: true,
+            RestriccionIds: [],
+            MetaIds: [],
+            ClientUsuarioId: null,
+            ClientHogarId: null), CancellationToken.None);
 
-        Assert.Single(repo.Restrictions);
-        Assert.Empty(repo.Goals);
+        Assert.Empty(repo.RestriccionesGuardadas);
+        Assert.Empty(repo.MetasGuardadas);
+        Assert.True(repo.PasoMarcadoComoSalteado);
     }
 
-    [Fact]
-    public async Task SaveWellness_WhenOnlyGoalsAreProvided_AllowsPartialSubmission()
-    {
-        var repo = new FakeOnboardingRepository();
-        var handler = new SaveWellnessStepHandler(repo);
-
-        await handler.Handle(new SaveWellnessStepCommand(
-            repo.UsuarioId,
-            repo.HogarId,
-            false,
-            [],
-            [new HouseholdGoalInput("Cook more", "3 homemade meals")],
-            null,
-            null), CancellationToken.None);
-
-        Assert.Empty(repo.Restrictions);
-        Assert.Single(repo.Goals);
-    }
+    // ── Test fakes
 
     private sealed class FakeOnboardingRepository : IOnboardingRepository
     {
         public Guid UsuarioId { get; } = Guid.NewGuid();
         public Guid HogarId { get; } = Guid.NewGuid();
-        public List<RestrictionInput> Restrictions { get; } = [];
-        public List<HouseholdGoalInput> Goals { get; } = [];
+        public List<Guid> RestriccionesGuardadas { get; } = [];
+        public List<Guid> MetasGuardadas { get; } = [];
+        public bool PasoMarcadoComoSalteado { get; private set; }
 
-        public Task<bool> IsUserHouseholdMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken) => Task.FromResult(true);
-        public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken) => Task.FromResult(true);
-        public Task MarkStepAsync(Guid usuarioId, Guid hogarId, int stepNumber, bool skipped, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task ReplaceGoalsAsync(Guid hogarId, IReadOnlyList<HouseholdGoalInput> goals, CancellationToken cancellationToken) { Goals.AddRange(goals); return Task.CompletedTask; }
-        public Task ReplaceHouseholdEquipmentAsync(Guid hogarId, IReadOnlyList<EquipmentInput> equipments, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task ReplaceRepresentedMembersAsync(Guid hogarId, IReadOnlyList<RepresentedMemberInput> members, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task ReplaceRestrictionsAsync(Guid usuarioId, IReadOnlyList<RestrictionInput> restrictions, CancellationToken cancellationToken) { Restrictions.AddRange(restrictions); return Task.CompletedTask; }
+        public Task<bool> IsUserHouseholdMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(true);
+
+        public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(true);
+
+        public Task ReplaceUserRestriccionesAsync(Guid usuarioId, IReadOnlyList<Guid> restriccionIds, CancellationToken ct)
+        {
+            RestriccionesGuardadas.AddRange(restriccionIds);
+            return Task.CompletedTask;
+        }
+
+        public Task ReplaceHogarMetasAsync(Guid hogarId, IReadOnlyList<Guid> metaIds, CancellationToken ct)
+        {
+            MetasGuardadas.AddRange(metaIds);
+            return Task.CompletedTask;
+        }
+
+        public Task MarkStepAsync(Guid usuarioId, Guid hogarId, int stepNumber, bool skipped, CancellationToken ct)
+        {
+            PasoMarcadoComoSalteado = skipped;
+            return Task.CompletedTask;
+        }
+
+        public Task ReplaceRepresentedMembersAsync(Guid hogarId, IReadOnlyList<RepresentedMemberInput> members, CancellationToken ct)
+            => Task.CompletedTask;
+
+        public Task ReplaceHouseholdEquipmentAsync(Guid hogarId, IReadOnlyList<EquipmentInput> equipments, CancellationToken ct)
+            => Task.CompletedTask;
+
+        public Task<IReadOnlyList<RestriccionCatalogoResult>> GetRestriccionesCatalogoAsync(string? tipo, string? search, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<RestriccionCatalogoResult>>([]);
+
+        public Task<IReadOnlyList<MetaCatalogoResult>> GetMetasCatalogoAsync(CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<MetaCatalogoResult>>([]);
     }
 }
