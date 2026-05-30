@@ -16,12 +16,14 @@ using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-var builder = WebApplication.CreateBuilder(args);
 
-if (builder.Environment.IsDevelopment())
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+if (environment == "Development")
 {
     DotNetEnv.Env.TraversePath().Load();
 }
+
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
