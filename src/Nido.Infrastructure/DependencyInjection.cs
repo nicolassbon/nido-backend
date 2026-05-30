@@ -12,6 +12,10 @@ using Nido.Infrastructure.Auth;
 using Nido.Infrastructure.Onboarding;
 using Nido.Infrastructure.Hogares;
 using Nido.Infrastructure.Email;
+using Nido.Application.Alacena;
+using Nido.Application.Productos;
+using Nido.Infrastructure.Alacena;
+using Nido.Infrastructure.Productos;
 
 namespace Nido.Infrastructure;
 
@@ -30,7 +34,6 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
-        services.AddScoped<GetElectrodomesticosHandler>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -38,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IAlacenaRepository, AlacenaRepository>();
+        services.AddScoped<IProductoRepository, ProductoRepository>();
 
         return services;
     }

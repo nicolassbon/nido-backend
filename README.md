@@ -1,40 +1,12 @@
 # Nido Backend
 
-.NET 10 backend for Nido MVP 1. This repository owns the HTTP contract and implements the backend Clean Architecture layers.
+This repository documents and enforces backend team conventions for implementing and reviewing .NET Clean Architecture code.
 
-## Role in the architecture
+## Purpose of this README
 
-- `nido-backend` and `nido-frontend` are separate repositories.
-- This repo is the **source of truth** for API endpoints, payloads, and response semantics.
-- Frontend integration must happen through HTTP, based on this contract.
-
-## MVP HTTP contract (owned here)
-
-### `GET /hello`
-
-- Purpose: integration smoke check between the two repos.
-- Response `200 OK`:
-
-```json
-{ "message": "Bienvenido a Nido!" }
-```
-
-### `POST /household`
-
-- Purpose: create a household.
-- Request body:
-
-```json
-{ "name": "Casa de Nico" }
-```
-
-- Response `201 Created`:
-
-```json
-{ "id": "uuid", "name": "Casa de Nico" }
-```
-
-- Validation: `400 Bad Request` (Problem Details) when `name` is missing or invalid.
+- Define architecture boundaries and coding rules used by the backend team.
+- Provide implementation patterns that keep HTTP, application, domain, and infrastructure concerns separated.
+- Provide review and testing checklists to preserve behavior while code evolves.
 
 ## Clean Architecture split
 
@@ -45,6 +17,116 @@
 | `src/Nido.Domain` | Entities, value objects, pure business rules |
 | `src/Nido.Infrastructure` | EF Core, repositories, persistence wiring |
 | `tests/` | Domain, Application, and API integration tests |
+
+## Backend coding conventions
+
+This backend uses a pragmatic Clean Architecture approach. The goal is to keep dependency direction clear, make use cases easy to test, and prevent framework details from leaking into business code.
+
+### Layer communication rule
+
+Runtime flow should be:
+
+```txt
+HTTP request
+  -> Nido.Api controller
+    -> Nido.Application use case / handler
+      -> repository port
+        -> Nido.Infrastructure repository implementation
+          -> EF Core / PostgreSQL
+```
+
+Compile-time dependency direction:
+
+```txt
+Nido.Domain          -> no project dependencies
+Nido.Application     -> Nido.Domain
+Nido.Infrastructure  -> Nido.Application + Nido.Domain
+Nido.Api             -> Nido.Application + Nido.Infrastructure for composition root only
+```
+
+Rules for all backend code:
+
+- Controllers must not inject `NidoDbContext`.
+- Controllers must not use `Nido.Infrastructure.Persistence.Entities` directly.
+- Controllers handle HTTP concerns only: route, request, response, status codes.
+- Application owns use-case orchestration and repository ports.
+- Infrastructure owns EF Core, persistence entities, migrations, JWT, hashing, and external technical details.
+- Domain stays pure and grows only when business rules need a stable model.
+
+### Coding rules by layer
+
+| Layer | Do | Do not |
+|------|----|--------|
+| `Nido.Api` | Define controllers, routes, HTTP request/response contracts, status-code mapping, and startup wiring. | Do not query EF Core, inject `NidoDbContext`, or reference persistence entities. |
+| `Nido.Application` | Define use cases, commands/queries, handlers, results, validations, and repository ports. | Do not reference `Nido.Infrastructure`, EF Core, or database-specific types. |
+| `Nido.Domain` | Define pure business concepts, invariants, value objects, and core behavior. | Do not depend on frameworks, persistence, HTTP, or configuration. |
+| `Nido.Infrastructure` | Implement repository ports, EF Core mappings, persistence entities, JWT, hashing, and external integrations. | Do not decide business policy that belongs to Application/Domain. |
+
+### Use-case implementation pattern
+
+Use this shape for new API behavior:
+
+```txt
+Controller action
+  -> Application command/query
+  -> Application handler
+  -> Application repository port
+  -> Infrastructure repository adapter
+  -> EF Core / PostgreSQL
+```
+
+Recommended conventions:
+
+- Keep controllers thin and boring.
+- Prefer explicit request/response DTOs over exposing entities.
+- Use one handler per use case when behavior is non-trivial.
+- Pass `CancellationToken` through async application and infrastructure calls.
+- Use `AsNoTracking()` for read-only EF queries.
+- Keep repository ports intention-based, not table-based, when the use case needs behavior rather than raw CRUD.
+
+### Governance checklist for PR reviews
+
+Use this checklist as an explicit gate in reviews:
+
+- [ ] Controller classes in `Nido.Api` do not depend on `Microsoft.EntityFrameworkCore`.
+- [ ] Controller classes in `Nido.Api` do not inject `NidoDbContext`.
+- [ ] Controller classes in `Nido.Api` do not reference `Nido.Infrastructure.Persistence.Entities`.
+- [ ] HTTP contracts (`Request`/`Response`) are mapped in API; use-case contracts live in `Nido.Application`.
+- [ ] Persistence logic lives in Infrastructure repository adapters only.
+- [ ] New use cases accept and forward `CancellationToken`.
+- [ ] Behavior-preserving refactors are protected by tests before and after code movement.
+
+### Migration ownership
+
+- Infrastructure owns migrations and persistence model configuration.
+- Production migration execution path is `Nido.Migrator`.
+- Do not mutate DB schema manually in containers or scripts; create/apply EF migrations.
+
+### Testing discipline
+
+When changing behavior or moving code across layers, follow strict TDD:
+
+1. RED: write failing unit/integration tests first.
+2. GREEN: implement minimum code to pass.
+3. TRIANGULATE: add at least one additional meaningful scenario per behavior.
+4. REFACTOR: clean code while tests stay green.
+
+Architecture boundaries should be protected by tests where practical. At minimum, reviews must verify that controllers do not depend on EF Core or Infrastructure persistence entities.
+
+### Entity strategy for the MVP
+
+We use a pragmatic incremental model strategy:
+
+- EF scaffolded entities may remain in `Nido.Infrastructure.Persistence.Entities`.
+- Those persistence entities must not leak into `Nido.Api` or `Nido.Application` contracts.
+- API behavior should expose request/response DTOs and application/domain models instead of EF entities.
+- Move a model into `Nido.Domain` only when it carries business behavior, invariants, or rules worth protecting.
+
+### Repository port rule
+
+For this MVP, repository interfaces belong in `Nido.Application` by default because they are ports required by use cases.
+
+Move a contract to `Nido.Domain` only when it represents a core domain concept needed by domain behavior, not just data access for an application use case.
 
 ## Configuration rules
 

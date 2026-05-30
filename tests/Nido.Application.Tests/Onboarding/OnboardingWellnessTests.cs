@@ -4,7 +4,7 @@ namespace Nido.Application.Tests.Onboarding;
 
 public sealed class OnboardingWellnessTests
 {
-   
+
 
     [Fact]
     public async Task SaveWellness_CuandoSeEnvianRestriccionesYMetas_GuardaAmbosEnElRepositorio()

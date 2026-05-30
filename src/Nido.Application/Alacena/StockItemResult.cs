@@ -1,6 +1,6 @@
-namespace Nido.Api.Contracts.Alacena;
+namespace Nido.Application.Alacena;
 
-public sealed record StockItemResponse(
+public sealed record StockItemResult(
     Guid Id,
     Guid ProductoId,
     string Nombre,
@@ -8,7 +8,7 @@ public sealed record StockItemResponse(
     string? CodigoBarras,
     string Ubicacion,
     decimal Cantidad,
-    string? FechaVencimiento,       // ISO yyyy-MM-dd or null
+    string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido
 );

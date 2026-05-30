@@ -63,7 +63,7 @@ public sealed class InvitacionRepository : IInvitacionRepository
 
         if (hogarId == Guid.Empty) return true;
 
-       
+
         var isOwner = await _db.MiembrosHogars.AnyAsync(m => m.HogarId == hogarId && m.UsuarioId == usuarioId && m.Rol == "owner", ct);
         if (!isOwner) return false;
 
@@ -81,13 +81,13 @@ public sealed class InvitacionRepository : IInvitacionRepository
 
     public async Task MoveUserToHouseholdAsync(Guid usuarioId, Guid fromHogarId, Guid toHogarId, string token, CancellationToken ct)
     {
-        
+
         var oldMemberships = await _db.MiembrosHogars
             .Where(m => m.HogarId == fromHogarId)
             .ToListAsync(ct);
         _db.MiembrosHogars.RemoveRange(oldMemberships);
 
-       
+
         _db.MiembrosHogars.Add(new MiembrosHogar
         {
             Id = Guid.NewGuid(),
@@ -97,12 +97,12 @@ public sealed class InvitacionRepository : IInvitacionRepository
             Puntos = 0
         });
 
-       
+
         var inv = await _db.InvitacionesHogars.FirstOrDefaultAsync(i => i.Token == token, ct);
         if (inv is not null)
             inv.Estado = "aceptada";
 
-        
+
         var existingState = await _db.OnboardingStates
             .AnyAsync(s => s.UsuarioId == usuarioId && s.HogarId == toHogarId, ct);
         if (!existingState)
