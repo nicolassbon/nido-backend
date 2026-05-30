@@ -16,4 +16,8 @@ public partial class Electrodomestico
     public string? Estado { get; set; }
 
     public virtual Hogare Hogar { get; set; } = null!;
+
+    public string? Marca { get; set; }
+
+    public string? ImagenUrl { get; set; }
 }

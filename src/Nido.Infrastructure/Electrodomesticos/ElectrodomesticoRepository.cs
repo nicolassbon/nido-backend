@@ -47,7 +47,9 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
             ))
             .ToListAsync(cancellationToken);
     }
@@ -62,7 +64,9 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
             ))
             .ToListAsync(cancellationToken);
     }

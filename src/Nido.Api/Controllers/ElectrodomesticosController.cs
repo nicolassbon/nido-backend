@@ -29,7 +29,9 @@ public sealed class ElectrodomesticosController : ControllerBase
             electrodomestico.HogarId,
             electrodomestico.Nombre,
             electrodomestico.Tipo,
-            electrodomestico.Estado
+            electrodomestico.Estado,
+            electrodomestico.Marca,
+            electrodomestico.ImagenUrl
         ));
 
         return Ok(response);
@@ -45,7 +47,9 @@ public sealed class ElectrodomesticosController : ControllerBase
             electrodomestico.HogarId,
             electrodomestico.Nombre,
             electrodomestico.Tipo,
-            electrodomestico.Estado
+            electrodomestico.Estado,
+            electrodomestico.Marca,
+            electrodomestico.ImagenUrl
         ));
 
         return Ok(response);
@@ -79,7 +83,9 @@ public sealed class ElectrodomesticosController : ControllerBase
                     request.HogarId,
                     request.Nombre,
                     request.Tipo,
-                    request.Estado
+                    request.Estado,
+                    request.Marca,
+                    request.ImagenUrl
                 ),
                 cancellationToken
             );
@@ -91,7 +97,9 @@ public sealed class ElectrodomesticosController : ControllerBase
                     result.HogarId,
                     result.Nombre,
                     result.Tipo,
-                    result.Estado
+                    result.Estado,
+                    result.Marca,
+                    result.ImagenUrl
                 )
             );
         }

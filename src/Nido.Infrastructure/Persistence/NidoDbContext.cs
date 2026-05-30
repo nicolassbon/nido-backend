@@ -139,11 +139,19 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Tipo)
                 .HasMaxLength(100)
                 .HasColumnName("tipo");
+                entity.Property(e => e.Marca)
+        .HasMaxLength(100)
+        .HasColumnName("marca");
+
+        entity.Property(e => e.ImagenUrl)
+    .HasMaxLength(500)
+    .HasColumnName("imagen_url");
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.Electrodomesticos)
                 .HasForeignKey(d => d.HogarId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("electrodomesticos_hogar_id_fkey");
+
         });
 
         modelBuilder.Entity<Gasto>(entity =>
