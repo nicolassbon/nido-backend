@@ -32,6 +32,7 @@ builder.Services.AddNidoInfrastructure(builder.Configuration);
 
 builder.Services.AddScoped<CreateElectrodomesticoHandler>();
 builder.Services.AddScoped<GetElectrodomesticosHandler>();
+builder.Services.AddScoped<GetElectrodomesticosCatalogoHandler>();
 builder.Services.AddScoped<RegisterUserHandler>();
 builder.Services.AddScoped<LoginHandler>();
 builder.Services.AddScoped<GoogleLoginHandler>();

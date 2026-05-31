@@ -10,14 +10,35 @@ public sealed class ElectrodomesticosController : ControllerBase
 {
     private readonly CreateElectrodomesticoHandler _createHandler;
     private readonly GetElectrodomesticosHandler _getHandler;
+    private readonly GetElectrodomesticosCatalogoHandler _getCatalogoHandler;
 
-    public ElectrodomesticosController(
-        CreateElectrodomesticoHandler createHandler,
-        GetElectrodomesticosHandler getHandler)
-    {
-        _createHandler = createHandler;
-        _getHandler = getHandler;
-    }
+
+   public ElectrodomesticosController(
+    CreateElectrodomesticoHandler createHandler,
+    GetElectrodomesticosHandler getHandler,
+    GetElectrodomesticosCatalogoHandler getCatalogoHandler)
+{
+    _createHandler = createHandler;
+    _getHandler = getHandler;
+    _getCatalogoHandler = getCatalogoHandler;
+}
+
+[HttpGet("catalogo")]
+public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken)
+{
+    var result = await _getCatalogoHandler.Handle(cancellationToken);
+
+    var response = result.Select(item => new ElectrodomesticoCatalogoResponse(
+        item.Id,
+        item.Nombre,
+        item.Tipo,
+        item.Icono,
+        item.ImagenUrl,
+        item.Orden
+    ));
+
+    return Ok(response);
+}
 
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
