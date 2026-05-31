@@ -25,6 +25,8 @@ public partial class Usuario
 
     public DateTime UpdatedAt { get; set; }
 
+    public int AlertaVencimientoDias { get; set; }
+
     public virtual ICollection<AsignacionesTarea> AsignacionesTareas { get; set; } = new List<AsignacionesTarea>();
 
     public virtual ICollection<Gasto> Gastos { get; set; } = new List<Gasto>();

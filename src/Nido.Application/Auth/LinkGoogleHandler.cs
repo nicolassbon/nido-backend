@@ -51,13 +51,13 @@ public sealed class LinkGoogleHandler
         }
 
         await _repository.UpdateUserAsync(
-            new User(user.Id, user.Email, user.PasswordHash, "google", payload.GoogleId),
+            new User(user.Id, user.Nombre, user.Email, user.PasswordHash, "google", payload.GoogleId),
             cancellationToken);
 
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
             ?? throw new InvalidOperationException("User has no associated household.");
 
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(user.Id, hogarId, user.Email);
+        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(user.Id, hogarId, user.Email, user.Nombre);
         var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
         var expiresAt = DateTime.UtcNow.AddDays(7);
 

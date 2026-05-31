@@ -77,7 +77,8 @@ public sealed class GoogleLoginHandler
             isNewUser = false;
         }
 
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(usuarioId, hogarId, user?.Email ?? normalizedEmail);
+        var nombreFinal = user?.Nombre ?? normalizedEmail.Split('@')[0];
+        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(usuarioId, hogarId, user?.Email ?? normalizedEmail, nombreFinal);
         var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
         var expiresAt = DateTime.UtcNow.AddDays(7);
 

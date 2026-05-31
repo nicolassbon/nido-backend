@@ -899,6 +899,9 @@ public partial class NidoDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
+            entity.Property(e => e.AlertaVencimientoDias)
+                .HasDefaultValue(7)
+                .HasColumnName("alerta_vencimiento_dias");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

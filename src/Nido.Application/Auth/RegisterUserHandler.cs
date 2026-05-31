@@ -45,7 +45,7 @@ public sealed class RegisterUserHandler
                 var hogarId = await _repository.GetUserHogarIdAsync(existingUser.Id, cancellationToken)
                     ?? throw new InvalidOperationException("User has no associated household.");
 
-                var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(existingUser.Id, hogarId, normalizedEmail);
+                var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(existingUser.Id, hogarId, normalizedEmail, existingUser.Nombre);
                 var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
                 var expiresAt = DateTime.UtcNow.AddDays(7);
 
@@ -66,7 +66,7 @@ public sealed class RegisterUserHandler
             command.FotoUrl,
             cancellationToken);
 
-        var token = _jwtTokenService.CreateToken(usuarioId, newHogarId, normalizedEmail);
+        var token = _jwtTokenService.CreateToken(usuarioId, newHogarId, normalizedEmail, command.Nombre.Trim());
         return new RegisterUserResult(usuarioId, newHogarId, token);
     }
 }

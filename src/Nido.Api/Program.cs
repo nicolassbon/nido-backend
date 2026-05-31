@@ -10,6 +10,7 @@ using Nido.Application.Hogares;
 using Nido.Application.Common.Security;
 using Nido.Application.Alacena;
 using Nido.Application.Productos;
+using Nido.Application.Preferencias;
 using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
@@ -52,6 +53,8 @@ builder.Services.AddScoped<GetStockItemsHandler>();
 builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();
 builder.Services.AddScoped<DeleteStockItemHandler>();
+builder.Services.AddScoped<GetUserPreferencesHandler>();
+builder.Services.AddScoped<UpdateUserPreferencesHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
