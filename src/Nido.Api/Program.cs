@@ -11,6 +11,7 @@ using Nido.Application.Hogares;
 using Nido.Application.Common.Security;
 using Nido.Application.Alacena;
 using Nido.Application.Productos;
+using Nido.Application.Preferencias;
 using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
@@ -34,6 +35,7 @@ builder.Services.AddNidoInfrastructure(builder.Configuration);
 
 builder.Services.AddScoped<CreateElectrodomesticoHandler>();
 builder.Services.AddScoped<GetElectrodomesticosHandler>();
+builder.Services.AddScoped<GetElectrodomesticosCatalogoHandler>();
 builder.Services.AddScoped<RegisterUserHandler>();
 builder.Services.AddScoped<LoginHandler>();
 builder.Services.AddScoped<GoogleLoginHandler>();
@@ -50,10 +52,14 @@ builder.Services.AddScoped<InvitarConviventeHandler>();
 builder.Services.AddScoped<AceptarInvitacionHandler>();
 builder.Services.AddScoped<GetMiembrosHandler>();
 builder.Services.AddScoped<GetProductByBarcodeHandler>();
+builder.Services.AddScoped<CreateProductoHandler>();
 builder.Services.AddScoped<GetStockItemsHandler>();
 builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();
 builder.Services.AddScoped<DeleteStockItemHandler>();
+builder.Services.AddScoped<GetProductManualHandler>();
+builder.Services.AddScoped<GetUserPreferencesHandler>();
+builder.Services.AddScoped<UpdateUserPreferencesHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
@@ -123,7 +129,6 @@ app.UseCookiePolicy();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.MapGet("/hello", () => Results.Ok(new { message = "Bienvenido a Nido!" }));

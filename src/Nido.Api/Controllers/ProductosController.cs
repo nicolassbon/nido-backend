@@ -1,23 +1,37 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
+using Nido.Api.Contracts.Productos;
 using Nido.Application.Productos;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/productos")]
 public sealed class ProductoController : ControllerBase
 {
-    private readonly GetProductByBarcodeHandler _handler;
+    private readonly GetProductByBarcodeHandler _getByBarcodeHandler;
 
-    public ProductoController(GetProductByBarcodeHandler handler) => _handler = handler;
+    public ProductoController(
+        GetProductByBarcodeHandler getByBarcodeHandler)
+    {
+        _getByBarcodeHandler = getByBarcodeHandler;
+    }
 
     [HttpGet("barcode/{barcode}")]
-    public async Task<IActionResult> GetByBarcode(string barcode, CancellationToken ct)
+    public async Task<IActionResult> GetByBarcode(
+        string barcode,
+        CancellationToken ct)
     {
-        var producto = await _handler.Handle(new GetProductByBarcodeQuery(barcode), ct);
+        var producto = await _getByBarcodeHandler.Handle(
+            new GetProductByBarcodeQuery(barcode),
+            ct);
 
-        if (producto is null) return NotFound();
+        if (producto is null)
+        {
+            return NotFound();
+        }
 
         return Ok(new ProductoResponse(
             producto.Id,
@@ -28,4 +42,6 @@ public sealed class ProductoController : ControllerBase
             producto.TtlDias
         ));
     }
+
+  
 }

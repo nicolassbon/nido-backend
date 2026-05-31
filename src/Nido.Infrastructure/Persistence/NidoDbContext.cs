@@ -18,6 +18,9 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<Electrodomestico> Electrodomesticos { get; set; }
 
+    public virtual DbSet<ElectrodomesticoCatalogo> ElectrodomesticosCatalogo { get; set; }
+
+
     public virtual DbSet<Gasto> Gastos { get; set; }
 
     public virtual DbSet<Hogare> Hogares { get; set; }
@@ -66,7 +69,7 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<HogarMeta> HogarMetas { get; set; }
 
-    public virtual DbSet<StockHogar> StockHogars { get; set; }
+    public virtual DbSet<Entities.StockHogar> StockHogars { get; set; }
 
     public virtual DbSet<Tarea> Tareas { get; set; }
 
@@ -133,17 +136,57 @@ public partial class NidoDbContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("estado");
             entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.CatalogoId).HasColumnName("catalogo_id");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
             entity.Property(e => e.Tipo)
                 .HasMaxLength(100)
                 .HasColumnName("tipo");
+            entity.Property(e => e.Marca)
+                .HasMaxLength(100)
+                .HasColumnName("marca");
+
+            entity.Property(e => e.ImagenUrl)
+                .HasMaxLength(500)
+                .HasColumnName("imagen_url");
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.Electrodomesticos)
                 .HasForeignKey(d => d.HogarId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("electrodomesticos_hogar_id_fkey");
+
+            entity.HasOne(d => d.Catalogo).WithMany(p => p.Electrodomesticos)
+                .HasForeignKey(d => d.CatalogoId)
+                .HasConstraintName("electrodomesticos_catalogo_id_fkey");
+
+        });
+
+        modelBuilder.Entity<ElectrodomesticoCatalogo>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("electrodomesticos_catalogo_pkey");
+
+            entity.ToTable("electrodomesticos_catalogo");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(100)
+                .HasColumnName("nombre");
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(80)
+                .HasColumnName("tipo");
+            entity.Property(e => e.Icono)
+                .HasMaxLength(80)
+                .HasColumnName("icono");
+            entity.Property(e => e.ImagenUrl)
+                .HasMaxLength(500)
+                .HasColumnName("imagen_url");
+            entity.Property(e => e.Orden).HasColumnName("orden");
+            entity.Property(e => e.Activo)
+                .HasDefaultValue(true)
+                .HasColumnName("activo");
         });
 
         modelBuilder.Entity<Gasto>(entity =>
@@ -745,7 +788,7 @@ public partial class NidoDbContext : DbContext
                 .HasConstraintName("hogar_metas_meta_id_fkey");
         });
 
-        modelBuilder.Entity<StockHogar>(entity =>
+        modelBuilder.Entity<Entities.StockHogar>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("stock_hogar_pkey");
 
@@ -911,6 +954,9 @@ public partial class NidoDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
+            entity.Property(e => e.AlertaVencimientoDias)
+                .HasDefaultValue(7)
+                .HasColumnName("alerta_vencimiento_dias");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

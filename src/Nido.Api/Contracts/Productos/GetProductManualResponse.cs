@@ -1,0 +1,17 @@
+namespace Nido.Api.Contracts.Productos;
+
+public sealed record GetProductManualResponse(
+    Guid StockHogarId,
+    Guid ProductoId,
+    string Nombre,
+    Guid? CategoriaId,
+    string? CategoriaNombre,
+    string? CodigoBarras,
+    string? ImagenUrl,
+    string Ubicacion,
+    decimal Cantidad,
+    string? UnidadMedida,
+    string? FechaVencimiento,
+    bool EstaAbierto,
+    decimal PorcentajeConsumido
+);

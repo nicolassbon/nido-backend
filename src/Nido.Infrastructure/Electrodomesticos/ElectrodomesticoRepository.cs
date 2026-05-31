@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
+using DomainElectrodomesticoCatalogo = Nido.Domain.Electrodomesticos.ElectrodomesticoCatalogo;
+
 
 using DomainElectrodomestico = Nido.Domain.Electrodomesticos.Electrodomestico;
 using PersistenceElectrodomestico = Nido.Infrastructure.Persistence.Entities.Electrodomestico;
@@ -30,7 +33,9 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
             HogarId = electrodomestico.HogarId,
             Nombre = electrodomestico.Nombre,
             Tipo = electrodomestico.Tipo,
-            Estado = electrodomestico.Estado
+            Estado = electrodomestico.Estado,
+            Marca = electrodomestico.Marca,
+            ImagenUrl = electrodomestico.ImagenUrl
         };
 
         _dbContext.Electrodomesticos.Add(entity);
@@ -47,7 +52,16 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
+                    ?? _dbContext.ElectrodomesticosCatalogo
+                        .Where(catalogo =>
+                            (electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value)
+                            || catalogo.Nombre == electrodomestico.Nombre)
+                        .OrderBy(catalogo => electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value ? 0 : 1)
+                        .Select(catalogo => catalogo.ImagenUrl)
+                        .FirstOrDefault()
             ))
             .ToListAsync(cancellationToken);
     }
@@ -62,8 +76,35 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
+                    ?? _dbContext.ElectrodomesticosCatalogo
+                        .Where(catalogo =>
+                            (electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value)
+                            || catalogo.Nombre == electrodomestico.Nombre)
+                        .OrderBy(catalogo => electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value ? 0 : 1)
+                        .Select(catalogo => catalogo.ImagenUrl)
+                        .FirstOrDefault()
             ))
             .ToListAsync(cancellationToken);
     }
+
+public async Task<IReadOnlyList<DomainElectrodomesticoCatalogo>> GetCatalogoAsync(
+    CancellationToken cancellationToken)
+{
+    return await _dbContext.ElectrodomesticosCatalogo
+        .AsNoTracking()
+        .Where(x => x.Activo)
+        .OrderBy(x => x.Orden)
+        .Select(x => new DomainElectrodomesticoCatalogo(
+            x.Id,
+            x.Nombre,
+            x.Tipo,
+            x.Icono,
+            x.ImagenUrl,
+            x.Orden,
+            x.Activo))
+        .ToListAsync(cancellationToken);
+}
 }

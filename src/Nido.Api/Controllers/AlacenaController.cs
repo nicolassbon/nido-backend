@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Application.Alacena;
+using Nido.Application.Common.Security;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/alacena")]
 public sealed class AlacenaController : ControllerBase
 {
@@ -25,27 +28,27 @@ public sealed class AlacenaController : ControllerBase
         _deleteStockItemHandler = deleteStockItemHandler;
     }
 
-    // ── GET api/alacena/productos?hogarId={guid} ───────────────────────────
-    // TODO: hogarId will come from JWT claims (HttpContext.User) once auth is implemented
     [HttpGet("productos")]
-    public async Task<IActionResult> GetProductos([FromQuery] Guid hogarId, CancellationToken ct)
+    public async Task<IActionResult> GetProductos(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
     {
-        var items = await _getStockItemsHandler.Handle(new GetStockItemsQuery(hogarId), ct);
+        var items = await _getStockItemsHandler.Handle(
+            new GetStockItemsQuery(currentUser.HogarId), ct);
 
         return Ok(items.Select(ToResponse));
     }
 
-    // ── POST api/alacena/productos ─────────────────────────────────────────
-    // TODO: HogarId and UsuarioId will come from JWT claims once auth is implemented
     [HttpPost("productos")]
     public async Task<IActionResult> CreateProducto(
         [FromBody] CreateStockItemRequest request,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         var created = await _createStockItemHandler.Handle(
             new CreateStockItemCommand(
-                request.HogarId,
-                request.UsuarioId,
+                currentUser.HogarId,
+                currentUser.UsuarioId,
                 request.Nombre,
                 request.CodigoBarras,
                 request.Imagen,
@@ -56,25 +59,20 @@ public sealed class AlacenaController : ControllerBase
                 request.PorcentajeConsumido),
             ct);
 
-        var response = ToResponse(created);
-        return CreatedAtAction(
-            nameof(GetProductos),
-            new { hogarId = request.HogarId },
-            response);
+        return CreatedAtAction(nameof(GetProductos), ToResponse(created));
     }
 
-    // ── PATCH api/alacena/productos/{id} ──────────────────────────────────
-    // TODO: UsuarioId will come from JWT claims once auth is implemented
     [HttpPatch("productos/{id:guid}")]
     public async Task<IActionResult> UpdateProducto(
         Guid id,
         [FromBody] UpdateStockItemRequest request,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         var updated = await _updateStockItemHandler.Handle(
             new UpdateStockItemCommand(
                 id,
-                request.UsuarioId,
+                currentUser.UsuarioId,
                 request.Cantidad,
                 request.Ubicacion,
                 request.FechaVencimiento,
@@ -87,17 +85,19 @@ public sealed class AlacenaController : ControllerBase
         return Ok(ToResponse(updated));
     }
 
-    // ── DELETE api/alacena/productos/{id} ─────────────────────────────────
     [HttpDelete("productos/{id:guid}")]
-    public async Task<IActionResult> DeleteProducto(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteProducto(
+        Guid id,
+        CancellationToken ct)
     {
-        var deleted = await _deleteStockItemHandler.Handle(new DeleteStockItemCommand(id), ct);
+        var deleted = await _deleteStockItemHandler.Handle(
+            new DeleteStockItemCommand(id), ct);
+
         if (!deleted) return NotFound();
 
         return NoContent();
     }
 
-    // ── Private ───────────────────────────────────────────────────────────
     private static StockItemResponse ToResponse(StockItemResult item) =>
         new(
             item.Id,
