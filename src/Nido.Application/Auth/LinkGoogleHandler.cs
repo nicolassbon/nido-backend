@@ -32,8 +32,8 @@ public sealed class LinkGoogleHandler
             throw new KeyNotFoundException("User not found.");
         }
 
-        var normalizedUserEmail = user.Email.Trim().ToLowerInvariant();
-        var normalizedGoogleEmail = payload.Email.Trim().ToLowerInvariant();
+        var normalizedUserEmail = EmailNormalizer.Normalize(user.Email);
+        var normalizedGoogleEmail = EmailNormalizer.Normalize(payload.Email);
         if (normalizedUserEmail != normalizedGoogleEmail)
         {
             throw new UnauthorizedAccessException("GOOGLE_EMAIL_MISMATCH");
@@ -57,11 +57,13 @@ public sealed class LinkGoogleHandler
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
             ?? throw new InvalidOperationException("User has no associated household.");
 
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(user.Id, hogarId, user.Email);
-        var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
-        var expiresAt = DateTime.UtcNow.AddDays(7);
-
-        await _repository.AddRefreshTokenAsync(user.Id, refreshTokenHash, expiresAt, cancellationToken);
+        var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
+            _jwtTokenService,
+            _repository,
+            user.Id,
+            hogarId,
+            user.Email,
+            cancellationToken);
 
         return new LinkGoogleResult(user.Id, hogarId, accessToken, refreshToken);
     }
