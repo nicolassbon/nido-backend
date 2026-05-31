@@ -41,6 +41,8 @@ builder.Services.AddAlacenaModule();
 builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
 
+
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 

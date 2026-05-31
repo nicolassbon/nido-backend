@@ -1,14 +1,11 @@
-using Nido.Domain.Productos;
-using Nido.Infrastructure.Persistence;
 using Nido.Application.Productos;
+using Nido.Infrastructure.Persistence;
 using ProductoEntity = Nido.Infrastructure.Persistence.Entities.Producto;
 using Microsoft.EntityFrameworkCore;
 
-
-
 namespace Nido.Infrastructure.Productos;
 
-public sealed class ProductRepository : IProductRepository, IProductManualRepository{
+public sealed class ProductRepository : IProductManualRepository{
     private readonly NidoDbContext _db;
 
     public ProductRepository(NidoDbContext db)
@@ -48,21 +45,4 @@ public async Task<IReadOnlyList<GetProductManualResult>> GetManualByHogarAsync(
 }
 
 
-    public async Task SaveAsync(
-        Producto producto,
-        CancellationToken cancellationToken)
-    {
-        var entity = new ProductoEntity
-        {
-            Id = producto.Id,
-            Nombre = producto.Nombre,
-            CodigoBarras = producto.CodigoBarras,
-            ImagenUrl = producto.ImagenUrl,
-            CategoriaId = producto.CategoriaId
-        };
-
-        await _db.Productos.AddAsync(entity, cancellationToken);
-
-        await _db.SaveChangesAsync(cancellationToken);
-    }
 }
