@@ -16,4 +16,6 @@ public interface IInvitacionRepository
     Task MoveUserToHouseholdAsync(Guid usuarioId, Guid fromHogarId, Guid toHogarId, string token, CancellationToken ct);
     Task<List<MiembroInfo>> GetMiembrosAsync(Guid hogarId, CancellationToken ct);
     Task<(string Email, string Nombre)> GetUsuarioInfoAsync(Guid usuarioId, CancellationToken ct);
+    Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct);
+    Task RemoveMiembroAsync(Guid hogarId, Guid targetUsuarioId, CancellationToken ct);
 }

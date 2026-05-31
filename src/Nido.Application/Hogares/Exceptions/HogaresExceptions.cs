@@ -46,3 +46,8 @@ public sealed class NotSoleOwnerException : NidoException
 {
     public NotSoleOwnerException() : base("NOT_SOLE_OWNER", "Ya pertenecés a un hogar con otros miembros. No podés unirte a otro hogar.") { }
 }
+
+public sealed class CannotRemoveSelfException : NidoException
+{
+    public CannotRemoveSelfException() : base("CANNOT_REMOVE_SELF", "No podés eliminarte a vos mismo del hogar.") { }
+}

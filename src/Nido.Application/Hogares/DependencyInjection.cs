@@ -8,7 +8,9 @@ public static class DependencyInjection
     {
         services.AddScoped<InvitarConviventeHandler>();
         services.AddScoped<AceptarInvitacionHandler>();
+        services.AddScoped<GetInvitacionPreviewHandler>();
         services.AddScoped<GetMiembrosHandler>();
+        services.AddScoped<RemoveMiembroHandler>();
         return services;
     }
 }
