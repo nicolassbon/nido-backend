@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -21,13 +22,8 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
     private async Task AuthenticateAsync()
     {
         var email = $"prod-{Guid.NewGuid():N}@test.com";
-        var register = await _client.PostAsJsonAsync("/auth/register", new
-        {
-            nombre = "Test User",
-            email,
-            password = "Password123!",
-            sexo = "U"
-        });
+        using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", body!.AccessToken);
