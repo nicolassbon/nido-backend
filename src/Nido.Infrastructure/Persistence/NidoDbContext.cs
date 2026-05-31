@@ -66,7 +66,7 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<HogarMeta> HogarMetas { get; set; }
 
-    public virtual DbSet<StockHogar> StockHogars { get; set; }
+    public virtual DbSet<Entities.StockHogar> StockHogars { get; set; }
 
     public virtual DbSet<Tarea> Tareas { get; set; }
 
@@ -745,7 +745,7 @@ public partial class NidoDbContext : DbContext
                 .HasConstraintName("hogar_metas_meta_id_fkey");
         });
 
-        modelBuilder.Entity<StockHogar>(entity =>
+        modelBuilder.Entity<Entities.StockHogar>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("stock_hogar_pkey");
 

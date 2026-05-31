@@ -54,7 +54,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             fechaVencimiento = parsed;
         }
 
-        var stock = new StockHogar
+        var stock = new Nido.Infrastructure.Persistence.Entities.StockHogar
         {
             Id = Guid.NewGuid(),
             HogarId = request.HogarId,
@@ -118,7 +118,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
         return true;
     }
 
-    private static StockItemResult ToResult(StockHogar stock, Producto producto)
+    private static StockItemResult ToResult(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Producto producto)
         => new(
             stock.Id,
             stock.ProductoId,

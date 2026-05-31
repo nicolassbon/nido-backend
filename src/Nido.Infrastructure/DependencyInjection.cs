@@ -16,6 +16,9 @@ using Nido.Application.Alacena;
 using Nido.Application.Productos;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
+using Nido.Domain.Productos;
+using Nido.Infrastructure.StockHogar;
+using Nido.Domain.StockHogar;
 
 namespace Nido.Infrastructure;
 
@@ -36,6 +39,8 @@ public static class DependencyInjection
         services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IStockHogarRepository, StockHogarRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();

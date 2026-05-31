@@ -48,6 +48,7 @@ builder.Services.AddScoped<InvitarConviventeHandler>();
 builder.Services.AddScoped<AceptarInvitacionHandler>();
 builder.Services.AddScoped<GetMiembrosHandler>();
 builder.Services.AddScoped<GetProductByBarcodeHandler>();
+builder.Services.AddScoped<CreateProductoHandler>();
 builder.Services.AddScoped<GetStockItemsHandler>();
 builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();
@@ -112,7 +113,6 @@ app.UseCookiePolicy();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.MapGet("/hello", () => Results.Ok(new { message = "Bienvenido a Nido!" }));
