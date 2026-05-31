@@ -36,7 +36,9 @@ public sealed class CreateElectrodomesticoHandler
             command.HogarId,
             command.Nombre,
             command.Tipo,
-            command.Estado
+            command.Estado,
+            command.Marca,
+            command.ImagenUrl
         );
 
         await _repository.SaveAsync(electrodomestico, cancellationToken);
@@ -46,7 +48,9 @@ public sealed class CreateElectrodomesticoHandler
             electrodomestico.HogarId,
             electrodomestico.Nombre,
             electrodomestico.Tipo,
-            electrodomestico.Estado
+            electrodomestico.Estado,
+            electrodomestico.Marca,
+            electrodomestico.ImagenUrl
         );
     }
 }

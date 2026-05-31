@@ -4,5 +4,7 @@ public sealed record CreateElectrodomesticoCommand(
     Guid HogarId,
     string Nombre,
     string? Tipo,
-    string? Estado
+    string? Estado,
+    string? Marca,
+    string? ImagenUrl
 );
