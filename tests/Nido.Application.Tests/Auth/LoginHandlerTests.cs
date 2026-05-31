@@ -1,4 +1,5 @@
 using Nido.Application.Auth;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
@@ -26,19 +27,20 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UserNotFound_ThrowsUnauthorized()
+    public async Task Handle_UserNotFound_ThrowsInvalidCredentials()
     {
         var repo = new FakeAuthRepository();
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             handler.Handle(new LoginCommand("missing@mail.com", "Password1"), CancellationToken.None));
 
+        Assert.Equal("INVALID_CREDENTIALS", ex.Code);
         Assert.Equal("Invalid email or password", ex.Message);
     }
 
     [Fact]
-    public async Task Handle_WrongPassword_ThrowsUnauthorized()
+    public async Task Handle_WrongPassword_ThrowsInvalidCredentials()
     {
         var repo = new FakeAuthRepository
         {
@@ -46,9 +48,10 @@ public sealed class LoginHandlerTests
         };
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", "WrongPassword"), CancellationToken.None));
 
+        Assert.Equal("INVALID_CREDENTIALS", ex.Code);
         Assert.Equal("Invalid email or password", ex.Message);
     }
 
@@ -69,27 +72,46 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmptyEmail_ThrowsArgumentException()
+    public async Task Handle_EmptyEmail_ThrowsLoginCredentialsMissing()
     {
         var repo = new FakeAuthRepository();
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<LoginCredentialsMissingException>(() =>
             handler.Handle(new LoginCommand("", "Password1"), CancellationToken.None));
 
+        Assert.Equal("LOGIN_CREDENTIALS_MISSING", ex.Code);
         Assert.Equal("Email and password are required.", ex.Message);
     }
 
     [Fact]
-    public async Task Handle_EmptyPassword_ThrowsArgumentException()
+    public async Task Handle_EmptyPassword_ThrowsLoginCredentialsMissing()
     {
         var repo = new FakeAuthRepository();
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<LoginCredentialsMissingException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", ""), CancellationToken.None));
 
+        Assert.Equal("LOGIN_CREDENTIALS_MISSING", ex.Code);
         Assert.Equal("Email and password are required.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_NoHousehold_ThrowsUserNotInHousehold()
+    {
+        var repo = new FakeAuthRepository
+        {
+            User = new User(Guid.NewGuid(), "Test", "nico@mail.com", "hashed:Password1", null, null),
+            HogarId = null
+        };
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<UserNotInHouseholdException>(() =>
+            handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None));
+
+        Assert.Equal("USER_NOT_IN_HOUSEHOLD", ex.Code);
+        Assert.Equal("User has no associated household.", ex.Message);
     }
 
     private sealed class FakeAuthRepository : IAuthRepository
@@ -123,7 +145,7 @@ public sealed class LoginHandlerTests
 
         public Task UpdateUserAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult<Guid?>(HogarId ?? Guid.NewGuid());
+        public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult(HogarId);
 
         public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
     }

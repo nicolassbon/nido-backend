@@ -1,3 +1,5 @@
+using Nido.Application.Auth.Exceptions;
+
 namespace Nido.Application.Auth;
 
 public sealed class LoginHandler
@@ -17,7 +19,7 @@ public sealed class LoginHandler
     {
         if (string.IsNullOrWhiteSpace(command.Email) || string.IsNullOrWhiteSpace(command.Password))
         {
-            throw new ArgumentException("Email and password are required.");
+            throw new LoginCredentialsMissingException();
         }
 
         var normalizedEmail = EmailNormalizer.Normalize(command.Email);
@@ -25,7 +27,7 @@ public sealed class LoginHandler
 
         if (user is null)
         {
-            throw new UnauthorizedAccessException("Invalid email or password");
+            throw new InvalidCredentialsException();
         }
 
         if (string.IsNullOrEmpty(user.PasswordHash))
@@ -38,16 +40,16 @@ public sealed class LoginHandler
                     "This account was created with Google. Use Google login or set a password from account linking.");
             }
 
-            throw new UnauthorizedAccessException("Invalid email or password");
+            throw new InvalidCredentialsException();
         }
 
         if (!_passwordHasher.Verify(command.Password, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("Invalid email or password");
+            throw new InvalidCredentialsException();
         }
 
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
-            ?? throw new InvalidOperationException("User has no associated household.");
+            ?? throw new UserNotInHouseholdException();
 
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,

@@ -1,3 +1,5 @@
+using Nido.Application.Hogares.Exceptions;
+
 namespace Nido.Application.Hogares;
 
 public sealed class GetMiembrosHandler
@@ -12,7 +14,7 @@ public sealed class GetMiembrosHandler
     public async Task<List<MiembroInfo>> Handle(GetMiembrosQuery query, CancellationToken ct)
     {
         if (!await _repository.IsUserInAnyHouseholdAsync(query.UsuarioId, ct))
-            throw new UnauthorizedAccessException("El usuario no pertenece a ningún hogar.");
+            throw new NotHouseholdMemberException();
 
         return await _repository.GetMiembrosAsync(query.HogarId, ct);
     }

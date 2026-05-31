@@ -1,3 +1,5 @@
+using Nido.Application.Preferencias.Exceptions;
+
 namespace Nido.Application.Preferencias;
 
 public sealed class GetUserPreferencesHandler
@@ -12,7 +14,7 @@ public sealed class GetUserPreferencesHandler
     public async Task<UserPreferencesResult> Handle(GetUserPreferencesQuery query, CancellationToken ct)
     {
         if (query.UsuarioId == Guid.Empty)
-            throw new ArgumentException("El usuario es requerido.");
+            throw new MissingPreferenceFieldException("usuario");
 
         return await _repository.GetByUsuarioAsync(query.UsuarioId, ct);
     }

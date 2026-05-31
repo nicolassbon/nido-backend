@@ -1,11 +1,8 @@
+using Nido.Domain.Exceptions;
+
 namespace Nido.Application.Auth;
 
-public sealed class AccountLinkRequiredException : Exception
+public sealed class AccountLinkRequiredException : NidoException
 {
-    public string Code { get; }
-
-    public AccountLinkRequiredException(string code, string message) : base(message)
-    {
-        Code = code;
-    }
+    public AccountLinkRequiredException(string code, string message) : base(code, message) { }
 }

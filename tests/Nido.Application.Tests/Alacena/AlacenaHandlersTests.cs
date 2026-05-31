@@ -1,4 +1,5 @@
 using Nido.Application.Alacena;
+using Nido.Application.Alacena.Exceptions;
 
 namespace Nido.Application.Tests.Alacena;
 
@@ -25,12 +26,12 @@ public sealed class AlacenaHandlersTests
     }
 
     [Fact]
-    public async Task Create_WithInvalidDate_ThrowsArgumentException()
+    public async Task Create_WithInvalidDate_ThrowsInvalidStockItemDate()
     {
         var repo = new FakeAlacenaRepository();
         var handler = new CreateStockItemHandler(repo);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<InvalidStockItemDateException>(() =>
             handler.Handle(
                 new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, "Alacena", 1, "no-fecha", false, 0),
                 CancellationToken.None));

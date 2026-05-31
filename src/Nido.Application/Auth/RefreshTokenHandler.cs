@@ -1,3 +1,5 @@
+using Nido.Application.Auth.Exceptions;
+
 namespace Nido.Application.Auth;
 
 public sealed class RefreshTokenHandler
@@ -15,7 +17,7 @@ public sealed class RefreshTokenHandler
     {
         if (string.IsNullOrEmpty(command.RefreshToken))
         {
-            throw new UnauthorizedAccessException("MISSING_REFRESH_TOKEN");
+            throw new InvalidRefreshTokenException("MISSING_REFRESH_TOKEN");
         }
 
         var tokenHash = _jwtTokenService.HashRefreshToken(command.RefreshToken);
@@ -23,14 +25,14 @@ public sealed class RefreshTokenHandler
 
         if (tokenInfo is null)
         {
-            throw new UnauthorizedAccessException("INVALID_REFRESH_TOKEN");
+            throw new InvalidRefreshTokenException("INVALID_REFRESH_TOKEN");
         }
 
         var hogarId = await _repository.GetUserHogarIdAsync(tokenInfo.UsuarioId, cancellationToken)
-            ?? throw new InvalidOperationException("User has no associated household.");
+            ?? throw new UserNotInHouseholdException();
 
         var user = await _repository.FindByIdAsync(tokenInfo.UsuarioId, cancellationToken)
-            ?? throw new InvalidOperationException("User not found.");
+            ?? throw new UserNotFoundException();
 
         var accessToken = _jwtTokenService.CreateToken(tokenInfo.UsuarioId, hogarId, user.Email, user.Nombre);
 

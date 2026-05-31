@@ -107,7 +107,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
         Assert.Equal(409, problem!.Status);
-        Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Detail);
+        Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Title);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
 
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
-        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Detail);
+        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Title);
     }
 
 

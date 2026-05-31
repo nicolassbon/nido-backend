@@ -1,4 +1,5 @@
 using Nido.Application.Preferencias;
+using Nido.Application.Preferencias.Exceptions;
 
 namespace Nido.Application.Tests.Preferencias;
 
@@ -17,12 +18,12 @@ public sealed class PreferenciasHandlersTests
     }
 
     [Fact]
-    public async Task GetPreferencias_WithEmptyUsuarioId_ThrowsArgumentException()
+    public async Task GetPreferencias_WithEmptyUsuarioId_ThrowsMissingPreferenceField()
     {
         var repo = new FakeUserPreferencesRepository();
         var handler = new GetUserPreferencesHandler(repo);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<MissingPreferenceFieldException>(() =>
             handler.Handle(new GetUserPreferencesQuery(Guid.Empty), CancellationToken.None));
     }
 
@@ -39,32 +40,32 @@ public sealed class PreferenciasHandlersTests
     }
 
     [Fact]
-    public async Task UpdatePreferencias_WithEmptyUsuarioId_ThrowsArgumentException()
+    public async Task UpdatePreferencias_WithEmptyUsuarioId_ThrowsMissingPreferenceField()
     {
         var repo = new FakeUserPreferencesRepository();
         var handler = new UpdateUserPreferencesHandler(repo);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<MissingPreferenceFieldException>(() =>
             handler.Handle(new UpdateUserPreferencesCommand(Guid.Empty, 7), CancellationToken.None));
     }
 
     [Fact]
-    public async Task UpdatePreferencias_WithZeroDias_ThrowsArgumentException()
+    public async Task UpdatePreferencias_WithZeroDias_ThrowsInvalidPreferenceRange()
     {
         var repo = new FakeUserPreferencesRepository();
         var handler = new UpdateUserPreferencesHandler(repo);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<InvalidPreferenceRangeException>(() =>
             handler.Handle(new UpdateUserPreferencesCommand(Guid.NewGuid(), 0), CancellationToken.None));
     }
 
     [Fact]
-    public async Task UpdatePreferencias_WithDiasSobreLimiteMaximo_ThrowsArgumentException()
+    public async Task UpdatePreferencias_WithDiasSobreLimiteMaximo_ThrowsInvalidPreferenceRange()
     {
         var repo = new FakeUserPreferencesRepository();
         var handler = new UpdateUserPreferencesHandler(repo);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<InvalidPreferenceRangeException>(() =>
             handler.Handle(new UpdateUserPreferencesCommand(Guid.NewGuid(), 366), CancellationToken.None));
     }
 
