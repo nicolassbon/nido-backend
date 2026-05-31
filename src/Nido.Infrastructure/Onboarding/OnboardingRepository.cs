@@ -56,6 +56,7 @@ public sealed class OnboardingRepository : IOnboardingRepository
             {
                 Id = Guid.NewGuid(),
                 HogarId = hogarId,
+                CatalogoId = equipment.CatalogoId,
                 Nombre = equipment.Nombre,
                 Tipo = equipment.Tipo,
                 Estado = equipment.Estado

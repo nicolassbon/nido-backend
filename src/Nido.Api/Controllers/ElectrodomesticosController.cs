@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Electrodomesticos;
+using Nido.Application.Common.Security;
 using Nido.Application.Electrodomesticos;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("electrodomesticos")]
 public sealed class ElectrodomesticosController : ControllerBase
 {
@@ -41,9 +44,11 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
 }
 
     [HttpGet]
-    public async Task<IActionResult> Get(CancellationToken cancellationToken)
+    public async Task<IActionResult> Get(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
     {
-        var result = await _getHandler.Handle(cancellationToken);
+        var result = await _getHandler.HandleByHogar(currentUser.HogarId, cancellationToken);
 
         var response = result.Select(electrodomestico => new ElectrodomesticoResponse(
             electrodomestico.Id,
@@ -59,8 +64,16 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
     }
 
     [HttpGet("hogar/{hogarId}")]
-    public async Task<IActionResult> GetByHogar(Guid hogarId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetByHogar(
+        Guid hogarId,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
     {
+        if (hogarId != currentUser.HogarId)
+        {
+            return Forbid();
+        }
+
         var result = await _getHandler.HandleByHogar(hogarId, cancellationToken);
 
         var response = result.Select(electrodomestico => new ElectrodomesticoResponse(
@@ -79,14 +92,12 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
     [HttpPost]
     public async Task<IActionResult> Post(
         [FromBody] CreateElectrodomesticoRequest request,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken cancellationToken)
     {
-        if (request.HogarId == Guid.Empty)
+        if (request.HogarId != Guid.Empty && request.HogarId != currentUser.HogarId)
         {
-            return Problem(
-                title: "Invalid household",
-                detail: "HogarId is required.",
-                statusCode: StatusCodes.Status400BadRequest);
+            return Forbid();
         }
 
         if (string.IsNullOrWhiteSpace(request.Nombre))
@@ -101,7 +112,7 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
         {
             var result = await _createHandler.Handle(
                 new CreateElectrodomesticoCommand(
-                    request.HogarId,
+                    currentUser.HogarId,
                     request.Nombre,
                     request.Tipo,
                     request.Estado,
