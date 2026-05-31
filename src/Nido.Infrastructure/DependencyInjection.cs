@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IProductManualRepository, ProductRepository>();
         services.AddScoped<IStockHogarRepository, StockHogarRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();

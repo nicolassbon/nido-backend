@@ -55,6 +55,7 @@ builder.Services.AddScoped<GetStockItemsHandler>();
 builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();
 builder.Services.AddScoped<DeleteStockItemHandler>();
+builder.Services.AddScoped<GetProductManualHandler>();
 builder.Services.AddScoped<GetUserPreferencesHandler>();
 builder.Services.AddScoped<UpdateUserPreferencesHandler>();
 builder.Services.AddHttpContextAccessor();
