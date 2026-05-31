@@ -20,7 +20,6 @@ using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.Preferencias;
-using Nido.Domain.Productos;
 using Nido.Infrastructure.StockHogar;
 using Nido.Domain.StockHogar;
 
@@ -43,7 +42,6 @@ public static class DependencyInjection
         services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
-        services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductManualRepository, ProductRepository>();
         services.AddScoped<IStockHogarRepository, StockHogarRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();

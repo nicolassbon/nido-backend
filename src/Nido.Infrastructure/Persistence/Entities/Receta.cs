@@ -19,12 +19,15 @@ public partial class Receta
 
     public string? FuenteId { get; set; }
 
+    public string? ImagenUrl { get; set; }
+
     public virtual ICollection<InfoNutricionalRecetum> InfoNutricionalReceta { get; set; } = new List<InfoNutricionalRecetum>();
 
     public virtual ICollection<IngredientesRecetum> IngredientesReceta { get; set; } = new List<IngredientesRecetum>();
 
     public virtual ICollection<RecetaElectrodomestico> RecetaElectrodomesticos { get; set; } = new List<RecetaElectrodomestico>();
 
+    public virtual ICollection<PasoReceta> PasosReceta { get; set; } = new List<PasoReceta>();
     public virtual ICollection<RecetasCocinada> RecetasCocinada { get; set; } = new List<RecetasCocinada>();
 
     public virtual ICollection<ReseniasRecetum> ReseniasReceta { get; set; } = new List<ReseniasRecetum>();

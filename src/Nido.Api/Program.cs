@@ -52,7 +52,7 @@ builder.Services.AddScoped<InvitarConviventeHandler>();
 builder.Services.AddScoped<AceptarInvitacionHandler>();
 builder.Services.AddScoped<GetMiembrosHandler>();
 builder.Services.AddScoped<GetProductByBarcodeHandler>();
-builder.Services.AddScoped<CreateProductoHandler>();
+builder.Services.AddScoped<CreateStockHomeHandler>();
 builder.Services.AddScoped<GetStockItemsHandler>();
 builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nido.Infrastructure.Migrations
 {
     [DbContext(typeof(NidoDbContext))]
-    partial class NidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260531200926_AddImagenUrlToRecetas")]
+    partial class AddImagenUrlToRecetas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -789,35 +792,6 @@ namespace Nido.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("onboarding_state", (string)null);
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PasoReceta", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<string>("Descripcion")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("descripcion");
-
-                    b.Property<int>("Orden")
-                        .HasColumnType("integer")
-                        .HasColumnName("orden");
-
-                    b.Property<Guid>("RecetaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("receta_id");
-
-                    b.HasKey("Id")
-                        .HasName("pasos_receta_pkey");
-
-                    b.HasIndex("RecetaId");
-
-                    b.ToTable("pasos_receta", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Producto", b =>
@@ -1597,18 +1571,6 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PasoReceta", b =>
-                {
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
-                        .WithMany("PasosReceta")
-                        .HasForeignKey("RecetaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("pasos_receta_receta_id_fkey");
-
-                    b.Navigation("Receta");
-                });
-
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Producto", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.CategoriasProducto", "Categoria")
@@ -1836,8 +1798,6 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("InfoNutricionalReceta");
 
                     b.Navigation("IngredientesReceta");
-
-                    b.Navigation("PasosReceta");
 
                     b.Navigation("RecetaElectrodomesticos");
 

@@ -1,5 +1,6 @@
 using Nido.Infrastructure.Persistence;
-using Nido.Domain.StockHogar;
+using Nido.Application.Productos;
+
 
 using StockEntity = Nido.Infrastructure.Persistence.Entities.StockHogar;
 using StockDomain = Nido.Domain.StockHogar.StockHogar;
@@ -25,7 +26,7 @@ public sealed class StockHogarRepository : IStockHogarRepository
             HogarId = stockHogar.HogarId,
             ProductoId = stockHogar.ProductoId,
 
-            CantidadActual = stockHogar.Cantidad,
+            CantidadActual = stockHogar.CantidadActual,
             UnidadMedida = stockHogar.UnidadMedida,
 
             CargadoPor = stockHogar.UsuarioIngresoId,
