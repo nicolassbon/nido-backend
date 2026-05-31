@@ -14,6 +14,7 @@ using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
+using Nido.Application.UsuariosPerfil;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -52,6 +53,7 @@ builder.Services.AddScoped<GetStockItemsHandler>();
 builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();
 builder.Services.AddScoped<DeleteStockItemHandler>();
+builder.Services.AddScoped<ActualizarPerfilHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 

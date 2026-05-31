@@ -16,6 +16,8 @@ using Nido.Application.Alacena;
 using Nido.Application.Productos;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
+using Nido.Application.UsuariosPerfil;
+using Nido.Infrastructure.UsuariosPerfil;
 
 namespace Nido.Infrastructure;
 
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
+        services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 
         return services;
     }
