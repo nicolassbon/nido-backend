@@ -45,49 +45,56 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
 
     public async Task<IReadOnlyList<DomainElectrodomestico>> GetAllAsync(CancellationToken cancellationToken)
     {
-        return await _dbContext.Electrodomesticos
+        var electrodomesticos = await _dbContext.Electrodomesticos
             .AsNoTracking()
-            .Select(electrodomestico => new DomainElectrodomestico(
-                electrodomestico.Id,
-                electrodomestico.HogarId,
-                electrodomestico.Nombre,
-                electrodomestico.Tipo,
-                electrodomestico.Estado,
-                electrodomestico.Marca,
-                electrodomestico.ImagenUrl
-                    ?? _dbContext.ElectrodomesticosCatalogo
-                        .Where(catalogo =>
-                            (electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value)
-                            || catalogo.Nombre == electrodomestico.Nombre)
-                        .OrderBy(catalogo => electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value ? 0 : 1)
-                        .Select(catalogo => catalogo.ImagenUrl)
-                        .FirstOrDefault()
-            ))
             .ToListAsync(cancellationToken);
+
+        var catalogo = await _dbContext.ElectrodomesticosCatalogo
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return MapToDomain(electrodomesticos, catalogo);
     }
 
     public async Task<IReadOnlyList<DomainElectrodomestico>> GetByHogarIdAsync(Guid hogarId, CancellationToken cancellationToken)
     {
-        return await _dbContext.Electrodomesticos
+        var electrodomesticos = await _dbContext.Electrodomesticos
             .AsNoTracking()
-            .Where(electrodomestico => electrodomestico.HogarId == hogarId)
-            .Select(electrodomestico => new DomainElectrodomestico(
-                electrodomestico.Id,
-                electrodomestico.HogarId,
-                electrodomestico.Nombre,
-                electrodomestico.Tipo,
-                electrodomestico.Estado,
-                electrodomestico.Marca,
-                electrodomestico.ImagenUrl
-                    ?? _dbContext.ElectrodomesticosCatalogo
-                        .Where(catalogo =>
-                            (electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value)
-                            || catalogo.Nombre == electrodomestico.Nombre)
-                        .OrderBy(catalogo => electrodomestico.CatalogoId.HasValue && catalogo.Id == electrodomestico.CatalogoId.Value ? 0 : 1)
-                        .Select(catalogo => catalogo.ImagenUrl)
-                        .FirstOrDefault()
-            ))
+            .Where(e => e.HogarId == hogarId)
             .ToListAsync(cancellationToken);
+
+        var catalogo = await _dbContext.ElectrodomesticosCatalogo
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return MapToDomain(electrodomesticos, catalogo);
+    }
+
+    private static IReadOnlyList<DomainElectrodomestico> MapToDomain(
+        List<PersistenceElectrodomestico> electrodomesticos,
+        List<Persistence.Entities.ElectrodomesticoCatalogo> catalogo)
+    {
+        var catalogoById = catalogo.ToDictionary(c => c.Id);
+        var catalogoByNombre = catalogo
+            .GroupBy(c => c.Nombre)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        return electrodomesticos
+            .Select(e => new DomainElectrodomestico(
+                e.Id,
+                e.HogarId,
+                e.Nombre,
+                e.Tipo,
+                e.Estado,
+                e.Marca,
+                e.ImagenUrl
+                    ?? (e.CatalogoId.HasValue && catalogoById.TryGetValue(e.CatalogoId.Value, out var byId)
+                        ? byId.ImagenUrl
+                        : null)
+                    ?? (catalogoByNombre.TryGetValue(e.Nombre, out var byNombre)
+                        ? byNombre.ImagenUrl
+                        : null)))
+            .ToList();
     }
 
 public async Task<IReadOnlyList<DomainElectrodomesticoCatalogo>> GetCatalogoAsync(

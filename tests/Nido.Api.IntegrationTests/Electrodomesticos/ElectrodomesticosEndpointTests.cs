@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Nido.Api.IntegrationTests.Auth;
 
 namespace Nido.Api.IntegrationTests.Electrodomesticos;
 
@@ -71,13 +72,8 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
     private async Task<RegisterBody> RegisterAsync(string prefix)
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
-        var response = await _client.PostAsJsonAsync("/auth/register", new
-        {
-            nombre = "Test User",
-            email,
-            password = "Password123!",
-            sexo = "U"
-        });
+        using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
+        var response = await _client.PostAsync("/auth/register", registerContent);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<RegisterBody>();
