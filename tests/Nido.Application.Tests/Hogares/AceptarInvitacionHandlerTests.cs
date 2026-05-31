@@ -146,6 +146,7 @@ public sealed class AceptarInvitacionHandlerTests
         public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "nuevo-jwt";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("nuevo-jwt", "refresh");
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email)
+            => ("nuevo-jwt", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }

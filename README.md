@@ -134,6 +134,7 @@ Move a contract to `Nido.Domain` only when it represents a core domain concept n
 - Use configuration files/environment variables for runtime settings.
 - CORS origins come from `Cors:AllowedOrigins` (default local: `http://localhost:4200`).
 - Database connection comes from `ConnectionStrings__DefaultConnection` (legacy `ConnectionStrings__Nido` still supported as fallback).
+- Profile images CDN is injected via `ProfileImages__PublicBaseUrl` in production. For local development, `http://localhost:8080/uploads` is used by default.
 
 ## Local Development Setup
 

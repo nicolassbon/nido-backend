@@ -26,7 +26,9 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         using (var scope = _factory.Services.CreateScope())
         {
             var authRepository = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var createdUser = await authRepository.CreateUserWithDefaultHouseholdAsync(
+            var createdUser = await authRepository.CreateUserWithPasswordAsync(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
                 "User Test",
                 $"{Guid.NewGuid():N}@test.com",
                 "hash",

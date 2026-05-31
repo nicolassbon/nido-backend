@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Application.Auth;
+using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -17,24 +18,55 @@ public sealed class AuthRepository : IAuthRepository
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken)
         => _dbContext.Usuarios.AnyAsync(x => x.Email == email, cancellationToken);
 
-    public async Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(
+    public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(
+        CreateOAuthUserData data,
+        CancellationToken cancellationToken)
+        => CreateUserInternalAsync(
+            data.UsuarioId, data.HogarId, data.Nombre, data.Email,
+            string.Empty, "U", null,
+            data.OauthProvider, data.OauthId,
+            cancellationToken);
+
+    public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(
+        Guid usuarioId,
+        Guid hogarId,
         string nombre,
         string email,
         string passwordHash,
         string sexo,
-        string? fotoUrl,
-        CancellationToken cancellationToken,
-        string? oauthProvider = null,
-        string? oauthId = null)
+        UserProfileImageMetadata? profileImage,
+        CancellationToken cancellationToken)
+        => CreateUserInternalAsync(
+            usuarioId, hogarId, nombre, email,
+            passwordHash, sexo, profileImage,
+            null, null,
+            cancellationToken);
+
+    private async Task<(Guid UsuarioId, Guid HogarId)> CreateUserInternalAsync(
+        Guid usuarioId,
+        Guid hogarId,
+        string nombre,
+        string email,
+        string passwordHash,
+        string sexo,
+        UserProfileImageMetadata? profileImage,
+        string? oauthProvider,
+        string? oauthId,
+        CancellationToken cancellationToken)
     {
         var usuario = new Usuario
         {
-            Id = Guid.NewGuid(),
+            Id = usuarioId,
             Nombre = nombre,
             Email = email,
             PasswordHash = passwordHash,
             Sexo = sexo,
-            FotoUrl = fotoUrl,
+            FotoUrl = null,
+            FotoStorageKey = profileImage?.StorageKey,
+            FotoContentType = profileImage?.ContentType,
+            FotoWidth = profileImage?.Width,
+            FotoHeight = profileImage?.Height,
+            FotoSizeBytes = profileImage?.Length,
             OauthProvider = oauthProvider,
             OauthId = oauthId,
             CreatedAt = DateTime.UtcNow,
@@ -43,7 +75,7 @@ public sealed class AuthRepository : IAuthRepository
 
         var hogar = new Hogare
         {
-            Id = Guid.NewGuid(),
+            Id = hogarId,
             Nombre = $"Hogar de {nombre}",
             CreatedAt = DateTime.UtcNow
         };
@@ -71,7 +103,16 @@ public sealed class AuthRepository : IAuthRepository
         _dbContext.MiembrosHogars.Add(membership);
         _dbContext.OnboardingStates.Add(state);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("usuarios_email_key", StringComparison.OrdinalIgnoreCase) == true ||
+                                          ex.InnerException?.Message.Contains("UNIQUE constraint failed: Usuarios.Email", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            throw new InvalidOperationException("Email already exists.", ex);
+        }
+
         return (usuario.Id, hogar.Id);
     }
 

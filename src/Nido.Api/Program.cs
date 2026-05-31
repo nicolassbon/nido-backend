@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Nido.Application.Electrodomesticos;
@@ -14,6 +15,7 @@ using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Auth;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -55,22 +57,30 @@ builder.Services.AddScoped<DeleteStockItemHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured");
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "nido-api";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "nido-clients";
+builder.Services
+    .AddOptions<JwtOptions>()
+    .BindConfiguration(JwtOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
     {
+        var jwtOptions = jwtOptionsAccessor.Value;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
+            ValidateIssuer = !string.IsNullOrEmpty(jwtOptions.Issuer),
+            ValidateAudience = !string.IsNullOrEmpty(jwtOptions.Audience),
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
             ClockSkew = TimeSpan.FromMinutes(1)
         };
     });
@@ -107,6 +117,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseCookiePolicy();
 app.UseExceptionHandler();
