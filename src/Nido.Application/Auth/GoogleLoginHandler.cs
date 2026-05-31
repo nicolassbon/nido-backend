@@ -36,12 +36,15 @@ public sealed class GoogleLoginHandler
 
         var (usuarioId, hogarId, isNewUser) = await ResolveLoginDataAsync(user, payload, normalizedEmail, cancellationToken);
 
+        var nombre = user?.Nombre ?? normalizedEmail.Split('@')[0];
+
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,
             _repository,
             usuarioId,
             hogarId,
             user?.Email ?? normalizedEmail,
+            nombre,
             cancellationToken);
 
         return new GoogleLoginResult(usuarioId, hogarId, accessToken, isNewUser, refreshToken);

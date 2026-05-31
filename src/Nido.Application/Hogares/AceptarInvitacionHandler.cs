@@ -45,8 +45,8 @@ public sealed class AceptarInvitacionHandler
 
         await _repository.MoveUserToHouseholdAsync(command.UsuarioId, currentHogarId, invitacion.HogarId, command.Token, ct);
 
-        var (email, _) = await _repository.GetUsuarioInfoAsync(command.UsuarioId, ct);
-        var nuevoToken = _jwtTokenService.CreateToken(command.UsuarioId, invitacion.HogarId, email);
+        var (email, nombre) = await _repository.GetUsuarioInfoAsync(command.UsuarioId, ct);
+        var nuevoToken = _jwtTokenService.CreateToken(command.UsuarioId, invitacion.HogarId, email, nombre);
 
         return new AceptarInvitacionResult(invitacion.HogarId, invitacion.HogarNombre, nuevoToken);
     }

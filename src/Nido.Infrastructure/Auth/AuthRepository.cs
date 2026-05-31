@@ -122,7 +122,7 @@ public sealed class AuthRepository : IAuthRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
         if (usuario is null) return null;
-        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+        return new User(usuario.Id, usuario.Nombre, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
     }
 
     public async Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken)
@@ -131,7 +131,7 @@ public sealed class AuthRepository : IAuthRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.OauthProvider == "google" && x.OauthId == googleId, cancellationToken);
         if (usuario is null) return null;
-        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+        return new User(usuario.Id, usuario.Nombre, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
     }
 
     public async Task AddRefreshTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken)
@@ -194,6 +194,6 @@ public sealed class AuthRepository : IAuthRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (usuario is null) return null;
-        return new User(usuario.Id, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+        return new User(usuario.Id, usuario.Nombre, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
     }
 }

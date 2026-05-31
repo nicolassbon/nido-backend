@@ -12,7 +12,7 @@ public sealed class LinkGoogleHandlerTests
         var hogarId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null),
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
             HogarId = hogarId
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
@@ -44,7 +44,7 @@ public sealed class LinkGoogleHandlerTests
         var userId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "nico@mail.com", "hashed:Password1", "google", "google-id-123")
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", "google", "google-id-123")
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
@@ -61,7 +61,7 @@ public sealed class LinkGoogleHandlerTests
         var userId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null)
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null)
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("other@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
@@ -78,8 +78,8 @@ public sealed class LinkGoogleHandlerTests
         var userId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null),
-            GoogleUser = new User(Guid.NewGuid(), "other@mail.com", null, "google", "google-id-123")
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
+            GoogleUser = new User(Guid.NewGuid(), "Test", "other@mail.com", null, "google", "google-id-123")
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
@@ -96,7 +96,7 @@ public sealed class LinkGoogleHandlerTests
         var userId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "NICO@MAIL.COM", "hashed:Password1", null, null)
+            User = new User(userId, "Test", "NICO@MAIL.COM", "hashed:Password1", null, null)
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload(" nico@mail.com ", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
@@ -179,10 +179,10 @@ public sealed class LinkGoogleHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email)
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
             => ("token", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }

@@ -55,6 +55,7 @@ public sealed class LoginHandler
             user.Id,
             hogarId,
             normalizedEmail,
+            user.Nombre,
             cancellationToken);
 
         return new LoginResult(user.Id, hogarId, accessToken, refreshToken);

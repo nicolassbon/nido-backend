@@ -109,7 +109,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
             invitedState.Step2Skipped = false;
 
             await db.SaveChangesAsync();
-            invitedToken = tokenService.CreateToken(invited.UsuarioId, owner.HogarId, "guest@test.com");
+            invitedToken = tokenService.CreateToken(invited.UsuarioId, owner.HogarId, "guest@test.com", "Test");
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", invitedToken);

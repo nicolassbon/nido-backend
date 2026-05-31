@@ -62,6 +62,7 @@ public sealed class RegisterUserHandler
             registration.UsuarioId,
             registration.HogarId,
             normalizedEmail,
+            command.Nombre,
             cancellationToken);
 
         return new RegisterUserResult(registration.UsuarioId, registration.HogarId, accessToken, refreshToken);
@@ -110,6 +111,7 @@ public sealed class RegisterUserHandler
             existingUser.Id,
             hogarId,
             normalizedEmail,
+            existingUser.Nombre,
             cancellationToken);
 
         return new RegisterUserResult(existingUser.Id, hogarId, accessToken, refreshToken);

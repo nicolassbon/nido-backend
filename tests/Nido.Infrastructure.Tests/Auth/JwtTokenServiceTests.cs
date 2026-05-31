@@ -47,7 +47,7 @@ public sealed class JwtTokenServiceTests
         var usuarioId = Guid.NewGuid();
         var hogarId = Guid.NewGuid();
 
-        var (accessToken, refreshToken, refreshTokenExpiresAt) = service.CreateAuthTokens(usuarioId, hogarId, "test@mail.com");
+        var (accessToken, refreshToken, refreshTokenExpiresAt) = service.CreateAuthTokens(usuarioId, hogarId, "test@mail.com", "Test");
 
         Assert.False(string.IsNullOrWhiteSpace(accessToken));
         Assert.False(string.IsNullOrWhiteSpace(refreshToken));
@@ -70,7 +70,7 @@ public sealed class JwtTokenServiceTests
         var usuarioId = Guid.NewGuid();
         var hogarId = Guid.NewGuid();
 
-        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com");
+        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com", "Test");
 
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(token);

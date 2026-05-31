@@ -51,7 +51,7 @@ public sealed class LinkGoogleHandler
         }
 
         await _repository.UpdateUserAsync(
-            new User(user.Id, user.Email, user.PasswordHash, "google", payload.GoogleId),
+            new User(user.Id, user.Nombre, user.Email, user.PasswordHash, "google", payload.GoogleId),
             cancellationToken);
 
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
@@ -63,6 +63,7 @@ public sealed class LinkGoogleHandler
             user.Id,
             hogarId,
             user.Email,
+            user.Nombre,
             cancellationToken);
 
         return new LinkGoogleResult(user.Id, hogarId, accessToken, refreshToken);

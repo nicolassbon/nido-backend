@@ -18,7 +18,7 @@ public sealed class JwtTokenService : IJwtTokenService
         _jwtOptions = jwtOptions.Value;
     }
 
-    public string CreateToken(Guid usuarioId, Guid hogarId, string email)
+    public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre)
     {
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key)),
@@ -30,7 +30,8 @@ public sealed class JwtTokenService : IJwtTokenService
             new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()),
             new Claim(Application.Common.Security.ClaimTypes.UsuarioId, usuarioId.ToString()),
             new Claim(Application.Common.Security.ClaimTypes.HogarId, hogarId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, email)
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim(Application.Common.Security.ClaimTypes.Nombre, nombre)
         };
 
         var token = new JwtSecurityToken(
@@ -44,9 +45,9 @@ public sealed class JwtTokenService : IJwtTokenService
     }
 
     public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(
-        Guid usuarioId, Guid hogarId, string email)
+        Guid usuarioId, Guid hogarId, string email, string nombre)
     {
-        var accessToken = CreateToken(usuarioId, hogarId, email);
+        var accessToken = CreateToken(usuarioId, hogarId, email, nombre);
         var refreshToken = GenerateRefreshToken();
         var expiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenExpiryDays);
         return (accessToken, refreshToken, expiresAt);

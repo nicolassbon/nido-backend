@@ -8,9 +8,10 @@ public static class AuthTokenHelper
         Guid usuarioId,
         Guid hogarId,
         string email,
+        string nombre,
         CancellationToken cancellationToken)
     {
-        var (accessToken, refreshToken, expiresAt) = jwtTokenService.CreateAuthTokens(usuarioId, hogarId, email);
+        var (accessToken, refreshToken, expiresAt) = jwtTokenService.CreateAuthTokens(usuarioId, hogarId, email, nombre);
         var refreshTokenHash = jwtTokenService.HashRefreshToken(refreshToken);
 
         await repository.AddRefreshTokenAsync(usuarioId, refreshTokenHash, expiresAt, cancellationToken);

@@ -74,10 +74,10 @@ public sealed class LogoutHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email)
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
             => ("token", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }
