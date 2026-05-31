@@ -40,6 +40,17 @@ public sealed class HogaresController : ControllerBase
         return Ok(new AceptarInvitacionResponse(result.HogarId, result.HogarNombre, result.NuevoToken));
     }
 
+    [AllowAnonymous]
+    [HttpGet("invitaciones/{token}")]
+    public async Task<IActionResult> GetInvitacionPreview(
+        [FromRoute] string token,
+        [FromServices] GetInvitacionPreviewHandler handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(token, cancellationToken);
+        return Ok(new InvitacionPreviewResponse(result.HogarNombre, result.EmailInvitado, result.ExpiraEn));
+    }
+
     [HttpGet("miembros")]
     public async Task<IActionResult> GetMiembros(
         [FromServices] GetMiembrosHandler handler,
@@ -52,5 +63,20 @@ public sealed class HogaresController : ControllerBase
 
         var response = miembros.Select(m => new MiembroResponse(m.UsuarioId, m.Nombre, m.Email, m.Rol, m.FotoUrl));
         return Ok(response);
+    }
+
+    [HttpDelete("miembros/{usuarioId:guid}")]
+    public async Task<IActionResult> RemoveMiembro(
+        [FromRoute] Guid usuarioId,
+        [FromServices] RemoveMiembroHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        await handler.Handle(new RemoveMiembroCommand(
+            currentUser.UsuarioId,
+            currentUser.HogarId,
+            usuarioId), cancellationToken);
+
+        return NoContent();
     }
 }
