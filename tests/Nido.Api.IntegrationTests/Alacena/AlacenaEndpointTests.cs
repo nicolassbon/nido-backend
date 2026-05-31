@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Nido.Api.IntegrationTests.Auth;
 
 namespace Nido.Api.IntegrationTests.Alacena;
 
@@ -17,13 +18,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     public async Task CrudProductoStock_PreservesHttpContract()
     {
         var email = $"alacena-{Guid.NewGuid():N}@test.com";
-        var register = await _client.PostAsJsonAsync("/auth/register", new
-        {
-            nombre = "Test User",
-            email,
-            password = "Password123!",
-            sexo = "U"
-        });
+        using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var regBody = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", regBody!.AccessToken);
