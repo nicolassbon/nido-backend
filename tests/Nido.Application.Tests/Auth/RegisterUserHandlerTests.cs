@@ -1,4 +1,9 @@
+using Nido.Application.Auth.Register;
+using Nido.Application.Auth.Register;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 using Microsoft.Extensions.Logging.Abstractions;

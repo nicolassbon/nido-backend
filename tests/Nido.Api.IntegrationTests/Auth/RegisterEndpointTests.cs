@@ -1,3 +1,4 @@
+using Nido.Application.Auth.Register;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http;
@@ -9,6 +10,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Security;
 using Nido.Infrastructure.Persistence;

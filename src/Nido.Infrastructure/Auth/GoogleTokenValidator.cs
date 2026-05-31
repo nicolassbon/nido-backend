@@ -1,6 +1,7 @@
 using Google.Apis.Auth;
 using Microsoft.Extensions.Options;
-using Nido.Application.Auth;
+using Nido.Application.Auth.Google.Login;
+using Nido.Application.Auth.Interfaces;
 
 namespace Nido.Infrastructure.Auth;
 

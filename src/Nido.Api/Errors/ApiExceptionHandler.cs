@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Application.Alacena.Exceptions;
-using Nido.Application.Auth;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Electrodomesticos.Exceptions;
 using Nido.Application.Hogares.Exceptions;

@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using Nido.Application.Auth;
+using Nido.Application.Auth.Register;
 using Nido.Application.Common.ProfileImages;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;

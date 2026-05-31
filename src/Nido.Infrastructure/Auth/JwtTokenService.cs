@@ -5,7 +5,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Nido.Application.Auth;
+using Nido.Application.Auth.Interfaces;
 
 namespace Nido.Infrastructure.Auth;
 

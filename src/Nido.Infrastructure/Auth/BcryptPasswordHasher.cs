@@ -1,4 +1,4 @@
-using Nido.Application.Auth;
+using Nido.Application.Auth.Interfaces;
 
 namespace Nido.Infrastructure.Auth;
 
