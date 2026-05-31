@@ -32,7 +32,7 @@ public sealed class RefreshTokenHandler
         var user = await _repository.FindByIdAsync(tokenInfo.UsuarioId, cancellationToken)
             ?? throw new InvalidOperationException("User not found.");
 
-        var accessToken = _jwtTokenService.CreateToken(tokenInfo.UsuarioId, hogarId, user.Email);
+        var accessToken = _jwtTokenService.CreateToken(tokenInfo.UsuarioId, hogarId, user.Email, user.Nombre);
 
         return new RefreshTokenResult(accessToken);
     }

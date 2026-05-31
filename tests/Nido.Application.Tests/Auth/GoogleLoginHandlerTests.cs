@@ -28,7 +28,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("existing@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "existing@gmail.com", null, "google", "google-id-1"),
+            User = new User(userId, "Test", "existing@gmail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
@@ -48,7 +48,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("new-email@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository
         {
-            GoogleUser = new User(userId, "old-email@gmail.com", null, "google", "google-id-1"),
+            GoogleUser = new User(userId, "Test", "old-email@gmail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
@@ -65,7 +65,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("existing@gmail.com", "google-id-new");
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "existing@gmail.com", null, "google", "google-id-existing")
+            User = new User(Guid.NewGuid(), "Test", "existing@gmail.com", null, "google", "google-id-existing")
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
@@ -81,7 +81,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("user@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "user@gmail.com", "hashed:Password1", null, null)
+            User = new User(Guid.NewGuid(), "Test", "user@gmail.com", "hashed:Password1", null, null)
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
@@ -171,9 +171,9 @@ public sealed class GoogleLoginHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
+        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre) => ("token", "refresh");
     }
 }

@@ -5,7 +5,5 @@ public sealed record UpdateStockItemRequest(
     string? Ubicacion,
     string? FechaVencimiento,
     bool? EstaAbierto,
-    decimal? PorcentajeConsumido,
-    // TODO: extract from JWT claims once auth is implemented
-    Guid UsuarioId
+    decimal? PorcentajeConsumido
 );

@@ -21,7 +21,9 @@ public sealed class GetElectrodomesticosHandler
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
             ))
             .ToList();
     }
@@ -36,7 +38,9 @@ public sealed class GetElectrodomesticosHandler
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
             ))
             .ToList();
     }

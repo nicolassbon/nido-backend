@@ -202,7 +202,7 @@ public sealed class AuthRepositoryTests : IDisposable
         _dbContext.Usuarios.Add(usuario);
         await _dbContext.SaveChangesAsync();
 
-        var user = new User(usuario.Id, "update@mail.com", "newpasswordhash", null, null);
+        var user = new User(usuario.Id, "Test", "update@mail.com", "newpasswordhash", null, null);
         await _repository.UpdateUserAsync(user, CancellationToken.None);
 
         var updated = await _dbContext.Usuarios.FindAsync(usuario.Id);

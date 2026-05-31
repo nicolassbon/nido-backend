@@ -23,7 +23,7 @@ public sealed class RegisterUserHandlerTests
     {
         var repo = new FakeAuthRepository
         {
-            ExistingUser = new User(Guid.NewGuid(), "nico@mail.com", "hashed:Old", null, null)
+            ExistingUser = new User(Guid.NewGuid(), "Test", "nico@mail.com", "hashed:Old", null, null)
         };
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt());
 
@@ -38,7 +38,7 @@ public sealed class RegisterUserHandlerTests
         var hogarId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            ExistingUser = new User(userId, "nico@mail.com", null, "google", "google-id-1"),
+            ExistingUser = new User(userId, "Test", "nico@mail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt());
@@ -59,7 +59,7 @@ public sealed class RegisterUserHandlerTests
     {
         var repo = new FakeAuthRepository
         {
-            ExistingUser = new User(Guid.NewGuid(), "nico@mail.com", null, "google", "google-id-1")
+            ExistingUser = new User(Guid.NewGuid(), "Test", "nico@mail.com", null, "google", "google-id-1")
         };
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt());
 
@@ -118,9 +118,9 @@ public sealed class RegisterUserHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
+        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre) => ("token", "refresh");
     }
 }

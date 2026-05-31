@@ -14,8 +14,10 @@ using Nido.Infrastructure.Hogares;
 using Nido.Infrastructure.Email;
 using Nido.Application.Alacena;
 using Nido.Application.Productos;
+using Nido.Application.Preferencias;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
+using Nido.Infrastructure.Preferencias;
 using Nido.Domain.Productos;
 using Nido.Infrastructure.StockHogar;
 using Nido.Domain.StockHogar;
@@ -48,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
+        services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
 
         return services;
     }

@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
+using DomainElectrodomesticoCatalogo = Nido.Domain.Electrodomesticos.ElectrodomesticoCatalogo;
+
 
 using DomainElectrodomestico = Nido.Domain.Electrodomesticos.Electrodomestico;
 using PersistenceElectrodomestico = Nido.Infrastructure.Persistence.Entities.Electrodomestico;
@@ -47,7 +50,9 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
             ))
             .ToListAsync(cancellationToken);
     }
@@ -62,8 +67,28 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 electrodomestico.HogarId,
                 electrodomestico.Nombre,
                 electrodomestico.Tipo,
-                electrodomestico.Estado
+                electrodomestico.Estado,
+                electrodomestico.Marca,
+                electrodomestico.ImagenUrl
             ))
             .ToListAsync(cancellationToken);
     }
+
+public async Task<IReadOnlyList<DomainElectrodomesticoCatalogo>> GetCatalogoAsync(
+    CancellationToken cancellationToken)
+{
+    return await _dbContext.ElectrodomesticosCatalogo
+        .AsNoTracking()
+        .Where(x => x.Activo)
+        .OrderBy(x => x.Orden)
+        .Select(x => new DomainElectrodomesticoCatalogo(
+            x.Id,
+            x.Nombre,
+            x.Tipo,
+            x.Icono,
+            x.ImagenUrl,
+            x.Orden,
+            x.Activo))
+        .ToListAsync(cancellationToken);
+}
 }

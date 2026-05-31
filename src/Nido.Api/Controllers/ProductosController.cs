@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Api.Contracts.Productos;
@@ -6,6 +7,7 @@ using Nido.Application.Productos;
 namespace Nido.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/productos")]
 public sealed class ProductoController : ControllerBase
 {

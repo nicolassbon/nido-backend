@@ -1,42 +1,32 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Nido.Application.Auth;
-using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Alacena;
 
 public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
 {
     private readonly HttpClient _client;
-    private readonly NidoTestWebAppFactory _factory;
 
     public AlacenaEndpointTests(NidoTestWebAppFactory factory)
     {
-        _factory = factory;
         _client = factory.CreateClient();
     }
 
     [Fact]
     public async Task CrudProductoStock_PreservesHttpContract()
     {
-        Guid hogarId;
-        Guid usuarioId;
-
-        using (var scope = _factory.Services.CreateScope())
+        var email = $"alacena-{Guid.NewGuid():N}@test.com";
+        var register = await _client.PostAsJsonAsync("/auth/register", new
         {
-            var authRepository = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var createdUser = await authRepository.CreateUserWithDefaultHouseholdAsync(
-                "User Test",
-                $"{Guid.NewGuid():N}@test.com",
-                "hash",
-                "U",
-                null,
-                CancellationToken.None);
-
-            usuarioId = createdUser.UsuarioId;
-            hogarId = createdUser.HogarId;
-        }
+            nombre = "Test User",
+            email,
+            password = "Password123!",
+            sexo = "U"
+        });
+        var regBody = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", regBody!.AccessToken);
 
         var createResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
         {
@@ -47,16 +37,14 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
             cantidad = 1,
             fechaVencimiento = "2026-12-01",
             estaAbierto = false,
-            porcentajeConsumido = 0,
-            hogarId,
-            usuarioId
+            porcentajeConsumido = 0
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(created);
 
-        var listResponse = await _client.GetAsync($"/api/alacena/productos?hogarId={hogarId}");
+        var listResponse = await _client.GetAsync("/api/alacena/productos");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var list = await listResponse.Content.ReadFromJsonAsync<List<StockItemBody>>();
         Assert.NotNull(list);
@@ -68,8 +56,7 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
             ubicacion = "Heladera",
             fechaVencimiento = "2026-12-02",
             estaAbierto = true,
-            porcentajeConsumido = 25,
-            usuarioId
+            porcentajeConsumido = 25
         });
         Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
 
@@ -77,5 +64,6 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
 
+    private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido);
 }

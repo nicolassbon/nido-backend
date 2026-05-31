@@ -6,10 +6,7 @@ public sealed record CreateStockItemRequest(
     string? Imagen,
     string Ubicacion,
     decimal Cantidad,
-    string? FechaVencimiento,       // ISO yyyy-MM-dd or null
+    string? FechaVencimiento,
     bool EstaAbierto,
-    decimal PorcentajeConsumido,
-    // TODO: remove these two fields and extract from JWT claims once auth is implemented
-    Guid HogarId,
-    Guid UsuarioId
+    decimal PorcentajeConsumido
 );

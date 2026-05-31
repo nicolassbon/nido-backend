@@ -18,7 +18,7 @@ public sealed class JwtTokenService : IJwtTokenService
         _configuration = configuration;
     }
 
-    public string CreateToken(Guid usuarioId, Guid hogarId, string email)
+    public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre)
     {
         var key = _configuration["Jwt:Key"];
         if (string.IsNullOrWhiteSpace(key))
@@ -39,7 +39,8 @@ public sealed class JwtTokenService : IJwtTokenService
             new Claim(System.Security.Claims.ClaimTypes.NameIdentifier, usuarioId.ToString()),
             new Claim(Application.Common.Security.ClaimTypes.UsuarioId, usuarioId.ToString()),
             new Claim(Application.Common.Security.ClaimTypes.HogarId, hogarId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, email)
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim(Application.Common.Security.ClaimTypes.Nombre, nombre)
         };
 
         var token = new JwtSecurityToken(
@@ -66,9 +67,9 @@ public sealed class JwtTokenService : IJwtTokenService
         return Convert.ToHexString(hash);
     }
 
-    public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email)
+    public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
     {
-        var accessToken = CreateToken(usuarioId, hogarId, email);
+        var accessToken = CreateToken(usuarioId, hogarId, email, nombre);
         var refreshToken = GenerateRefreshToken();
         return (accessToken, refreshToken);
     }

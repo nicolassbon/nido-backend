@@ -49,7 +49,7 @@ public sealed class LoginHandler
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
             ?? throw new InvalidOperationException("User has no associated household.");
 
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(user.Id, hogarId, normalizedEmail);
+        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(user.Id, hogarId, normalizedEmail, user.Nombre);
         var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
         var expiresAt = DateTime.UtcNow.AddDays(7);
 
