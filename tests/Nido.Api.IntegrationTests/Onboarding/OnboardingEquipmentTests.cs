@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Onboarding;
@@ -21,10 +22,12 @@ public sealed class OnboardingEquipmentTests : IClassFixture<NidoTestWebAppFacto
     [Fact]
     public async Task SaveEquipment_WhenTwoHouseholdsSubmitEquipment_StoresDataIsolatedPerHousehold()
     {
-        var registerA = await _client.PostAsJsonAsync("/auth/register", new { nombre = "User A", email = "equip-a@test.com", password = "Password123!", sexo = "F" });
+        using var registerAContent = RegisterMultipartRequest.Create("User A", "equip-a@test.com", "Password123!", "F");
+        var registerA = await _client.PostAsync("/auth/register", registerAContent);
         var userA = await registerA.Content.ReadFromJsonAsync<RegisterBody>();
 
-        var registerB = await _client.PostAsJsonAsync("/auth/register", new { nombre = "User B", email = "equip-b@test.com", password = "Password123!", sexo = "M" });
+        using var registerBContent = RegisterMultipartRequest.Create("User B", "equip-b@test.com", "Password123!", "M");
+        var registerB = await _client.PostAsync("/auth/register", registerBContent);
         var userB = await registerB.Content.ReadFromJsonAsync<RegisterBody>();
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userA!.AccessToken);

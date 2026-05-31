@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Nido.Application.Auth;
+using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests;
@@ -18,6 +21,16 @@ namespace Nido.Api.IntegrationTests;
 public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly Action<IServiceCollection>? _configureStorage;
+
+    public NidoTestWebAppFactory()
+    {
+    }
+
+    private NidoTestWebAppFactory(Action<IServiceCollection>? configureStorage)
+    {
+        _configureStorage = configureStorage;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -44,7 +57,11 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 ["Jwt:Key"] = "integration-test-jwt-key-minimum-32-bytes-long!!",
                 ["Jwt:Issuer"] = "nido-api-tests",
                 ["Jwt:Audience"] = "nido-clients-tests",
-                ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com"
+                ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com",
+                ["ProfileImages:MaxBytes"] = "5242880",
+                ["ProfileImages:MaxDimension"] = "512",
+                ["ProfileImages:WebpQuality"] = "80",
+                ["ProfileImages:PublicBaseUrl"] = "https://cdn.test.local"
             });
         });
 
@@ -74,8 +91,19 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 options.UseSqlite(_connection)
                        .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
             // Schema is created by MigrateAsync() in Program.cs startup.
+
+            _configureStorage?.Invoke(services);
         });
     }
+
+    public static void ReplaceProfileImageStorage(IServiceCollection services, IProfileImageStorage storage)
+    {
+        services.RemoveAll<IProfileImageStorage>();
+        services.AddSingleton(storage);
+    }
+
+    public NidoTestWebAppFactory WithStorageOverride(Action<IServiceCollection> configureStorage)
+        => new(configureStorage);
 
     protected override void Dispose(bool disposing)
     {

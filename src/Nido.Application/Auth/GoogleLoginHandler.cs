@@ -6,6 +6,7 @@ public sealed class GoogleLoginHandler
     private readonly IGoogleTokenValidator _googleTokenValidator;
     private readonly IJwtTokenService _jwtTokenService;
 
+
     public GoogleLoginHandler(
         IAuthRepository repository,
         IGoogleTokenValidator googleTokenValidator,
@@ -23,67 +24,82 @@ public sealed class GoogleLoginHandler
         {
             payload = await _googleTokenValidator.ValidateAsync(command.IdToken, cancellationToken);
         }
-        catch
+        catch (Exception)
         {
             throw new UnauthorizedAccessException("INVALID_GOOGLE_TOKEN");
         }
 
-        var normalizedEmail = payload.Email.Trim().ToLowerInvariant();
-        var user = await _repository.FindByGoogleIdAsync(payload.GoogleId, cancellationToken);
+        var normalizedEmail = EmailNormalizer.Normalize(payload.Email);
 
-        if (user is null)
-        {
-            user = await _repository.FindByEmailAsync(normalizedEmail, cancellationToken);
+        var user = await ResolveUserAsync(payload, normalizedEmail, cancellationToken);
+        ValidateAccountLinkingConflict(user);
 
-            if (user is not null
-                && string.Equals(user.OauthProvider, "google", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrEmpty(user.OauthId)
-                && user.OauthId != payload.GoogleId)
-            {
-                throw new UnauthorizedAccessException("GOOGLE_ACCOUNT_MISMATCH");
-            }
-        }
+        var (usuarioId, hogarId, isNewUser) = await ResolveLoginDataAsync(user, payload, normalizedEmail, cancellationToken);
 
-        if (user is not null && !string.IsNullOrEmpty(user.PasswordHash) && string.IsNullOrEmpty(user.OauthId))
-        {
-            throw new AccountLinkRequiredException("ACCOUNT_EXISTS_WITH_PASSWORD", "This account uses password. Link Google from settings or use password login.");
-        }
+        var nombre = user?.Nombre ?? normalizedEmail.Split('@')[0];
 
-        bool isNewUser;
-        Guid usuarioId;
-        Guid hogarId;
-
-        if (user is null)
-        {
-            var (newUsuarioId, newHogarId) = await _repository.CreateUserWithDefaultHouseholdAsync(
-                normalizedEmail.Split('@')[0],
-                normalizedEmail,
-                string.Empty,
-                "U",
-                null,
-                cancellationToken,
-                oauthProvider: "google",
-                oauthId: payload.GoogleId);
-
-            usuarioId = newUsuarioId;
-            hogarId = newHogarId;
-            isNewUser = true;
-        }
-        else
-        {
-            usuarioId = user.Id;
-            hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
-                ?? throw new InvalidOperationException("User has no associated household.");
-            isNewUser = false;
-        }
-
-        var nombreFinal = user?.Nombre ?? normalizedEmail.Split('@')[0];
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(usuarioId, hogarId, user?.Email ?? normalizedEmail, nombreFinal);
-        var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
-        var expiresAt = DateTime.UtcNow.AddDays(7);
-
-        await _repository.AddRefreshTokenAsync(usuarioId, refreshTokenHash, expiresAt, cancellationToken);
+        var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
+            _jwtTokenService,
+            _repository,
+            usuarioId,
+            hogarId,
+            user?.Email ?? normalizedEmail,
+            nombre,
+            cancellationToken);
 
         return new GoogleLoginResult(usuarioId, hogarId, accessToken, isNewUser, refreshToken);
     }
+
+    private async Task<User?> ResolveUserAsync(GooglePayload payload, string normalizedEmail, CancellationToken cancellationToken)
+    {
+        var user = await _repository.FindByGoogleIdAsync(payload.GoogleId, cancellationToken);
+        if (user is not null) return user;
+
+        user = await _repository.FindByEmailAsync(normalizedEmail, cancellationToken);
+
+        if (user is not null
+            && string.Equals(user.OauthProvider, "google", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrEmpty(user.OauthId)
+            && user.OauthId != payload.GoogleId)
+        {
+            throw new UnauthorizedAccessException("GOOGLE_ACCOUNT_MISMATCH");
+        }
+
+        return user;
+    }
+
+    private static void ValidateAccountLinkingConflict(User? user)
+    {
+        if (user is not null && !string.IsNullOrEmpty(user.PasswordHash) && string.IsNullOrEmpty(user.OauthId))
+        {
+            // TODO: Send email to user with instructions to link their Google account from settings
+            throw new AccountLinkRequiredException(
+                "ACCOUNT_EXISTS_WITH_PASSWORD",
+                "This account uses password. Link Google from settings or use password login.");
+        }
+    }
+
+    private async Task<(Guid UsuarioId, Guid HogarId, bool IsNewUser)> ResolveLoginDataAsync(
+        User? user, GooglePayload payload, string normalizedEmail, CancellationToken cancellationToken)
+    {
+        if (user is null)
+        {
+            var newUserData = new CreateOAuthUserData(
+                UsuarioId: Guid.NewGuid(),
+                HogarId: Guid.NewGuid(),
+                Nombre: normalizedEmail.Split('@')[0],
+                Email: normalizedEmail,
+                OauthProvider: "google",
+                OauthId: payload.GoogleId);
+
+            var (newUsuarioId, newHogarId) = await _repository.CreateUserWithGoogleAsync(newUserData, cancellationToken);
+            return (newUsuarioId, newHogarId, IsNewUser: true);
+        }
+
+        var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
+            ?? throw new InvalidOperationException("User has no associated household.");
+
+        return (user.Id, hogarId, IsNewUser: false);
+    }
+
 }

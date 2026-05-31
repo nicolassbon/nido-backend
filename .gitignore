@@ -7,3 +7,6 @@ openspec/
 .atl/
 .claude/
 context.md
+
+# Ignore uploaded files in development
+src/Nido.Api/wwwroot/uploads/*

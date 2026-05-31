@@ -44,14 +44,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-            var (userId, _) = await repo.CreateUserWithDefaultHouseholdAsync("Google User", email, "", "U", null, CancellationToken.None);
-
-            var user = await db.Usuarios.FindAsync(userId);
-            user!.PasswordHash = null;
-            user.OauthProvider = "google";
-            user.OauthId = "google-456";
-            await db.SaveChangesAsync();
+            var (userId, _) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-456"), CancellationToken.None);
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-456"));
@@ -88,7 +81,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Password User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Password User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-789"));
@@ -110,9 +103,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            await repo.CreateUserWithDefaultHouseholdAsync(
-                "Google User", email, string.Empty, "U", null, CancellationToken.None,
-                oauthProvider: "google", oauthId: "google-existing");
+            await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-existing"), CancellationToken.None);
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-new"));

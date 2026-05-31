@@ -28,7 +28,7 @@ public sealed class LogoutEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
         var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { email, password });

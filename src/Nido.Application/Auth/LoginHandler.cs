@@ -20,7 +20,7 @@ public sealed class LoginHandler
             throw new ArgumentException("Email and password are required.");
         }
 
-        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
+        var normalizedEmail = EmailNormalizer.Normalize(command.Email);
         var user = await _repository.FindByEmailAsync(normalizedEmail, cancellationToken);
 
         if (user is null)
@@ -49,11 +49,14 @@ public sealed class LoginHandler
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
             ?? throw new InvalidOperationException("User has no associated household.");
 
-        var (accessToken, refreshToken) = _jwtTokenService.CreateAuthTokens(user.Id, hogarId, normalizedEmail, user.Nombre);
-        var refreshTokenHash = _jwtTokenService.HashRefreshToken(refreshToken);
-        var expiresAt = DateTime.UtcNow.AddDays(7);
-
-        await _repository.AddRefreshTokenAsync(user.Id, refreshTokenHash, expiresAt, cancellationToken);
+        var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
+            _jwtTokenService,
+            _repository,
+            user.Id,
+            hogarId,
+            normalizedEmail,
+            user.Nombre,
+            cancellationToken);
 
         return new LoginResult(user.Id, hogarId, accessToken, refreshToken);
     }

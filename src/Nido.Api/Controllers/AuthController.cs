@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Nido.Api.Contracts.Auth;
-using Nido.Api.Security;
 using Nido.Application.Auth;
+using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Security;
+using Nido.Infrastructure.Auth;
+using Nido.Infrastructure.ProfileImages;
 
 namespace Nido.Api.Controllers;
 
@@ -19,7 +21,8 @@ public sealed class AuthController : ControllerBase
     private readonly LogoutHandler _logoutHandler;
     private readonly LinkGoogleHandler _linkGoogleHandler;
     private readonly ICurrentUserContext _currentUser;
-    private readonly IWebHostEnvironment _env;
+    private readonly IOptions<ProfileImageOptions> _profileImageOptions;
+    private readonly IOptions<JwtOptions> _jwtOptions;
 
     public AuthController(
         RegisterUserHandler registerUserHandler,
@@ -29,7 +32,8 @@ public sealed class AuthController : ControllerBase
         LogoutHandler logoutHandler,
         LinkGoogleHandler linkGoogleHandler,
         ICurrentUserContext currentUser,
-        IWebHostEnvironment env)
+        IOptions<ProfileImageOptions> profileImageOptions,
+        IOptions<JwtOptions> jwtOptions)
     {
         _registerUserHandler = registerUserHandler;
         _loginHandler = loginHandler;
@@ -38,15 +42,40 @@ public sealed class AuthController : ControllerBase
         _logoutHandler = logoutHandler;
         _linkGoogleHandler = linkGoogleHandler;
         _currentUser = currentUser;
-        _env = env;
+        _profileImageOptions = profileImageOptions;
+        _jwtOptions = jwtOptions;
     }
 
     [AllowAnonymous]
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Register([FromForm] RegisterRequest request, CancellationToken cancellationToken)
     {
+        RegistrationProfileImageUpload? foto = null;
+        if (request.Foto is not null)
+        {
+            if (request.Foto.Length == 0)
+            {
+                throw new ArgumentException("Empty file is not allowed for profile image.");
+            }
+
+            var maxSizeInBytes = _profileImageOptions.Value.MaxBytes;
+            if (request.Foto.Length > maxSizeInBytes)
+            {
+                throw new ArgumentException("Profile image exceeds the allowed limit.");
+            }
+
+            await using var memoryStream = new MemoryStream();
+            await request.Foto.CopyToAsync(memoryStream, cancellationToken);
+
+            foto = new RegistrationProfileImageUpload(
+                request.Foto.FileName,
+                request.Foto.ContentType,
+                memoryStream.ToArray());
+        }
+
         var result = await _registerUserHandler.Handle(
-            new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, request.FotoUrl),
+            new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, foto),
             cancellationToken);
 
         if (result.RefreshToken is not null)
@@ -122,15 +151,13 @@ public sealed class AuthController : ControllerBase
     {
         if (refreshToken is null) return;
 
-        var isProduction = _env.IsProduction();
-
         Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
-            Secure = isProduction,
+            Secure = _jwtOptions.Value.SecureCookies,
             Path = "/auth",
-            MaxAge = TimeSpan.FromDays(7)
+            MaxAge = TimeSpan.FromDays(_jwtOptions.Value.RefreshTokenExpiryDays)
         });
     }
 

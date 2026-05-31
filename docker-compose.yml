@@ -46,6 +46,8 @@ services:
       - Google__ClientId=${Google__ClientId}
     ports:
       - "8080:8080"
+    volumes:
+      - ./src/Nido.Api/wwwroot/uploads:/app/wwwroot/uploads
     depends_on:
       postgres:
         condition: service_healthy

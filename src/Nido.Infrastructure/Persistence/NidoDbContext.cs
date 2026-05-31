@@ -935,6 +935,18 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.FotoUrl)
                 .HasMaxLength(500)
                 .HasColumnName("foto_url");
+            entity.Property(e => e.FotoStorageKey)
+                .HasMaxLength(512)
+                .HasColumnName("foto_storage_key");
+            entity.Property(e => e.FotoContentType)
+                .HasMaxLength(100)
+                .HasColumnName("foto_content_type");
+            entity.Property(e => e.FotoWidth)
+                .HasColumnName("foto_width");
+            entity.Property(e => e.FotoHeight)
+                .HasColumnName("foto_height");
+            entity.Property(e => e.FotoSizeBytes)
+                .HasColumnName("foto_size_bytes");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");

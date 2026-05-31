@@ -13,10 +13,12 @@ using Nido.Infrastructure.Onboarding;
 using Nido.Infrastructure.Hogares;
 using Nido.Infrastructure.Email;
 using Nido.Application.Alacena;
+using Nido.Application.Common.ProfileImages;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
+using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.Preferencias;
 using Nido.Domain.Productos;
 using Nido.Infrastructure.StockHogar;
@@ -45,12 +47,20 @@ public static class DependencyInjection
         services.AddScoped<IProductManualRepository, ProductRepository>();
         services.AddScoped<IStockHogarRepository, StockHogarRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddOptions<GoogleOptions>()
+            .Bind(configuration.GetSection(GoogleOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.ClientId), "Google:ClientId is required.")
+            .ValidateOnStart();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
+        services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
+        services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
+        services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
+        services.AddScoped<IProfileImagePublicUrlResolver, ConfigurableProfileImagePublicUrlResolver>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
 
         return services;

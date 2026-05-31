@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Onboarding;
@@ -21,7 +22,8 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     [Fact]
     public async Task SaveHousehold_WhenRepresentedMemberIsProvided_PersistsMembershipData()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Marta", email = "marta@test.com", password = "Password123!", sexo = "F" });
+        using var registerContent = RegisterMultipartRequest.Create("Marta", "marta@test.com", "Password123!", "F");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
@@ -44,7 +46,8 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     [Fact]
     public async Task SaveHousehold_WhenOwnerLivesAlone_KeepsSingleOwnerMembershipValid()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Solo", email = "solo@test.com", password = "Password123!", sexo = "M" });
+        using var registerContent = RegisterMultipartRequest.Create("Solo", "solo@test.com", "Password123!", "M");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
@@ -65,7 +68,8 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     [Fact]
     public async Task SaveHouseholdAndEquipment_WhenSkippingHouseholdAndSavingEquipment_PersistIndependently()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Bob", email = "bob@test.com", password = "Password123!", sexo = "M" });
+        using var registerContent = RegisterMultipartRequest.Create("Bob", "bob@test.com", "Password123!", "M");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 

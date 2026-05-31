@@ -27,7 +27,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
         var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { email, password });
@@ -71,7 +71,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var jwt = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, _) = await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, "hash", "M", null, CancellationToken.None);
+            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, "hash", "M", null, CancellationToken.None);
 
             rawToken = jwt.GenerateRefreshToken();
             var tokenHash = jwt.HashRefreshToken(rawToken);
