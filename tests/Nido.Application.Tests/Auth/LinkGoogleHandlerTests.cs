@@ -1,4 +1,10 @@
+using Nido.Application.Auth.Google.Link;
+using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
@@ -34,7 +40,7 @@ public sealed class LinkGoogleHandlerTests
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+        await Assert.ThrowsAsync<UserNotFoundException>(() =>
             handler.Handle(new LinkGoogleCommand(Guid.NewGuid(), "valid-token"), CancellationToken.None));
     }
 
@@ -49,10 +55,10 @@ public sealed class LinkGoogleHandlerTests
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<AccountAlreadyLinkedException>(() =>
             handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
 
-        Assert.Equal("ACCOUNT_ALREADY_LINKED", ex.Message);
+        Assert.Equal("ACCOUNT_ALREADY_LINKED", ex.Code);
     }
 
     [Fact]
@@ -66,10 +72,11 @@ public sealed class LinkGoogleHandlerTests
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("other@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
 
-        Assert.Equal("GOOGLE_EMAIL_MISMATCH", ex.Message);
+        Assert.Equal("GOOGLE_EMAIL_MISMATCH", ex.Code);
+        Assert.Equal("Google email mismatch.", ex.Message);
     }
 
     [Fact]
@@ -84,10 +91,10 @@ public sealed class LinkGoogleHandlerTests
         var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<AccountAlreadyLinkedException>(() =>
             handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
 
-        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", ex.Message);
+        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", ex.Code);
     }
 
     [Fact]
@@ -96,7 +103,8 @@ public sealed class LinkGoogleHandlerTests
         var userId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "Test", "NICO@MAIL.COM", "hashed:Password1", null, null)
+            User = new User(userId, "Test", "NICO@MAIL.COM", "hashed:Password1", null, null),
+            HogarId = Guid.NewGuid()
         };
         var validator = new FakeGoogleValidator { Payload = new GooglePayload(" nico@mail.com ", "google-id-123") };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
@@ -114,10 +122,29 @@ public sealed class LinkGoogleHandlerTests
         var validator = new FakeGoogleValidator { ThrowInvalid = true };
         var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new LinkGoogleCommand(Guid.NewGuid(), "invalid-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Message);
+        Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Code);
+        Assert.Equal("Invalid Google token.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_UserHasNoHousehold_ThrowsNoHouseholdAssociatedException()
+    {
+        var userId = Guid.NewGuid();
+        var repo = new FakeAuthRepository
+        {
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
+            HogarId = null
+        };
+        var validator = new FakeGoogleValidator { Payload = new GooglePayload("nico@mail.com", "google-id-123") };
+        var handler = new LinkGoogleHandler(repo, validator, new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<NoHouseholdAssociatedException>(() =>
+            handler.Handle(new LinkGoogleCommand(userId, "valid-token"), CancellationToken.None));
+
+        Assert.Equal("NO_HOUSEHOLD_ASSOCIATED", ex.Code);
     }
 
     private sealed class FakeAuthRepository : IAuthRepository
@@ -159,7 +186,7 @@ public sealed class LinkGoogleHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult<Guid?>(HogarId ?? Guid.NewGuid());
+        public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult<Guid?>(HogarId);
 
         public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(User);
     }

@@ -1,4 +1,10 @@
+using Nido.Application.Auth.Google.Login;
+using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
@@ -70,10 +76,11 @@ public sealed class GoogleLoginHandlerTests
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None));
 
-        Assert.Equal("GOOGLE_ACCOUNT_MISMATCH", ex.Message);
+        Assert.Equal("GOOGLE_ACCOUNT_MISMATCH", ex.Code);
+        Assert.Equal("Google account mismatch.", ex.Message);
     }
 
     [Fact]
@@ -99,10 +106,11 @@ public sealed class GoogleLoginHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new GoogleLoginCommand("invalid-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Message);
+        Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Code);
+        Assert.Equal("Invalid Google token.", ex.Message);
     }
 
     private sealed class FakeGoogleValidator : IGoogleTokenValidator

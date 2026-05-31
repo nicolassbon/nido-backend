@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Nido.Application.Auth;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Hogares;
 using Nido.Infrastructure.Persistence;

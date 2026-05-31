@@ -1,3 +1,5 @@
+using Nido.Application.Alacena.Exceptions;
+
 namespace Nido.Application.Alacena;
 
 public sealed class CreateStockItemHandler
@@ -13,7 +15,7 @@ public sealed class CreateStockItemHandler
     {
         if (!string.IsNullOrWhiteSpace(command.FechaVencimiento) && !DateOnly.TryParse(command.FechaVencimiento, out _))
         {
-            throw new ArgumentException("La fecha de vencimiento debe tener formato yyyy-MM-dd.");
+            throw new InvalidStockItemDateException();
         }
 
         var request = new CreateStockItemRequestModel(

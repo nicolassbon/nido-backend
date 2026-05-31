@@ -1,3 +1,5 @@
+using Nido.Application.Auth.Google.Link;
+using Nido.Application.Auth.Google.Login;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -5,6 +7,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 
 namespace Nido.Api.IntegrationTests.Auth;
 
@@ -107,7 +112,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
         Assert.Equal(409, problem!.Status);
-        Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Detail);
+        Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Title);
     }
 
     [Fact]
@@ -160,7 +165,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
 
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
-        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Detail);
+        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Title);
     }
 
 

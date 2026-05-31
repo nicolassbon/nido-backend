@@ -5,7 +5,7 @@ using Nido.Infrastructure.Persistence;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Electrodomesticos;
 using Nido.Application.Electrodomesticos;
-using Nido.Application.Auth;
+using Nido.Application.Auth.Interfaces;
 using Nido.Application.Onboarding;
 using Nido.Application.Hogares;
 using Nido.Infrastructure.Auth;

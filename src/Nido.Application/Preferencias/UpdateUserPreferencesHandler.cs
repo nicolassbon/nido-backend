@@ -1,3 +1,5 @@
+using Nido.Application.Preferencias.Exceptions;
+
 namespace Nido.Application.Preferencias;
 
 public sealed class UpdateUserPreferencesHandler
@@ -12,10 +14,10 @@ public sealed class UpdateUserPreferencesHandler
     public async Task<UserPreferencesResult> Handle(UpdateUserPreferencesCommand command, CancellationToken ct)
     {
         if (command.UsuarioId == Guid.Empty)
-            throw new ArgumentException("El usuario es requerido.");
+            throw new MissingPreferenceFieldException("usuario");
 
         if (command.DiasAlerta < 1 || command.DiasAlerta > 365)
-            throw new ArgumentException("Los días de alerta deben estar entre 1 y 365.");
+            throw new InvalidPreferenceRangeException();
 
         return await _repository.UpdateAsync(command.UsuarioId, command.DiasAlerta, ct);
     }

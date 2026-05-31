@@ -1,4 +1,5 @@
 using Nido.Application.Onboarding;
+using Nido.Application.Onboarding.Exceptions;
 
 namespace Nido.Application.Tests.Onboarding;
 
@@ -28,12 +29,12 @@ public sealed class OnboardingWellnessTests
     }
 
     [Fact]
-    public async Task SaveWellness_CuandoSeMandanIdsForjadosPorElCliente_LanzaUnauthorizedAccessException()
+    public async Task SaveWellness_CuandoSeMandanIdsForjadosPorElCliente_LanzaBoundaryViolation()
     {
         var repo = new FakeOnboardingRepository();
         var handler = new SaveWellnessStepHandler(repo);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new SaveWellnessStepCommand(
+        await Assert.ThrowsAsync<BoundaryViolationException>(() => handler.Handle(new SaveWellnessStepCommand(
             repo.UsuarioId,
             repo.HogarId,
             Skip: false,

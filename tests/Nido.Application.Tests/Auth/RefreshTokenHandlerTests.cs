@@ -1,4 +1,9 @@
+using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
@@ -30,10 +35,11 @@ public sealed class RefreshTokenHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() =>
             handler.Handle(new RefreshTokenCommand("unknown-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Message);
+        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Code);
+        Assert.Equal("Invalid refresh token.", ex.Message);
     }
 
     [Fact]
@@ -42,10 +48,11 @@ public sealed class RefreshTokenHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() =>
             handler.Handle(new RefreshTokenCommand(""), CancellationToken.None));
 
-        Assert.Equal("MISSING_REFRESH_TOKEN", ex.Message);
+        Assert.Equal("MISSING_REFRESH_TOKEN", ex.Code);
+        Assert.Equal("Invalid refresh token.", ex.Message);
     }
 
     [Fact]
@@ -60,10 +67,11 @@ public sealed class RefreshTokenHandlerTests
         };
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() =>
             handler.Handle(new RefreshTokenCommand("expired-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Message);
+        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Code);
+        Assert.Equal("Invalid refresh token.", ex.Message);
     }
 
     private sealed class FakeAuthRepository : IAuthRepository

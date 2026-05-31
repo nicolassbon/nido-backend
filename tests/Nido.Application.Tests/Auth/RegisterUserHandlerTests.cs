@@ -1,4 +1,10 @@
+using Nido.Application.Auth.Register;
+using Nido.Application.Auth.Register;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -21,7 +27,7 @@ public sealed class RegisterUserHandlerTests
     }
 
     [Fact]
-    public async Task Handle_DuplicateEmail_Throws()
+    public async Task Handle_DuplicateEmail_ThrowsEmailAlreadyExists()
     {
         var repo = new FakeAuthRepository
         {
@@ -29,8 +35,11 @@ public sealed class RegisterUserHandlerTests
         };
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeProfileImageStorage(), NullLogger<RegisterUserHandler>.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<EmailAlreadyExistsException>(() =>
             handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null), CancellationToken.None));
+
+        Assert.Equal("EMAIL_ALREADY_EXISTS", ex.Code);
+        Assert.Equal("Email already exists.", ex.Message);
     }
 
     [Fact]
@@ -61,13 +70,55 @@ public sealed class RegisterUserHandlerTests
     {
         var repo = new FakeAuthRepository
         {
-            ExistingUser = new User(Guid.NewGuid(), "Test", "nico@mail.com", null, "google", "google-id-1")
+            ExistingUser = new User(Guid.NewGuid(), "Test", "nico@mail.com", null, "google", "google-id-1"),
+            HogarId = Guid.NewGuid()
         };
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeProfileImageStorage(), NullLogger<RegisterUserHandler>.Instance);
 
         await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null), CancellationToken.None);
 
         Assert.Equal("hash:refresh", repo.StoredRefreshTokenHash);
+    }
+
+    [Fact]
+    public async Task Handle_MissingFields_ThrowsMissingRegistrationFields()
+    {
+        var repo = new FakeAuthRepository();
+        var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeProfileImageStorage(), NullLogger<RegisterUserHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<MissingRegistrationFieldsException>(() =>
+            handler.Handle(new RegisterUserCommand("", "nico@mail.com", "Password1", "M", null), CancellationToken.None));
+
+        Assert.Equal("MISSING_REGISTRATION_FIELDS", ex.Code);
+        Assert.Contains("Nombre", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_WeakPassword_ThrowsWeakPassword()
+    {
+        var repo = new FakeAuthRepository();
+        var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeProfileImageStorage(), NullLogger<RegisterUserHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<WeakPasswordException>(() =>
+            handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "short", "M", null), CancellationToken.None));
+
+        Assert.Equal("WEAK_PASSWORD", ex.Code);
+    }
+
+    [Fact]
+    public async Task Handle_GoogleOnlyUserNoHousehold_ThrowsNoHouseholdAssociatedException()
+    {
+        var repo = new FakeAuthRepository
+        {
+            ExistingUser = new User(Guid.NewGuid(), "Test", "nico@mail.com", null, "google", "google-id-1"),
+            HogarId = null
+        };
+        var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeProfileImageStorage(), NullLogger<RegisterUserHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<NoHouseholdAssociatedException>(() =>
+            handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null), CancellationToken.None));
+
+        Assert.Equal("NO_HOUSEHOLD_ASSOCIATED", ex.Code);
     }
 
     [Fact]
@@ -189,7 +240,7 @@ public sealed class RegisterUserHandlerTests
         }
 
         public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken)
-            => Task.FromResult<Guid?>(HogarId ?? Guid.NewGuid());
+            => Task.FromResult<Guid?>(HogarId);
     }
 
     private sealed class FakeHasher : IPasswordHasher
