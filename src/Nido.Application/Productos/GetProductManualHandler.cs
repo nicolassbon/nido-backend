@@ -1,3 +1,5 @@
+using Nido.Application.Productos.Exceptions;
+
 namespace Nido.Application.Productos;
 
 public sealed class GetProductManualHandler
@@ -15,7 +17,7 @@ public sealed class GetProductManualHandler
     {
         if (command.HogarId == Guid.Empty)
         {
-            throw new ArgumentException("El hogar es requerido.");
+            throw new MissingProductFieldException("hogar");
         }
 
         return await _repository.GetManualByHogarAsync(

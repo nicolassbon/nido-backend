@@ -1,5 +1,6 @@
 using Nido.Application.Auth;
 using Nido.Application.Hogares;
+using Nido.Application.Hogares.Exceptions;
 
 namespace Nido.Application.Tests.Hogares;
 
@@ -21,27 +22,27 @@ public sealed class AceptarInvitacionHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TokenVacio_LanzaArgumentException()
+    public async Task Handle_TokenVacio_LanzaMissingInvitationToken()
     {
         var repo = new FakeInvitacionRepository();
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<MissingInvitationTokenException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "   "), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_TokenNoExiste_LanzaArgumentException()
+    public async Task Handle_TokenNoExiste_LanzaInvitationNotFound()
     {
         var repo = new FakeInvitacionRepository { Invitacion = null };
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<InvitationNotFoundException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-invalido"), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_InvitacionYaUsada_LanzaInvalidOperationException()
+    public async Task Handle_InvitacionYaUsada_LanzaInvitationAlreadyProcessed()
     {
         var repo = new FakeInvitacionRepository
         {
@@ -49,12 +50,12 @@ public sealed class AceptarInvitacionHandlerTests
         };
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<InvitationAlreadyProcessedException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_InvitacionExpirada_LanzaInvalidOperationException()
+    public async Task Handle_InvitacionExpirada_LanzaInvitationExpired()
     {
         var repo = new FakeInvitacionRepository
         {
@@ -62,40 +63,42 @@ public sealed class AceptarInvitacionHandlerTests
         };
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<InvitationExpiredException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_HogarDestinoLleno_LanzaInvalidOperationException()
+    public async Task Handle_HogarDestinoLleno_LanzaMaxMembersExceeded()
     {
         var repo = new FakeInvitacionRepository { CantidadMiembros = 6 };
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<MaxMembersExceededException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_UsuarioYaEsMiembroDelHogar_LanzaInvalidOperationException()
+    public async Task Handle_UsuarioYaEsMiembroDelHogar_LanzaAlreadyMember()
     {
         var repo = new FakeInvitacionRepository();
         // Hacemos que el hogar actual del usuario sea el mismo que el de la invitación
         repo.HogarActualDelUsuario = repo.HogarDestino;
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<AlreadyMemberException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_UsuarioYaPerteneceAOtroHogar_LanzaInvalidOperationException()
+    public async Task Handle_UsuarioYaPerteneceAOtroHogar_LanzaNotSoleOwnerException()
     {
         var repo = new FakeInvitacionRepository { EsSoleOwner = false };
         var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<NotSoleOwnerException>(() =>
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
+
+        Assert.Equal("NOT_SOLE_OWNER", ex.Code);
     }
 
     // Test Fakes   

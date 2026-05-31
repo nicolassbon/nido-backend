@@ -1,3 +1,4 @@
+using Nido.Application.Productos.Exceptions;
 using Nido.Domain.Productos;
 using Nido.Domain.StockHogar;
 
@@ -22,12 +23,12 @@ public sealed class CreateProductoHandler
     {
         if (string.IsNullOrWhiteSpace(command.Nombre))
         {
-            throw new ArgumentException("El nombre es requerido.");
+            throw new MissingProductFieldException("nombre");
         }
 
         if (command.Cantidad <= 0)
         {
-            throw new ArgumentException("La cantidad debe ser mayor a cero.");
+            throw new MissingProductFieldException("cantidad");
         }
 
         var producto = new Producto(

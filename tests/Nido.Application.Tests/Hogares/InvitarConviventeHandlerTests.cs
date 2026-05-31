@@ -1,4 +1,5 @@
 using Nido.Application.Hogares;
+using Nido.Application.Hogares.Exceptions;
 
 namespace Nido.Application.Tests.Hogares;
 
@@ -20,36 +21,36 @@ public sealed class InvitarConviventeHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmailVacio_LanzaArgumentException()
+    public async Task Handle_EmailVacio_LanzaMissingInvitationToken()
     {
         var repo = new FakeInvitacionRepository();
         var handler = new InvitarConviventeHandler(repo, new FakeEmailService());
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<MissingInvitationTokenException>(() =>
             handler.Handle(
                 new InvitarConviventeCommand(repo.OwnerId, repo.HogarId, "   "),
                 CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_UsuarioNoEsOwner_LanzaUnauthorizedAccessException()
+    public async Task Handle_UsuarioNoEsOwner_LanzaNotHouseholdOwner()
     {
         var repo = new FakeInvitacionRepository { EsOwner = false };
         var handler = new InvitarConviventeHandler(repo, new FakeEmailService());
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        await Assert.ThrowsAsync<NotHouseholdOwnerException>(() =>
             handler.Handle(
                 new InvitarConviventeCommand(repo.OwnerId, repo.HogarId, "invitado@mail.com"),
                 CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_HogarLleno_LanzaInvalidOperationException()
+    public async Task Handle_HogarLleno_LanzaMaxMembersExceeded()
     {
         var repo = new FakeInvitacionRepository { CantidadMiembros = 6 };
         var handler = new InvitarConviventeHandler(repo, new FakeEmailService());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<MaxMembersExceededException>(() =>
             handler.Handle(
                 new InvitarConviventeCommand(repo.OwnerId, repo.HogarId, "invitado@mail.com"),
                 CancellationToken.None));

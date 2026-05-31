@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Auth;
@@ -78,12 +79,12 @@ public sealed class RegisterUserHandler
 
         if (missingFields.Any())
         {
-            throw new ArgumentException($"Missing required fields: {string.Join(", ", missingFields)}");
+            throw new MissingRegistrationFieldsException(missingFields);
         }
 
         if (!System.Text.RegularExpressions.Regex.IsMatch(command.Password, PasswordComplexityPattern))
         {
-            throw new ArgumentException("Password does not meet complexity requirements.");
+            throw new WeakPasswordException();
         }
     }
 
@@ -95,7 +96,7 @@ public sealed class RegisterUserHandler
     {
         if (existingUser.OauthProvider != "google" || !string.IsNullOrEmpty(existingUser.PasswordHash))
         {
-            throw new InvalidOperationException("Email already exists.");
+            throw new EmailAlreadyExistsException();
         }
 
         var passwordHash = _passwordHasher.Hash(password);
@@ -103,7 +104,7 @@ public sealed class RegisterUserHandler
         await _repository.UpdateUserAsync(updatedUser, cancellationToken);
 
         var hogarId = await _repository.GetUserHogarIdAsync(existingUser.Id, cancellationToken)
-            ?? throw new InvalidOperationException("User has no associated household.");
+            ?? throw new NoHouseholdAssociatedException();
 
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,

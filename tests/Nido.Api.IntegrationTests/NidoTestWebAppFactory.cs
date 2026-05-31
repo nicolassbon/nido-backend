@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -22,14 +23,16 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly Action<IServiceCollection>? _configureStorage;
+    private readonly Action<IApplicationBuilder>? _configureAfterApp;
 
     public NidoTestWebAppFactory()
     {
     }
 
-    private NidoTestWebAppFactory(Action<IServiceCollection>? configureStorage)
+    private NidoTestWebAppFactory(Action<IServiceCollection>? configureStorage, Action<IApplicationBuilder>? configureAfterApp = null)
     {
         _configureStorage = configureStorage;
+        _configureAfterApp = configureAfterApp;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -93,6 +96,11 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
             // Schema is created by MigrateAsync() in Program.cs startup.
 
             _configureStorage?.Invoke(services);
+
+            if (_configureAfterApp is not null)
+            {
+                services.AddTransient<IStartupFilter>(_ => new AfterAppStartupFilter(_configureAfterApp));
+            }
         });
     }
 
@@ -103,11 +111,33 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
     }
 
     public NidoTestWebAppFactory WithStorageOverride(Action<IServiceCollection> configureStorage)
-        => new(configureStorage);
+        => new(configureStorage, _configureAfterApp);
+
+    public NidoTestWebAppFactory WithAfterAppConfiguration(Action<IApplicationBuilder> configureAfterApp)
+        => new(_configureStorage, configureAfterApp);
 
     protected override void Dispose(bool disposing)
     {
         if (disposing) _connection.Dispose();
         base.Dispose(disposing);
+    }
+
+    private sealed class AfterAppStartupFilter : IStartupFilter
+    {
+        private readonly Action<IApplicationBuilder> _configure;
+
+        public AfterAppStartupFilter(Action<IApplicationBuilder> configure)
+        {
+            _configure = configure;
+        }
+
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+        {
+            return app =>
+            {
+                next(app);
+                _configure(app);
+            };
+        }
     }
 }

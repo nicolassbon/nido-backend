@@ -1,3 +1,5 @@
+using Nido.Application.Onboarding.Exceptions;
+
 namespace Nido.Application.Onboarding;
 
 internal static class OnboardingBoundaryGuard
@@ -6,12 +8,12 @@ internal static class OnboardingBoundaryGuard
     {
         if (clientUsuarioId.HasValue && clientUsuarioId.Value != claimUsuarioId)
         {
-            throw new UnauthorizedAccessException("Invalid usuarioId boundary.");
+            throw new BoundaryViolationException("Invalid usuarioId boundary.");
         }
 
         if (clientHogarId.HasValue && clientHogarId.Value != claimHogarId)
         {
-            throw new UnauthorizedAccessException("Invalid hogarId boundary.");
+            throw new BoundaryViolationException("Invalid hogarId boundary.");
         }
     }
 }

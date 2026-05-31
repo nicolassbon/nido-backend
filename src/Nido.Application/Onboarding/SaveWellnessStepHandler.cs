@@ -1,3 +1,5 @@
+using Nido.Application.Onboarding.Exceptions;
+
 namespace Nido.Application.Onboarding;
 
 public sealed class SaveWellnessStepHandler
@@ -15,7 +17,7 @@ public sealed class SaveWellnessStepHandler
 
         if (!await _repository.IsUserHouseholdMemberAsync(command.UsuarioId, command.HogarId, cancellationToken))
         {
-            throw new UnauthorizedAccessException("User does not belong to household.");
+            throw new HouseholdAccessDeniedException();
         }
 
         if (!command.Skip)

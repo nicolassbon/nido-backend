@@ -60,7 +60,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var problem = await second.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
         Assert.Equal(409, problem!.Status);
-        Assert.Equal("Conflict", problem.Title);
+        Assert.Equal("EMAIL_ALREADY_EXISTS", problem.Title);
     }
 
     [Fact]

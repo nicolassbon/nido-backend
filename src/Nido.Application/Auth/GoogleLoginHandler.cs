@@ -1,3 +1,5 @@
+using Nido.Application.Auth.Exceptions;
+
 namespace Nido.Application.Auth;
 
 public sealed class GoogleLoginHandler
@@ -26,7 +28,7 @@ public sealed class GoogleLoginHandler
         }
         catch (Exception)
         {
-            throw new UnauthorizedAccessException("INVALID_GOOGLE_TOKEN");
+            throw new InvalidGoogleTokenException("INVALID_GOOGLE_TOKEN");
         }
 
         var normalizedEmail = EmailNormalizer.Normalize(payload.Email);
@@ -62,7 +64,7 @@ public sealed class GoogleLoginHandler
             && !string.IsNullOrEmpty(user.OauthId)
             && user.OauthId != payload.GoogleId)
         {
-            throw new UnauthorizedAccessException("GOOGLE_ACCOUNT_MISMATCH");
+            throw new InvalidGoogleTokenException("GOOGLE_ACCOUNT_MISMATCH", "Google account mismatch.");
         }
 
         return user;
@@ -97,7 +99,7 @@ public sealed class GoogleLoginHandler
         }
 
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
-            ?? throw new InvalidOperationException("User has no associated household.");
+            ?? throw new UserNotInHouseholdException();
 
         return (user.Id, hogarId, IsNewUser: false);
     }
