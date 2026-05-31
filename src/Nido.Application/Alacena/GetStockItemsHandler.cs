@@ -1,3 +1,5 @@
+using Nido.Application.Alacena.Exceptions;
+
 namespace Nido.Application.Alacena;
 
 public sealed class GetStockItemsHandler
@@ -13,7 +15,7 @@ public sealed class GetStockItemsHandler
     {
         if (query.HogarId == Guid.Empty)
         {
-            throw new ArgumentException("El hogar es requerido.");
+            throw new MissingStockItemFieldException("hogar");
         }
 
         return await _repository.GetByHogarAsync(query.HogarId, ct);

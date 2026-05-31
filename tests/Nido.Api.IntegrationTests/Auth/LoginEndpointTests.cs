@@ -1,7 +1,11 @@
+using Nido.Application.Auth.Login;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Auth;
@@ -27,7 +31,8 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+
         }
 
         var response = await _client.PostAsJsonAsync("/auth/login", new { email, password });
@@ -51,7 +56,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
         var response = await _client.PostAsJsonAsync("/auth/login", new { email, password = "WrongPassword1!" });
@@ -87,14 +92,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-            var (userId, _) = await repo.CreateUserWithDefaultHouseholdAsync("Google User", email, "placeholder", "U", null, CancellationToken.None);
-
-            var user = await db.Usuarios.FindAsync(userId);
-            user!.PasswordHash = null;
-            user.OauthProvider = "google";
-            user.OauthId = "google-123";
-            await db.SaveChangesAsync();
+            var (userId, _) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-123"), CancellationToken.None);
         }
 
         var response = await _client.PostAsJsonAsync("/auth/login", new { email, password = "AnyPassword1!" });

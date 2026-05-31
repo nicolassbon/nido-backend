@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -7,6 +8,12 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests;
@@ -18,6 +25,18 @@ namespace Nido.Api.IntegrationTests;
 public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly Action<IServiceCollection>? _configureStorage;
+    private readonly Action<IApplicationBuilder>? _configureAfterApp;
+
+    public NidoTestWebAppFactory()
+    {
+    }
+
+    private NidoTestWebAppFactory(Action<IServiceCollection>? configureStorage, Action<IApplicationBuilder>? configureAfterApp = null)
+    {
+        _configureStorage = configureStorage;
+        _configureAfterApp = configureAfterApp;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -44,7 +63,11 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 ["Jwt:Key"] = "integration-test-jwt-key-minimum-32-bytes-long!!",
                 ["Jwt:Issuer"] = "nido-api-tests",
                 ["Jwt:Audience"] = "nido-clients-tests",
-                ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com"
+                ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com",
+                ["ProfileImages:MaxBytes"] = "5242880",
+                ["ProfileImages:MaxDimension"] = "512",
+                ["ProfileImages:WebpQuality"] = "80",
+                ["ProfileImages:PublicBaseUrl"] = "https://cdn.test.local"
             });
         });
 
@@ -74,12 +97,50 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 options.UseSqlite(_connection)
                        .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
             // Schema is created by MigrateAsync() in Program.cs startup.
+
+            _configureStorage?.Invoke(services);
+
+            if (_configureAfterApp is not null)
+            {
+                services.AddTransient<IStartupFilter>(_ => new AfterAppStartupFilter(_configureAfterApp));
+            }
         });
     }
+
+    public static void ReplaceProfileImageStorage(IServiceCollection services, IProfileImageStorage storage)
+    {
+        services.RemoveAll<IProfileImageStorage>();
+        services.AddSingleton(storage);
+    }
+
+    public NidoTestWebAppFactory WithStorageOverride(Action<IServiceCollection> configureStorage)
+        => new(configureStorage, _configureAfterApp);
+
+    public NidoTestWebAppFactory WithAfterAppConfiguration(Action<IApplicationBuilder> configureAfterApp)
+        => new(_configureStorage, configureAfterApp);
 
     protected override void Dispose(bool disposing)
     {
         if (disposing) _connection.Dispose();
         base.Dispose(disposing);
+    }
+
+    private sealed class AfterAppStartupFilter : IStartupFilter
+    {
+        private readonly Action<IApplicationBuilder> _configure;
+
+        public AfterAppStartupFilter(Action<IApplicationBuilder> configure)
+        {
+            _configure = configure;
+        }
+
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+        {
+            return app =>
+            {
+                next(app);
+                _configure(app);
+            };
+        }
     }
 }

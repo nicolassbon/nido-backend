@@ -3,7 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Api.IntegrationTests.Auth;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Onboarding;
@@ -29,7 +33,8 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     [Fact]
     public async Task SaveHousehold_WhenClientSendsForgedUserId_ReturnsForbidden()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Ana", email = "ana@test.com", password = "Password123!", sexo = "F" });
+        using var registerContent = RegisterMultipartRequest.Create("Ana", "ana@test.com", "Password123!", "F");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
@@ -61,7 +66,8 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     [Fact]
     public async Task SaveHousehold_WhenUserIsNotHouseholdMember_ReturnsForbidden()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Leo", email = "leo@test.com", password = "Password123!", sexo = "M" });
+        using var registerContent = RegisterMultipartRequest.Create("Leo", "leo@test.com", "Password123!", "M");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
@@ -80,11 +86,13 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     [Fact]
     public async Task SaveHousehold_WhenInvitedMemberSubmitsStep2_SkipsHouseholdLevelOnboarding()
     {
-        var ownerRegister = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Owner", email = "owner@test.com", password = "Password123!", sexo = "F" });
+        using var ownerRegisterContent = RegisterMultipartRequest.Create("Owner", "owner@test.com", "Password123!", "F");
+        var ownerRegister = await _client.PostAsync("/auth/register", ownerRegisterContent);
         var owner = await ownerRegister.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.NotNull(owner);
 
-        var invitedRegister = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Guest", email = "guest@test.com", password = "Password123!", sexo = "M" });
+        using var invitedRegisterContent = RegisterMultipartRequest.Create("Guest", "guest@test.com", "Password123!", "M");
+        var invitedRegister = await _client.PostAsync("/auth/register", invitedRegisterContent);
         var invited = await invitedRegister.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.NotNull(invited);
 
@@ -104,7 +112,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
             invitedState.Step2Skipped = false;
 
             await db.SaveChangesAsync();
-            invitedToken = tokenService.CreateToken(invited.UsuarioId, owner.HogarId, "guest@test.com");
+            invitedToken = tokenService.CreateToken(invited.UsuarioId, owner.HogarId, "guest@test.com", "Test");
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", invitedToken);
@@ -144,7 +152,8 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     [Fact]
     public async Task SaveWellness_WhenClientSendsForgedUserId_ReturnsForbidden()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Sofi", email = "sofi@test.com", password = "Password123!", sexo = "F" });
+        using var registerContent = RegisterMultipartRequest.Create("Sofi", "sofi@test.com", "Password123!", "F");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 

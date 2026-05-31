@@ -1,20 +1,29 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Nido.Application.Electrodomesticos;
 using Nido.Application.Auth;
 using Nido.Application.Onboarding;
 using Nido.Application.Hogares;
-using Nido.Application.Common.Security;
+using Nido.Application.Electrodomesticos;
 using Nido.Application.Alacena;
 using Nido.Application.Productos;
+using Nido.Application.Preferencias;
+using Nido.Application.Common.Security;
 using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
+using Nido.Infrastructure.Auth;
+using Nido.Application.Auth.Register;
+using Nido.Application.Auth.Login;
+using Nido.Application.Auth.Google.Login;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Logout;
+using Nido.Application.Auth.Google.Link;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -54,25 +63,41 @@ builder.Services.AddScoped<CreateStockItemHandler>();
 builder.Services.AddScoped<UpdateStockItemHandler>();
 builder.Services.AddScoped<DeleteStockItemHandler>();
 builder.Services.AddScoped<ActualizarPerfilHandler>();
+builder.Services.AddAuthModule();
+builder.Services.AddOnboardingModule();
+builder.Services.AddHogaresModule();
+builder.Services.AddElectrodomesticosModule();
+builder.Services.AddAlacenaModule();
+builder.Services.AddProductosModule();
+builder.Services.AddPreferenciasModule();
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured");
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "nido-api";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "nido-clients";
+builder.Services
+    .AddOptions<JwtOptions>()
+    .BindConfiguration(JwtOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+builder.Services
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
     {
+        var jwtOptions = jwtOptionsAccessor.Value;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
+            ValidateIssuer = !string.IsNullOrEmpty(jwtOptions.Issuer),
+            ValidateAudience = !string.IsNullOrEmpty(jwtOptions.Audience),
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
             ClockSkew = TimeSpan.FromMinutes(1)
         };
     });
@@ -109,12 +134,12 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseCookiePolicy();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.MapGet("/hello", () => Results.Ok(new { message = "Bienvenido a Nido!" }));

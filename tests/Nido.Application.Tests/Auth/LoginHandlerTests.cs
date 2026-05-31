@@ -1,4 +1,10 @@
+using Nido.Application.Auth.Login;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
+using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
 
@@ -11,7 +17,7 @@ public sealed class LoginHandlerTests
         var hogarId = Guid.NewGuid();
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null),
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
             HogarId = hogarId
         };
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
@@ -25,29 +31,31 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UserNotFound_ThrowsUnauthorized()
+    public async Task Handle_UserNotFound_ThrowsInvalidCredentials()
     {
         var repo = new FakeAuthRepository();
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             handler.Handle(new LoginCommand("missing@mail.com", "Password1"), CancellationToken.None));
 
+        Assert.Equal("INVALID_CREDENTIALS", ex.Code);
         Assert.Equal("Invalid email or password", ex.Message);
     }
 
     [Fact]
-    public async Task Handle_WrongPassword_ThrowsUnauthorized()
+    public async Task Handle_WrongPassword_ThrowsInvalidCredentials()
     {
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "nico@mail.com", "hashed:Password1", null, null)
+            User = new User(Guid.NewGuid(), "Test", "nico@mail.com", "hashed:Password1", null, null)
         };
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", "WrongPassword"), CancellationToken.None));
 
+        Assert.Equal("INVALID_CREDENTIALS", ex.Code);
         Assert.Equal("Invalid email or password", ex.Message);
     }
 
@@ -56,7 +64,7 @@ public sealed class LoginHandlerTests
     {
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "nico@mail.com", null, "google", "google-id-123")
+            User = new User(Guid.NewGuid(), "Test", "nico@mail.com", null, "google", "google-id-123")
         };
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
@@ -68,27 +76,46 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmptyEmail_ThrowsArgumentException()
+    public async Task Handle_EmptyEmail_ThrowsLoginCredentialsMissing()
     {
         var repo = new FakeAuthRepository();
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<LoginCredentialsMissingException>(() =>
             handler.Handle(new LoginCommand("", "Password1"), CancellationToken.None));
 
+        Assert.Equal("LOGIN_CREDENTIALS_MISSING", ex.Code);
         Assert.Equal("Email and password are required.", ex.Message);
     }
 
     [Fact]
-    public async Task Handle_EmptyPassword_ThrowsArgumentException()
+    public async Task Handle_EmptyPassword_ThrowsLoginCredentialsMissing()
     {
         var repo = new FakeAuthRepository();
         var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<LoginCredentialsMissingException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", ""), CancellationToken.None));
 
+        Assert.Equal("LOGIN_CREDENTIALS_MISSING", ex.Code);
         Assert.Equal("Email and password are required.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_NoHousehold_ThrowsUserNotInHousehold()
+    {
+        var repo = new FakeAuthRepository
+        {
+            User = new User(Guid.NewGuid(), "Test", "nico@mail.com", "hashed:Password1", null, null),
+            HogarId = null
+        };
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+
+        var ex = await Assert.ThrowsAsync<UserNotInHouseholdException>(() =>
+            handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None));
+
+        Assert.Equal("USER_NOT_IN_HOUSEHOLD", ex.Code);
+        Assert.Equal("User has no associated household.", ex.Message);
     }
 
     private sealed class FakeAuthRepository : IAuthRepository
@@ -100,7 +127,10 @@ public sealed class LoginHandlerTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(Existing);
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken, string? oauthProvider = null, string? oauthId = null)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(CreateOAuthUserData data, CancellationToken cancellationToken)
+            => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
+
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, UserProfileImageMetadata? profileImage, CancellationToken cancellationToken)
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);
@@ -119,7 +149,7 @@ public sealed class LoginHandlerTests
 
         public Task UpdateUserAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult<Guid?>(HogarId ?? Guid.NewGuid());
+        public Task<Guid?> GetUserHogarIdAsync(Guid usuarioId, CancellationToken cancellationToken) => Task.FromResult(HogarId);
 
         public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
     }
@@ -132,9 +162,10 @@ public sealed class LoginHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
+            => ("token", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }

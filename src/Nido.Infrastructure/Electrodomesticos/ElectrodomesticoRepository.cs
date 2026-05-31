@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
+using DomainElectrodomesticoCatalogo = Nido.Domain.Electrodomesticos.ElectrodomesticoCatalogo;
+
 
 using DomainElectrodomestico = Nido.Domain.Electrodomesticos.Electrodomestico;
 using PersistenceElectrodomestico = Nido.Infrastructure.Persistence.Entities.Electrodomestico;
@@ -30,7 +33,9 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
             HogarId = electrodomestico.HogarId,
             Nombre = electrodomestico.Nombre,
             Tipo = electrodomestico.Tipo,
-            Estado = electrodomestico.Estado
+            Estado = electrodomestico.Estado,
+            Marca = electrodomestico.Marca,
+            ImagenUrl = electrodomestico.ImagenUrl
         };
 
         _dbContext.Electrodomesticos.Add(entity);
@@ -40,30 +45,73 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
 
     public async Task<IReadOnlyList<DomainElectrodomestico>> GetAllAsync(CancellationToken cancellationToken)
     {
-        return await _dbContext.Electrodomesticos
+        var electrodomesticos = await _dbContext.Electrodomesticos
             .AsNoTracking()
-            .Select(electrodomestico => new DomainElectrodomestico(
-                electrodomestico.Id,
-                electrodomestico.HogarId,
-                electrodomestico.Nombre,
-                electrodomestico.Tipo,
-                electrodomestico.Estado
-            ))
             .ToListAsync(cancellationToken);
+
+        var catalogo = await _dbContext.ElectrodomesticosCatalogo
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return MapToDomain(electrodomesticos, catalogo);
     }
 
     public async Task<IReadOnlyList<DomainElectrodomestico>> GetByHogarIdAsync(Guid hogarId, CancellationToken cancellationToken)
     {
-        return await _dbContext.Electrodomesticos
+        var electrodomesticos = await _dbContext.Electrodomesticos
             .AsNoTracking()
-            .Where(electrodomestico => electrodomestico.HogarId == hogarId)
-            .Select(electrodomestico => new DomainElectrodomestico(
-                electrodomestico.Id,
-                electrodomestico.HogarId,
-                electrodomestico.Nombre,
-                electrodomestico.Tipo,
-                electrodomestico.Estado
-            ))
+            .Where(e => e.HogarId == hogarId)
             .ToListAsync(cancellationToken);
+
+        var catalogo = await _dbContext.ElectrodomesticosCatalogo
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return MapToDomain(electrodomesticos, catalogo);
     }
+
+    private static IReadOnlyList<DomainElectrodomestico> MapToDomain(
+        List<PersistenceElectrodomestico> electrodomesticos,
+        List<Persistence.Entities.ElectrodomesticoCatalogo> catalogo)
+    {
+        var catalogoById = catalogo.ToDictionary(c => c.Id);
+        var catalogoByNombre = catalogo
+            .GroupBy(c => c.Nombre)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        return electrodomesticos
+            .Select(e => new DomainElectrodomestico(
+                e.Id,
+                e.HogarId,
+                e.Nombre,
+                e.Tipo,
+                e.Estado,
+                e.Marca,
+                e.ImagenUrl
+                    ?? (e.CatalogoId.HasValue && catalogoById.TryGetValue(e.CatalogoId.Value, out var byId)
+                        ? byId.ImagenUrl
+                        : null)
+                    ?? (catalogoByNombre.TryGetValue(e.Nombre, out var byNombre)
+                        ? byNombre.ImagenUrl
+                        : null)))
+            .ToList();
+    }
+
+public async Task<IReadOnlyList<DomainElectrodomesticoCatalogo>> GetCatalogoAsync(
+    CancellationToken cancellationToken)
+{
+    return await _dbContext.ElectrodomesticosCatalogo
+        .AsNoTracking()
+        .Where(x => x.Activo)
+        .OrderBy(x => x.Orden)
+        .Select(x => new DomainElectrodomesticoCatalogo(
+            x.Id,
+            x.Nombre,
+            x.Tipo,
+            x.Icono,
+            x.ImagenUrl,
+            x.Orden,
+            x.Activo))
+        .ToListAsync(cancellationToken);
+}
 }

@@ -1,3 +1,5 @@
+using Nido.Application.Hogares.Exceptions;
+
 namespace Nido.Application.Hogares;
 
 public sealed class InvitarConviventeHandler
@@ -15,14 +17,14 @@ public sealed class InvitarConviventeHandler
     public async Task<string> Handle(InvitarConviventeCommand command, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(command.EmailInvitado))
-            throw new ArgumentException("El email del invitado es requerido.");
+            throw new MissingInvitationTokenException();
 
         if (!await _repository.IsUserHouseholdOwnerAsync(command.UsuarioId, command.HogarId, ct))
-            throw new UnauthorizedAccessException("Solo el propietario puede invitar convivientes.");
+            throw new NotHouseholdOwnerException();
 
         var totalMiembros = await _repository.CountRealMembersAsync(command.HogarId, ct);
         if (totalMiembros >= MaxMiembros)
-            throw new InvalidOperationException($"El hogar ya alcanzó el límite de {MaxMiembros} miembros.");
+            throw new MaxMembersExceededException(MaxMiembros);
 
         var (_, ownerNombre) = await _repository.GetUsuarioInfoAsync(command.UsuarioId, ct);
         var expiresAt = DateTime.UtcNow.AddDays(7);

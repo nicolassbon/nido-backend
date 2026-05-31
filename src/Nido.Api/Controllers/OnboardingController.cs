@@ -67,7 +67,7 @@ public sealed class OnboardingController : ControllerBase
             currentUser.UsuarioId,
             currentUser.HogarId,
             request.Skip,
-            (request.Equipments ?? []).Select(x => new EquipmentInput(x.Nombre, x.Tipo, x.Estado)).ToList(),
+            (request.Equipments ?? []).Select(x => new EquipmentInput(x.CatalogoId, x.Nombre, x.Tipo, x.Estado)).ToList(),
             request.UsuarioId,
             request.HogarId), cancellationToken);
 

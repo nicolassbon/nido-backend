@@ -1,4 +1,9 @@
+using Nido.Application.Auth.Logout;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
 
@@ -43,7 +48,10 @@ public sealed class LogoutHandlerTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(false);
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken, string? oauthProvider = null, string? oauthId = null)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(CreateOAuthUserData data, CancellationToken cancellationToken)
+            => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
+
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, UserProfileImageMetadata? profileImage, CancellationToken cancellationToken)
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult<User?>(null);
@@ -70,9 +78,10 @@ public sealed class LogoutHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
+            => ("token", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }

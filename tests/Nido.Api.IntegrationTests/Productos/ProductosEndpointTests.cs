@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -17,9 +19,21 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
         _client = factory.CreateClient();
     }
 
+    private async Task AuthenticateAsync()
+    {
+        var email = $"prod-{Guid.NewGuid():N}@test.com";
+        using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
+        var register = await _client.PostAsync("/auth/register", registerContent);
+        var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", body!.AccessToken);
+    }
+
     [Fact]
     public async Task GetByBarcode_WhenExists_Returns200AndExpectedContract()
     {
+        await AuthenticateAsync();
+
         var codigo = $"779-{Guid.NewGuid():N}";
 
         using (var scope = _factory.Services.CreateScope())
@@ -44,9 +58,12 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
     [Fact]
     public async Task GetByBarcode_WhenNotExists_Returns404()
     {
+        await AuthenticateAsync();
+
         var response = await _client.GetAsync($"/api/productos/barcode/missing-{Guid.NewGuid():N}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ProductoBody(Guid Id, string Nombre, string? CodigoBarras, string? Imagen, string? CategoriaNombre, int? TtlDias);
 }

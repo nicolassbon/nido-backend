@@ -21,9 +21,21 @@ public partial class Usuario
 
     public string? FotoUrl { get; set; }
 
+    public string? FotoStorageKey { get; set; }
+
+    public string? FotoContentType { get; set; }
+
+    public int? FotoWidth { get; set; }
+
+    public int? FotoHeight { get; set; }
+
+    public long? FotoSizeBytes { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    public int AlertaVencimientoDias { get; set; }
 
     public virtual ICollection<AsignacionesTarea> AsignacionesTareas { get; set; } = new List<AsignacionesTarea>();
 

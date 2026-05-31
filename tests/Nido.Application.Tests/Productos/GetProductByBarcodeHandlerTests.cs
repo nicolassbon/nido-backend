@@ -1,4 +1,5 @@
 using Nido.Application.Productos;
+using Nido.Application.Productos.Exceptions;
 
 namespace Nido.Application.Tests.Productos;
 
@@ -38,12 +39,12 @@ public sealed class GetProductByBarcodeHandlerTests
     }
 
     [Fact]
-    public async Task Handle_CuandoCodigoEsVacio_LanzaArgumentException()
+    public async Task Handle_CuandoCodigoEsVacio_LanzaMissingProductField()
     {
         var repo = new FakeProductoRepository();
         var handler = new GetProductByBarcodeHandler(repo);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        await Assert.ThrowsAsync<MissingProductFieldException>(() =>
             handler.Handle(new GetProductByBarcodeQuery("  "), CancellationToken.None));
     }
 

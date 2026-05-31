@@ -1,4 +1,11 @@
+using Nido.Application.Auth.Google.Login;
+using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
+using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
 
@@ -28,7 +35,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("existing@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository
         {
-            User = new User(userId, "existing@gmail.com", null, "google", "google-id-1"),
+            User = new User(userId, "Test", "existing@gmail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
@@ -48,7 +55,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("new-email@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository
         {
-            GoogleUser = new User(userId, "old-email@gmail.com", null, "google", "google-id-1"),
+            GoogleUser = new User(userId, "Test", "old-email@gmail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
@@ -65,14 +72,15 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("existing@gmail.com", "google-id-new");
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "existing@gmail.com", null, "google", "google-id-existing")
+            User = new User(Guid.NewGuid(), "Test", "existing@gmail.com", null, "google", "google-id-existing")
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None));
 
-        Assert.Equal("GOOGLE_ACCOUNT_MISMATCH", ex.Message);
+        Assert.Equal("GOOGLE_ACCOUNT_MISMATCH", ex.Code);
+        Assert.Equal("Google account mismatch.", ex.Message);
     }
 
     [Fact]
@@ -81,7 +89,7 @@ public sealed class GoogleLoginHandlerTests
         var googleValidator = new FakeGoogleValidator("user@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository
         {
-            User = new User(Guid.NewGuid(), "user@gmail.com", "hashed:Password1", null, null)
+            User = new User(Guid.NewGuid(), "Test", "user@gmail.com", "hashed:Password1", null, null)
         };
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
@@ -98,10 +106,11 @@ public sealed class GoogleLoginHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new GoogleLoginCommand("invalid-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Message);
+        Assert.Equal("INVALID_GOOGLE_TOKEN", ex.Code);
+        Assert.Equal("Invalid Google token.", ex.Message);
     }
 
     private sealed class FakeGoogleValidator : IGoogleTokenValidator
@@ -135,13 +144,16 @@ public sealed class GoogleLoginHandlerTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User is not null);
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken, string? oauthProvider = null, string? oauthId = null)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(CreateOAuthUserData data, CancellationToken cancellationToken)
         {
-            CreatedEmail = email;
+            CreatedEmail = data.Email;
             var id = Guid.NewGuid();
             var hid = Guid.NewGuid();
             return Task.FromResult((id, hid));
         }
+
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, UserProfileImageMetadata? profileImage, CancellationToken cancellationToken)
+            => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);
 
@@ -171,9 +183,10 @@ public sealed class GoogleLoginHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
+            => ("token", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }

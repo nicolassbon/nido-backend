@@ -1,8 +1,12 @@
+using Nido.Application.Auth.Logout;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Auth;
@@ -28,7 +32,7 @@ public sealed class LogoutEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
         var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { email, password });

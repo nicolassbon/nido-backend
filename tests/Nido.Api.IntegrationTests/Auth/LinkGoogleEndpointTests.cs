@@ -1,3 +1,5 @@
+using Nido.Application.Auth.Google.Link;
+using Nido.Application.Auth.Google.Login;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -5,6 +7,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 
 namespace Nido.Api.IntegrationTests.Auth;
 
@@ -84,9 +89,16 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            (userId, _) = await repo.CreateUserWithDefaultHouseholdAsync(
-                "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None,
-                oauthProvider: "google", oauthId: "google-link-4");
+            (userId, _) = await repo.CreateUserWithPasswordAsync(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+
+            var db = scope.ServiceProvider.GetRequiredService<Nido.Infrastructure.Persistence.NidoDbContext>();
+            var user = await db.Usuarios.FindAsync(userId);
+            user!.OauthProvider = "google";
+            user.OauthId = "google-link-4";
+            await db.SaveChangesAsync();
         }
 
         var accessToken = await LoginAsync(email, password);
@@ -100,7 +112,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
         Assert.Equal(409, problem!.Status);
-        Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Detail);
+        Assert.Equal("ACCOUNT_ALREADY_LINKED", problem.Title);
     }
 
     [Fact]
@@ -137,9 +149,10 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            await repo.CreateUserWithDefaultHouseholdAsync(
-                "Other User", otherEmail, string.Empty, "U", null, CancellationToken.None,
-                oauthProvider: "google", oauthId: googleId);
+            await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Other User", otherEmail, "google", googleId), CancellationToken.None);
         }
 
         var accessToken = await LoginAsync(email, password);
@@ -152,7 +165,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
 
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
         Assert.NotNull(problem);
-        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Detail);
+        Assert.Equal("GOOGLE_ACCOUNT_ALREADY_LINKED", problem!.Title);
     }
 
 
@@ -161,7 +174,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         using var scope = _factory.Services.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-        await repo.CreateUserWithDefaultHouseholdAsync("Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+        await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
     }
 
     private async Task<string> LoginAsync(string email, string password)

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Common.ProfileImages;
 using Nido.Application.Hogares;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -8,10 +9,12 @@ namespace Nido.Infrastructure.Hogares;
 public sealed class InvitacionRepository : IInvitacionRepository
 {
     private readonly NidoDbContext _db;
+    private readonly IProfileImagePublicUrlResolver _profileImagePublicUrlResolver;
 
-    public InvitacionRepository(NidoDbContext db)
+    public InvitacionRepository(NidoDbContext db, IProfileImagePublicUrlResolver profileImagePublicUrlResolver)
     {
         _db = db;
+        _profileImagePublicUrlResolver = profileImagePublicUrlResolver;
     }
 
     public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
@@ -122,13 +125,24 @@ public sealed class InvitacionRepository : IInvitacionRepository
 
     public async Task<List<MiembroInfo>> GetMiembrosAsync(Guid hogarId, CancellationToken ct)
     {
-        return await _db.MiembrosHogars
+        var members = await _db.MiembrosHogars
             .Where(m => m.HogarId == hogarId && m.NombreRepresentado == null)
             .Join(_db.Usuarios,
                 m => m.UsuarioId,
                 u => u.Id,
-                (m, u) => new MiembroInfo(u.Id, u.Nombre, u.Email, m.Rol, u.FotoUrl))
+                (m, u) => new { u.Id, u.Nombre, u.Email, m.Rol, u.FotoStorageKey, u.FotoUrl })
             .ToListAsync(ct);
+
+        return members
+            .Select(x => new MiembroInfo(
+                x.Id,
+                x.Nombre,
+                x.Email,
+                x.Rol,
+                !string.IsNullOrWhiteSpace(x.FotoStorageKey)
+                    ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey)
+                    : x.FotoUrl))
+            .ToList();
     }
 
     public async Task<(string Email, string Nombre)> GetUsuarioInfoAsync(Guid usuarioId, CancellationToken ct)

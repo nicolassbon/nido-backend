@@ -1,28 +1,24 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
-using System.Text;
-using Microsoft.Extensions.Configuration;
-using Nido.Application.Auth;
+using Microsoft.Extensions.Options;
 using Nido.Infrastructure.Auth;
 
 namespace Nido.Infrastructure.Tests.Auth;
 
 public sealed class JwtTokenServiceTests
 {
-    private readonly IConfiguration _config = new ConfigurationBuilder()
-        .AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["Jwt:Key"] = "local-dev-super-secret-key-for-tests-only",
-            ["Jwt:Issuer"] = "nido-api",
-            ["Jwt:Audience"] = "nido-clients",
-            ["Jwt:AccessTokenExpiryMinutes"] = "60"
-        })
-        .Build();
+    private readonly IOptions<JwtOptions> _jwtOptions = Options.Create(new JwtOptions
+    {
+        Key = "local-dev-super-secret-key-for-tests-only",
+        Issuer = "nido-api",
+        Audience = "nido-clients",
+        AccessTokenExpiryMinutes = 60,
+        RefreshTokenExpiryDays = 7
+    });
 
     [Fact]
     public void GenerateRefreshToken_ReturnsNonEmptyBase64String()
     {
-        var service = new JwtTokenService(_config);
+        var service = new JwtTokenService(_jwtOptions);
 
         var token = service.GenerateRefreshToken();
 
@@ -34,7 +30,7 @@ public sealed class JwtTokenServiceTests
     [Fact]
     public void HashRefreshToken_SameInput_ReturnsConsistentHash()
     {
-        var service = new JwtTokenService(_config);
+        var service = new JwtTokenService(_jwtOptions);
         var token = service.GenerateRefreshToken();
 
         var hash1 = service.HashRefreshToken(token);
@@ -47,14 +43,15 @@ public sealed class JwtTokenServiceTests
     [Fact]
     public void CreateAuthTokens_ReturnsAccessTokenAndRefreshToken()
     {
-        var service = new JwtTokenService(_config);
+        var service = new JwtTokenService(_jwtOptions);
         var usuarioId = Guid.NewGuid();
         var hogarId = Guid.NewGuid();
 
-        var (accessToken, refreshToken) = service.CreateAuthTokens(usuarioId, hogarId, "test@mail.com");
+        var (accessToken, refreshToken, refreshTokenExpiresAt) = service.CreateAuthTokens(usuarioId, hogarId, "test@mail.com", "Test");
 
         Assert.False(string.IsNullOrWhiteSpace(accessToken));
         Assert.False(string.IsNullOrWhiteSpace(refreshToken));
+        Assert.True(refreshTokenExpiresAt > DateTime.UtcNow);
 
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(accessToken);
@@ -69,11 +66,11 @@ public sealed class JwtTokenServiceTests
     [Fact]
     public void CreateToken_UsesConfiguredExpiryMinutes()
     {
-        var service = new JwtTokenService(_config);
+        var service = new JwtTokenService(_jwtOptions);
         var usuarioId = Guid.NewGuid();
         var hogarId = Guid.NewGuid();
 
-        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com");
+        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com", "Test");
 
         var handler = new JwtSecurityTokenHandler();
         var jwt = handler.ReadJwtToken(token);

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Nido.Api.IntegrationTests.Auth;
 
 namespace Nido.Api.IntegrationTests.Onboarding;
 
@@ -16,7 +17,8 @@ public sealed class OnboardingRouteCompatibilityTests : IClassFixture<NidoTestWe
     [Fact]
     public async Task PublicStepRoutes_WhenAuthenticated_AcceptRequestsOnExistingContracts()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Compat", email = "compat@test.com", password = "Password123!", sexo = "M" });
+        using var registerContent = RegisterMultipartRequest.Create("Compat", "compat@test.com", "Password123!", "M");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
@@ -32,7 +34,8 @@ public sealed class OnboardingRouteCompatibilityTests : IClassFixture<NidoTestWe
     [Fact]
     public async Task StepRoutes_WhenForbiddenByForgedIdentity_ReturnProblemDetailsShape()
     {
-        var register = await _client.PostAsJsonAsync("/auth/register", new { nombre = "Boundary", email = "boundary@test.com", password = "Password123!", sexo = "F" });
+        using var registerContent = RegisterMultipartRequest.Create("Boundary", "boundary@test.com", "Password123!", "F");
+        var register = await _client.PostAsync("/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 

@@ -1,3 +1,4 @@
+using Nido.Application.Electrodomesticos.Exceptions;
 using Nido.Domain.Electrodomesticos;
 
 namespace Nido.Application.Electrodomesticos;
@@ -17,26 +18,28 @@ public sealed class CreateElectrodomesticoHandler
     {
         if (command.HogarId == Guid.Empty)
         {
-            throw new ArgumentException("El hogar es requerido.");
+            throw new MissingApplianceFieldException("hogar");
         }
 
         if (string.IsNullOrWhiteSpace(command.Nombre))
         {
-            throw new ArgumentException("El nombre es requerido.");
+            throw new MissingApplianceFieldException("nombre");
         }
 
         var hogarExiste = await _repository.HogarExisteAsync(command.HogarId, cancellationToken);
 
         if (!hogarExiste)
         {
-            throw new InvalidOperationException("El hogar indicado no existe.");
+            throw new HouseholdNotFoundException();
         }
 
         var electrodomestico = new Electrodomestico(
             command.HogarId,
             command.Nombre,
             command.Tipo,
-            command.Estado
+            command.Estado,
+            command.Marca,
+            command.ImagenUrl
         );
 
         await _repository.SaveAsync(electrodomestico, cancellationToken);
@@ -46,7 +49,9 @@ public sealed class CreateElectrodomesticoHandler
             electrodomestico.HogarId,
             electrodomestico.Nombre,
             electrodomestico.Tipo,
-            electrodomestico.Estado
+            electrodomestico.Estado,
+            electrodomestico.Marca,
+            electrodomestico.ImagenUrl
         );
     }
 }

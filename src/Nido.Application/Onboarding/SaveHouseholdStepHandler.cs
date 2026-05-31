@@ -1,3 +1,5 @@
+using Nido.Application.Onboarding.Exceptions;
+
 namespace Nido.Application.Onboarding;
 
 public sealed class SaveHouseholdStepHandler
@@ -15,7 +17,7 @@ public sealed class SaveHouseholdStepHandler
 
         if (!await _repository.IsUserHouseholdMemberAsync(command.UsuarioId, command.HogarId, cancellationToken))
         {
-            throw new UnauthorizedAccessException("User does not belong to household.");
+            throw new HouseholdAccessDeniedException();
         }
 
         var isOwner = await _repository.IsUserHouseholdOwnerAsync(command.UsuarioId, command.HogarId, cancellationToken);

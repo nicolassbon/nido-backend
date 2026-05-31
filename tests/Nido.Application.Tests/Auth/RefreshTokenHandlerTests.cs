@@ -1,4 +1,10 @@
+using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Exceptions;
+using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Tests.Auth;
 
@@ -14,7 +20,7 @@ public sealed class RefreshTokenHandlerTests
         {
             TokenInfo = new RefreshTokenInfo(Guid.NewGuid(), userId, tokenHash, DateTime.UtcNow.AddDays(7)),
             HogarId = hogarId,
-            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null)
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null)
         };
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
@@ -29,10 +35,11 @@ public sealed class RefreshTokenHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() =>
             handler.Handle(new RefreshTokenCommand("unknown-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Message);
+        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Code);
+        Assert.Equal("Invalid refresh token.", ex.Message);
     }
 
     [Fact]
@@ -41,10 +48,11 @@ public sealed class RefreshTokenHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() =>
             handler.Handle(new RefreshTokenCommand(""), CancellationToken.None));
 
-        Assert.Equal("MISSING_REFRESH_TOKEN", ex.Message);
+        Assert.Equal("MISSING_REFRESH_TOKEN", ex.Code);
+        Assert.Equal("Invalid refresh token.", ex.Message);
     }
 
     [Fact]
@@ -55,14 +63,15 @@ public sealed class RefreshTokenHandlerTests
         {
             // GetValidRefreshTokenAsync returns null for expired tokens (already filtered in repo)
             TokenInfo = null,
-            User = new User(userId, "nico@mail.com", "hashed:Password1", null, null)
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null)
         };
         var handler = new RefreshTokenHandler(repo, new FakeJwt());
 
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidRefreshTokenException>(() =>
             handler.Handle(new RefreshTokenCommand("expired-token"), CancellationToken.None));
 
-        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Message);
+        Assert.Equal("INVALID_REFRESH_TOKEN", ex.Code);
+        Assert.Equal("Invalid refresh token.", ex.Message);
     }
 
     private sealed class FakeAuthRepository : IAuthRepository
@@ -73,7 +82,10 @@ public sealed class RefreshTokenHandlerTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(false);
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithDefaultHouseholdAsync(string nombre, string email, string passwordHash, string sexo, string? fotoUrl, CancellationToken cancellationToken, string? oauthProvider = null, string? oauthId = null)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(CreateOAuthUserData data, CancellationToken cancellationToken)
+            => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
+
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, UserProfileImageMetadata? profileImage, CancellationToken cancellationToken)
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);
@@ -96,9 +108,10 @@ public sealed class RefreshTokenHandlerTests
 
     private sealed class FakeJwt : IJwtTokenService
     {
-        public string CreateToken(Guid usuarioId, Guid hogarId, string email) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
-        public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email) => ("token", "refresh");
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
+            => ("token", "refresh", DateTime.UtcNow.AddDays(7));
     }
 }

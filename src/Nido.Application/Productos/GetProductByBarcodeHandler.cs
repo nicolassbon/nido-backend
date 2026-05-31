@@ -1,3 +1,5 @@
+using Nido.Application.Productos.Exceptions;
+
 namespace Nido.Application.Productos;
 
 public sealed class GetProductByBarcodeHandler
@@ -13,7 +15,7 @@ public sealed class GetProductByBarcodeHandler
     {
         if (string.IsNullOrWhiteSpace(query.CodigoBarras))
         {
-            throw new ArgumentException("El código de barras es requerido.");
+            throw new MissingProductFieldException("codigoBarras");
         }
 
         return await _repository.GetByBarcodeAsync(query.CodigoBarras.Trim(), ct);

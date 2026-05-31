@@ -3,53 +3,54 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Nido.Application.Auth;
-using Nido.Application.Common.Security;
+using Nido.Application.Auth.Interfaces;
 
 namespace Nido.Infrastructure.Auth;
 
 public sealed class JwtTokenService : IJwtTokenService
 {
-    private readonly IConfiguration _configuration;
+    private readonly JwtOptions _jwtOptions;
 
-    public JwtTokenService(IConfiguration configuration)
+    public JwtTokenService(IOptions<JwtOptions> jwtOptions)
     {
-        _configuration = configuration;
+        _jwtOptions = jwtOptions.Value;
     }
 
-    public string CreateToken(Guid usuarioId, Guid hogarId, string email)
+    public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre)
     {
-        var key = _configuration["Jwt:Key"];
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            throw new InvalidOperationException(
-                "Jwt:Key is not configured. Set the 'Jwt__Key' environment variable or 'Jwt:Key' in appsettings.");
-        }
-
-        var issuer = _configuration["Jwt:Issuer"] ?? "nido-api";
-        var audience = _configuration["Jwt:Audience"] ?? "nido-clients";
-        var expiryMinutes = int.TryParse(_configuration["Jwt:AccessTokenExpiryMinutes"], out var parsed) ? parsed : 60;
-
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256);
+        var credentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key)),
+            SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, usuarioId.ToString()),
-            new Claim(System.Security.Claims.ClaimTypes.NameIdentifier, usuarioId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()),
             new Claim(Application.Common.Security.ClaimTypes.UsuarioId, usuarioId.ToString()),
             new Claim(Application.Common.Security.ClaimTypes.HogarId, hogarId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, email)
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim(Application.Common.Security.ClaimTypes.Nombre, nombre)
         };
 
         var token = new JwtSecurityToken(
-            issuer: issuer,
-            audience: audience,
+            issuer: _jwtOptions.Issuer,
+            audience: _jwtOptions.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_jwtOptions.AccessTokenExpiryMinutes),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(
+        Guid usuarioId, Guid hogarId, string email, string nombre)
+    {
+        var accessToken = CreateToken(usuarioId, hogarId, email, nombre);
+        var refreshToken = GenerateRefreshToken();
+        var expiresAt = DateTime.UtcNow.AddDays(_jwtOptions.RefreshTokenExpiryDays);
+        return (accessToken, refreshToken, expiresAt);
     }
 
     public string GenerateRefreshToken()
@@ -64,12 +65,5 @@ public sealed class JwtTokenService : IJwtTokenService
         var bytes = Encoding.UTF8.GetBytes(refreshToken);
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash);
-    }
-
-    public (string AccessToken, string RefreshToken) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email)
-    {
-        var accessToken = CreateToken(usuarioId, hogarId, email);
-        var refreshToken = GenerateRefreshToken();
-        return (accessToken, refreshToken);
     }
 }
