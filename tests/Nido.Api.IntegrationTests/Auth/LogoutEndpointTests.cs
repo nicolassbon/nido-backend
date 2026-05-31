@@ -1,8 +1,12 @@
+using Nido.Application.Auth.Logout;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Helpers;
+using Nido.Application.Auth.Interfaces;
+using Nido.Application.Auth.RefreshToken;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Auth;

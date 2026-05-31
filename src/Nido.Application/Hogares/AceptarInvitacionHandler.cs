@@ -1,4 +1,4 @@
-using Nido.Application.Auth;
+using Nido.Application.Auth.Interfaces;
 using Nido.Application.Hogares.Exceptions;
 
 namespace Nido.Application.Hogares;

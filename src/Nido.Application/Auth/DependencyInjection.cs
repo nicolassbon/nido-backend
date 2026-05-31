@@ -1,4 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Application.Auth.Google.Link;
+using Nido.Application.Auth.Google.Login;
+using Nido.Application.Auth.Login;
+using Nido.Application.Auth.Logout;
+using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.Register;
 
 namespace Nido.Application.Auth;
 
