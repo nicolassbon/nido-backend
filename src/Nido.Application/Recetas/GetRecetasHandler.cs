@@ -9,8 +9,8 @@ public sealed class GetRecetasHandler
         _repository = repository;
     }
 
-    public Task<IReadOnlyList<RecetaResult>> Handle(CancellationToken ct)
+    public Task<IReadOnlyList<RecetaResult>> Handle(Guid hogarId, CancellationToken ct)
     {
-        return _repository.GetAllAsync(ct);
+        return _repository.GetAllAsync(hogarId, ct);
     }
 }

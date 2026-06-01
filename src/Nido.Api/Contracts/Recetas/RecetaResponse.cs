@@ -23,7 +23,8 @@ public sealed record RecetaIngredienteResponse(
     string Nombre,
     string ProductoNombre,
     decimal? Cantidad,
-    string? Unidad);
+    string? Unidad,
+    bool EnStock);
 
 public sealed record RecetaPasoResponse(
     Guid Id,
