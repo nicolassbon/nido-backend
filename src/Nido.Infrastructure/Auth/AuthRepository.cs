@@ -3,6 +3,7 @@ using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -151,6 +152,21 @@ public sealed class AuthRepository : IAuthRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task SavePasswordResetTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken)
+    {
+        var token = new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UsuarioId = usuarioId,
+            TokenHash = tokenHash,
+            ExpiresAt = expiresAt,
+            CreatedAt = DateTime.UtcNow,
+            UsedAt = null
+        };
+        _dbContext.PasswordResetTokens.Add(token);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<RefreshTokenInfo?> GetValidRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken)
     {
         var token = await _dbContext.RefreshTokens
@@ -169,6 +185,37 @@ public sealed class AuthRepository : IAuthRepository
             _dbContext.RefreshTokens.Remove(token);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task<PasswordResetTokenInfo?> GetValidPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        var token = await _dbContext.PasswordResetTokens
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.ExpiresAt > DateTime.UtcNow && x.UsedAt == null, cancellationToken);
+        if (token is null) return null;
+        return new PasswordResetTokenInfo(token.Id, token.UsuarioId, token.TokenHash, token.ExpiresAt, token.UsedAt);
+    }
+
+    public async Task ConsumePasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        var updatedRows = await _dbContext.PasswordResetTokens
+            .Where(x => x.TokenHash == tokenHash && x.ExpiresAt > DateTime.UtcNow && x.UsedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UsedAt, DateTime.UtcNow), cancellationToken);
+
+        if (updatedRows == 0)
+        {
+            throw new InvalidOperationException("Password reset token could not be consumed.");
+        }
+    }
+
+    public async Task UpdateUserPasswordAsync(Guid usuarioId, string passwordHash, CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios.FindAsync(new object[] { usuarioId }, cancellationToken);
+        if (usuario is null) return;
+
+        usuario.PasswordHash = passwordHash;
+        usuario.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateUserAsync(User user, CancellationToken cancellationToken)

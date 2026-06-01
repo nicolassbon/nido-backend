@@ -4,8 +4,12 @@ using Microsoft.Extensions.Options;
 using Nido.Api.Contracts.Auth;
 using Nido.Application.Auth.Google.Link;
 using Nido.Application.Auth.Google.Login;
+using Nido.Application.Auth.ChangePassword;
+using Nido.Application.Auth.AddPassword;
+using Nido.Application.Auth.ForgotPassword;
 using Nido.Application.Auth.Login;
 using Nido.Application.Auth.Logout;
+using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Register;
 using Nido.Application.Common.ProfileImages;
@@ -25,6 +29,10 @@ public sealed class AuthController : ControllerBase
     private readonly RefreshTokenHandler _refreshTokenHandler;
     private readonly LogoutHandler _logoutHandler;
     private readonly LinkGoogleHandler _linkGoogleHandler;
+    private readonly ForgotPasswordHandler _forgotPasswordHandler;
+    private readonly ResetPasswordHandler _resetPasswordHandler;
+    private readonly ChangePasswordHandler _changePasswordHandler;
+    private readonly AddPasswordHandler _addPasswordHandler;
     private readonly ICurrentUserContext _currentUser;
     private readonly IOptions<ProfileImageOptions> _profileImageOptions;
     private readonly IOptions<JwtOptions> _jwtOptions;
@@ -36,6 +44,10 @@ public sealed class AuthController : ControllerBase
         RefreshTokenHandler refreshTokenHandler,
         LogoutHandler logoutHandler,
         LinkGoogleHandler linkGoogleHandler,
+        ForgotPasswordHandler forgotPasswordHandler,
+        ResetPasswordHandler resetPasswordHandler,
+        ChangePasswordHandler changePasswordHandler,
+        AddPasswordHandler addPasswordHandler,
         ICurrentUserContext currentUser,
         IOptions<ProfileImageOptions> profileImageOptions,
         IOptions<JwtOptions> jwtOptions)
@@ -46,6 +58,10 @@ public sealed class AuthController : ControllerBase
         _refreshTokenHandler = refreshTokenHandler;
         _logoutHandler = logoutHandler;
         _linkGoogleHandler = linkGoogleHandler;
+        _forgotPasswordHandler = forgotPasswordHandler;
+        _resetPasswordHandler = resetPasswordHandler;
+        _changePasswordHandler = changePasswordHandler;
+        _addPasswordHandler = addPasswordHandler;
         _currentUser = currentUser;
         _profileImageOptions = profileImageOptions;
         _jwtOptions = jwtOptions;
@@ -150,6 +166,47 @@ public sealed class AuthController : ControllerBase
 
         SetRefreshTokenCookie(result.RefreshToken);
         return Ok(new LinkGoogleResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await _forgotPasswordHandler.Handle(new ForgotPasswordCommand(request.Email), cancellationToken);
+        return Ok(new { message = "If an account exists for that email, you will receive instructions." });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await _resetPasswordHandler.Handle(
+            new ResetPasswordCommand(request.Token, request.NewPassword, request.NewPasswordConfirmation),
+            cancellationToken);
+
+        return Ok(new { message = "Password reset successful." });
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        await _changePasswordHandler.Handle(
+            new ChangePasswordCommand(_currentUser.UsuarioId, request.CurrentPassword, request.NewPassword, request.NewPasswordConfirmation),
+            cancellationToken);
+
+        return Ok(new { message = "Password updated." });
+    }
+
+    [Authorize]
+    [HttpPost("add-password")]
+    public async Task<IActionResult> AddPassword([FromBody] AddPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await _addPasswordHandler.Handle(
+            new AddPasswordCommand(_currentUser.UsuarioId, request.NewPassword, request.NewPasswordConfirmation),
+            cancellationToken);
+
+        return Ok(new { message = "Password added." });
     }
 
     private void SetRefreshTokenCookie(string? refreshToken)

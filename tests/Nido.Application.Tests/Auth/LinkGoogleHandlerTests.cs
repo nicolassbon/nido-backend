@@ -4,6 +4,7 @@ using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
 
@@ -177,7 +178,15 @@ public sealed class LinkGoogleHandlerTests
 
         public Task<RefreshTokenInfo?> GetValidRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) => Task.FromResult<RefreshTokenInfo?>(null);
 
+        public Task SavePasswordResetTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<PasswordResetTokenInfo?> GetValidPasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken) => Task.FromResult<PasswordResetTokenInfo?>(null);
+
         public Task RemoveRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ConsumePasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UpdateUserPasswordAsync(Guid usuarioId, string passwordHash, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task UpdateUserAsync(User user, CancellationToken cancellationToken)
         {
