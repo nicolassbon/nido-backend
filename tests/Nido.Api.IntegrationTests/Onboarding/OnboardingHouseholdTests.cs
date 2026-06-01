@@ -20,7 +20,7 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     }
 
     [Fact]
-    public async Task SaveHousehold_WhenRepresentedMemberIsProvided_PersistsMembershipData()
+    public async Task GuardarHogar_CuandoSeAgregaUnMiembroRepresentado_PersisteLosDatasDeMiembro()
     {
         using var registerContent = RegisterMultipartRequest.Create("Marta", "marta@test.com", "Password123!", "F");
         var register = await _client.PostAsync("/auth/register", registerContent);
@@ -44,7 +44,7 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     }
 
     [Fact]
-    public async Task SaveHousehold_WhenOwnerLivesAlone_KeepsSingleOwnerMembershipValid()
+    public async Task GuardarHogar_CuandoElDuenioViveSolo_MantieneUnaSolaMembresiaValida()
     {
         using var registerContent = RegisterMultipartRequest.Create("Solo", "solo@test.com", "Password123!", "M");
         var register = await _client.PostAsync("/auth/register", registerContent);
@@ -66,7 +66,7 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     }
 
     [Fact]
-    public async Task SaveHouseholdAndEquipment_WhenSkippingHouseholdAndSavingEquipment_PersistIndependently()
+    public async Task GuardarHogarYEquipamiento_CuandoSeSaltaElHogarYSeGuardaEquipamiento_PersistenPorSeparado()
     {
         using var registerContent = RegisterMultipartRequest.Create("Bob", "bob@test.com", "Password123!", "M");
         var register = await _client.PostAsync("/auth/register", registerContent);
