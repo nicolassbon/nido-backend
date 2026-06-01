@@ -99,5 +99,9 @@ public sealed class InvitarConviventeHandlerTests
             UltimoDestinatario = toEmail;
             return Task.CompletedTask;
         }
+
+        public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct) => Task.CompletedTask;
+
+        public Task SendGoogleOnlyInfoEmailAsync(string toEmail, CancellationToken ct) => Task.CompletedTask;
     }
 }

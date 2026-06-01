@@ -6,6 +6,7 @@ using Nido.Application.Common.ProfileImages;
 using Microsoft.Extensions.Options;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Application.Auth.Register;
+using Nido.Application.Auth.Interfaces;
 
 namespace Nido.Api.Controllers;
 
@@ -14,6 +15,7 @@ namespace Nido.Api.Controllers;
 public sealed class PerfilController(
     ActualizarPerfilHandler handler, 
     IUsuarioRepository repository, 
+    IAuthRepository authRepository,
     ICurrentUserContext currentUser,
     IOptions<ProfileImageOptions> profileImageOptions) : ControllerBase
 {
@@ -25,6 +27,7 @@ public sealed class PerfilController(
         var userId = currentUser.UsuarioId; 
         
         var usuario = await repository.GetByIdAsync(userId, cancellationToken);
+        var authUser = await authRepository.FindByIdAsync(userId, cancellationToken);
 
         if (usuario == null)
         {
@@ -42,6 +45,8 @@ public sealed class PerfilController(
         {
             nombre = usuario.Nombre,
             email = usuario.Email,
+            hasPassword = !string.IsNullOrWhiteSpace(authUser?.PasswordHash),
+            hasGoogleLinked = string.Equals(authUser?.OauthProvider, "google", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(authUser?.OauthId),
             sexo = usuario.Sexo,
             telefono = usuario.Telefono,
             fotoUrl,

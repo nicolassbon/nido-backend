@@ -59,3 +59,18 @@ public sealed class NoHouseholdAssociatedException : NidoException
 {
     public NoHouseholdAssociatedException() : base("NO_HOUSEHOLD_ASSOCIATED", "User has no associated household.") { }
 }
+
+public sealed class InvalidResetTokenException : NidoException
+{
+    public InvalidResetTokenException() : base("INVALID_RESET_TOKEN", "Reset token is invalid or expired.") { }
+}
+
+public sealed class InvalidPasswordException : NidoException
+{
+    public InvalidPasswordException(string code, string message) : base(code, message) { }
+}
+
+public sealed class PasswordAlreadySetException : NidoException
+{
+    public PasswordAlreadySetException() : base("PASSWORD_ALREADY_SET", "This account already has a password.") { }
+}

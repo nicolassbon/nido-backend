@@ -9,8 +9,6 @@ namespace Nido.Application.Auth.Register;
 
 public sealed class RegisterUserHandler
 {
-    private const string PasswordComplexityPattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&.]{8,}$";
-
     private readonly IAuthRepository _repository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
@@ -85,7 +83,7 @@ public sealed class RegisterUserHandler
             throw new MissingRegistrationFieldsException(missingFields);
         }
 
-        if (!System.Text.RegularExpressions.Regex.IsMatch(command.Password, PasswordComplexityPattern))
+        if (!PasswordRules.IsValid(command.Password))
         {
             throw new WeakPasswordException();
         }

@@ -64,6 +64,8 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 ["Jwt:Issuer"] = "nido-api-tests",
                 ["Jwt:Audience"] = "nido-clients-tests",
                 ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com",
+                ["Frontend:BaseUrl"] = "http://localhost:4200",
+                ["PasswordReset:TokenExpiryMinutes"] = "60",
                 ["ProfileImages:MaxBytes"] = "5242880",
                 ["ProfileImages:MaxDimension"] = "512",
                 ["ProfileImages:WebpQuality"] = "80",
