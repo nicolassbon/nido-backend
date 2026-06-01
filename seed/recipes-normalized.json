@@ -1,0 +1,487 @@
+{
+"productos": [
+{
+"nombre": "Palta",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Frutas"
+},
+{
+"nombre": "Microgreens",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Albahaca",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Zanahoria",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Apio",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Pechuga de pollo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Carnes"
+},
+{
+"nombre": "Perejil",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Ajo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Aceite de oliva",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Aceites"
+},
+{
+"nombre": "Tomate en conserva",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Conservas"
+},
+{
+"nombre": "Lentejas rojas",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Legumbres"
+},
+{
+"nombre": "Sal",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Condimentos"
+},
+{
+"nombre": "Pimienta",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Condimentos"
+},
+{
+"nombre": "Nabo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Caldo de verduras",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Caldos"
+},
+{
+"nombre": "Cebolla",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Aceite vegetal",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Aceites"
+},
+{
+"nombre": "Carne picada vacuna",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Carnes"
+},
+{
+"nombre": "Carne picada de cerdo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Carnes"
+},
+{
+"nombre": "Cebolla de verdeo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Morrón",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
+},
+{
+"nombre": "Ají molido",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Condimentos"
+},
+{
+"nombre": "Harina",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Repostería"
+},
+{
+"nombre": "Polvo para hornear",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Repostería"
+},
+{
+"nombre": "Grasa vegetal",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Repostería"
+},
+{
+"nombre": "Huevo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Huevos"
+},
+{
+"nombre": "Leche",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Lácteos"
+}
+],
+"recetas": [
+{
+"nombre": "Sopa de lentejas rojas con pollo y nabo",
+"descripcion": "Sopa de lentejas rojas con pollo, nabo, verduras y caldo de verduras.",
+"tiempoCoccionMin": 55,
+"dificultad": "Media",
+"porciones": 8,
+"fuenteId": "spoonacular-715415",
+"imagenUrl": "https://img.spoonacular.com/recipes/715415-556x370.jpg",
+"ingredientes": [
+{
+"productoNombre": "Palta",
+"nombreIngrediente": "Palta en cubos para decorar",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Microgreens",
+"nombreIngrediente": "Microgreens para decorar",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Albahaca",
+"nombreIngrediente": "Albahaca picada para decorar",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Zanahoria",
+"nombreIngrediente": "Zanahorias medianas peladas y en cubos",
+"cantidad": 3,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Apio",
+"nombreIngrediente": "Tallos de apio en cubos",
+"cantidad": 3,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Pechuga de pollo",
+"nombreIngrediente": "Pechuga de pollo cocida y desmenuzada",
+"cantidad": 280,
+"unidad": "g"
+},
+{
+"productoNombre": "Perejil",
+"nombreIngrediente": "Perejil italiano picado y extra para decorar",
+"cantidad": 30,
+"unidad": "g"
+},
+{
+"productoNombre": "Ajo",
+"nombreIngrediente": "Dientes de ajo bien picados",
+"cantidad": 6,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Aceite de oliva",
+"nombreIngrediente": "Aceite de oliva",
+"cantidad": 2,
+"unidad": "cda"
+},
+{
+"productoNombre": "Tomate en conserva",
+"nombreIngrediente": "Tomates perita en conserva escurridos, enjuagados y picados",
+"cantidad": 793.787,
+"unidad": "g"
+},
+{
+"productoNombre": "Lentejas rojas",
+"nombreIngrediente": "Lentejas rojas secas y enjuagadas",
+"cantidad": 360,
+"unidad": "g"
+},
+{
+"productoNombre": "Sal",
+"nombreIngrediente": "Sal a gusto",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Pimienta",
+"nombreIngrediente": "Pimienta negra a gusto",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Nabo",
+"nombreIngrediente": "Nabo grande pelado y en cubos",
+"cantidad": 1,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Caldo de verduras",
+"nombreIngrediente": "Caldo de verduras",
+"cantidad": 1.88,
+"unidad": "l"
+},
+{
+"productoNombre": "Cebolla",
+"nombreIngrediente": "Cebolla amarilla mediana en cubos",
+"cantidad": 1,
+"unidad": "unidad"
+}
+],
+"pasos": [
+{
+"orden": 1,
+"descripcion": "En una olla grande o cacerola profunda, calentá el aceite de oliva a fuego medio."
+},
+{
+"orden": 2,
+"descripcion": "Agregá la cebolla, las zanahorias y el apio. Cociná durante 8 a 10 minutos, revolviendo cada tanto, hasta que estén tiernos."
+},
+{
+"orden": 3,
+"descripcion": "Agregá el ajo y cociná 2 minutos más, hasta que largue aroma. Condimentá con una pizca de sal y pimienta negra."
+},
+{
+"orden": 4,
+"descripcion": "Sumá los tomates, el nabo y las lentejas rojas. Mezclá bien."
+},
+{
+"orden": 5,
+"descripcion": "Incorporá el caldo de verduras, subí el fuego y llevá la sopa a hervor. Bajá a fuego suave y cociná durante 20 minutos, hasta que el nabo esté tierno y las lentejas estén cocidas."
+},
+{
+"orden": 6,
+"descripcion": "Agregá la pechuga de pollo y el perejil. Cociná 5 minutos más y ajustá los condimentos a gusto."
+},
+{
+"orden": 7,
+"descripcion": "Serví la sopa caliente con perejil fresco y los toppings adicionales."
+}
+],
+"nutricion": {
+"calorias": 477.24,
+"proteinas": 26.93,
+"carbohidratos": 51.78,
+"grasas": 20.34
+},
+"electrodomesticos": [
+"Horno/Cocina"
+]
+},
+{
+"nombre": "Pasteles de carne de Natchitoches",
+"descripcion": "Pasteles fritos de masa casera rellenos con carne vacuna, cerdo, morrón, cebolla de verdeo y condimentos.",
+"tiempoCoccionMin": 45,
+"dificultad": "Media",
+"porciones": 16,
+"fuenteId": "spoonacular-652968",
+"imagenUrl": "https://img.spoonacular.com/recipes/652968-556x370.jpg",
+"ingredientes": [
+{
+"productoNombre": "Aceite vegetal",
+"nombreIngrediente": "Aceite vegetal",
+"cantidad": 1,
+"unidad": "cda"
+},
+{
+"productoNombre": "Carne picada vacuna",
+"nombreIngrediente": "Carne picada vacuna 80/20",
+"cantidad": 453.592,
+"unidad": "g"
+},
+{
+"productoNombre": "Carne picada de cerdo",
+"nombreIngrediente": "Carne picada de cerdo",
+"cantidad": 453.592,
+"unidad": "g"
+},
+{
+"productoNombre": "Cebolla de verdeo",
+"nombreIngrediente": "Cebolla de verdeo bien picada",
+"cantidad": 1,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Morrón",
+"nombreIngrediente": "Morrón chico bien picado",
+"cantidad": 1,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Ajo",
+"nombreIngrediente": "Diente de ajo grande machacado",
+"cantidad": 1,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Ají molido",
+"nombreIngrediente": "Ají molido opcional",
+"cantidad": 0.25,
+"unidad": "cdta"
+},
+{
+"productoNombre": "Sal",
+"nombreIngrediente": "Sal a gusto para el relleno",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Pimienta",
+"nombreIngrediente": "Pimienta negra a gusto para el relleno",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Harina",
+"nombreIngrediente": "Harina común y extra para la superficie",
+"cantidad": 500,
+"unidad": "g"
+},
+{
+"productoNombre": "Sal",
+"nombreIngrediente": "Sal para la masa",
+"cantidad": 2,
+"unidad": "cdta"
+},
+{
+"productoNombre": "Polvo para hornear",
+"nombreIngrediente": "Polvo para hornear",
+"cantidad": 1,
+"unidad": "cdta"
+},
+{
+"productoNombre": "Grasa vegetal",
+"nombreIngrediente": "Grasa vegetal",
+"cantidad": 102.5,
+"unidad": "g"
+},
+{
+"productoNombre": "Huevo",
+"nombreIngrediente": "Huevos batidos",
+"cantidad": 2,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Leche",
+"nombreIngrediente": "Leche",
+"cantidad": 244,
+"unidad": "ml"
+}
+],
+"pasos": [
+{
+"orden": 1,
+"descripcion": "En una sartén grande a fuego medio-alto, calentá el aceite vegetal y dorá la carne."
+},
+{
+"orden": 2,
+"descripcion": "Agregá la cebolla de verdeo y el morrón. Cociná, revolviendo seguido, durante unos 5 minutos, hasta que las verduras estén blandas."
+},
+{
+"orden": 3,
+"descripcion": "Agregá el ajo y salteá 1 minuto más."
+},
+{
+"orden": 4,
+"descripcion": "Sumá el ají molido, sal y pimienta a gusto. Reservá el relleno hasta el momento de usar."
+},
+{
+"orden": 5,
+"descripcion": "Tamizá la harina, la sal y el polvo para hornear en un bowl grande o en el bowl de una procesadora."
+},
+{
+"orden": 6,
+"descripcion": "Procesá o integrá la grasa vegetal a mano hasta que la mezcla tenga textura de harina de maíz."
+},
+{
+"orden": 7,
+"descripcion": "Mezclá los huevos con la leche y agregalos de a poco a la harina. Integrá bien hasta formar una masa blanda."
+},
+{
+"orden": 8,
+"descripcion": "Dividí la masa en 16 porciones iguales. Espolvoreá una superficie limpia y seca con harina."
+},
+{
+"orden": 9,
+"descripcion": "Formá un bollo con cada porción y estirá cada uno sobre la superficie enharinada hasta lograr un círculo de aproximadamente 15 a 20 cm de diámetro."
+},
+{
+"orden": 10,
+"descripcion": "Colocá unas 2 cucharadas colmadas de relleno de carne sobre un lado de cada círculo, dejando un borde limpio."
+},
+{
+"orden": 11,
+"descripcion": "Pincelá los bordes con un poco de agua tibia. Doblá la masa sobre el relleno, uní los bordes y cerralos presionando con un tenedor. Repetí con el resto de la masa y el relleno."
+},
+{
+"orden": 12,
+"descripcion": "Calentá aceite para freír en una sartén mediana a fuego medio-alto."
+},
+{
+"orden": 13,
+"descripcion": "Cuando el aceite esté caliente, freí 1 o 2 pasteles por vez hasta que estén dorados de ambos lados, aproximadamente 3 minutos."
+},
+{
+"orden": 14,
+"descripcion": "Retiralos del fuego y escurrilos sobre papel absorbente."
+},
+{
+"orden": 15,
+"descripcion": "Servilos calientes o a temperatura ambiente."
+}
+],
+"nutricion": {
+"calorias": 355.01,
+"proteinas": 13.65,
+"carbohidratos": 25.07,
+"grasas": 21.78
+},
+"electrodomesticos": [
+"Horno/Cocina",
+"Procesadora"
+]
+}
+]
+}
