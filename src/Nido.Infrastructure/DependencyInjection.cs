@@ -16,10 +16,12 @@ using Nido.Application.Alacena;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
+using Nido.Application.Recetas;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.Preferencias;
+using Nido.Infrastructure.Recetas;
 using Nido.Infrastructure.StockHogar;
 using Nido.Domain.StockHogar;
 
@@ -55,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
+        services.AddScoped<IRecetaRepository, RecetaRepository>();
         services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
         services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
         services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
