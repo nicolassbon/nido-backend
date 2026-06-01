@@ -36,7 +36,7 @@ public sealed class StockHogarRepository : IStockHogarRepository
                 ? DateOnly.FromDateTime(stockHogar.FechaVencimiento.Value)
                 : null,
 
-            Ubicacion = "Alacena",
+            Ubicacion = stockHogar.Ubicacion,
             EstaAbierto = false,
             PorcentajeConsumido = 0
         };

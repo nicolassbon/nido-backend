@@ -52,8 +52,15 @@ public async Task<IActionResult> GetManual(
     public async Task<IActionResult> Create(CreateStockHomeRequest request, CancellationToken ct)
     {
         var result = await _createStockHomeHandler.Handle(
-            new CreateStockHomeCommand(request.CategoriaId, request.ProductoId, request.CantidadActual, request.UnidadMedida ?? string.Empty, request.FechaVencimiento, 
-            request.HogarId ,request.UsuarioId, request.Ubicacion, request.EstaAbierto, request.PorcentajeConsumido),
+            new CreateStockHomeCommand(
+                request.Nombre,
+                request.CategoriaId,
+                request.Ubicacion,
+                request.Cantidad,
+                request.UnidadMedida ?? string.Empty,
+                request.FechaVencimiento, 
+                request.HogarId,
+                request.UsuarioId),
             ct);
 
         return Ok(new CreateStockHomeResponse(
