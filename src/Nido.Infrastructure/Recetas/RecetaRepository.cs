@@ -57,7 +57,7 @@ public sealed class RecetaRepository : IRecetaRepository
                     ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
                     ingrediente.Cantidad,
                     ingrediente.Unidad,
-                    productosEnStock.Contains(ingrediente.ProductoId)))
+                    ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value)))
                 .ToList(),
             receta.PasosReceta
                 .OrderBy(paso => paso.Orden)
