@@ -6,4 +6,6 @@ public interface IUsuarioRepository
 {
     Task<Usuario?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task UpdateAsync(Usuario usuario, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> GetRestriccionesUsuarioAsync(Guid usuarioId, string tipo, CancellationToken cancellationToken);
+    Task ReplaceRestriccionesUsuarioAsync(Guid usuarioId, string tipo, IReadOnlyList<Guid> restriccionIds, CancellationToken cancellationToken);
 }

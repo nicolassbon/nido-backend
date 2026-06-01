@@ -26,7 +26,16 @@ public sealed class UsuarioRepository : IUsuarioRepository
         if (entity == null)
             return null;
 
-        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.FotoUrl);
+        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.FotoUrl, entity.CreatedAt);
+    }
+
+    public async Task<IReadOnlyList<string>> GetRestriccionesUsuarioAsync(Guid usuarioId, string tipo, CancellationToken cancellationToken)
+    {
+        return await _dbContext.RestriccionesUsuarios
+            .AsNoTracking()
+            .Where(x => x.UsuarioId == usuarioId && x.Restriccion.Tipo == tipo)
+            .Select(x => x.Restriccion.Nombre)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(Usuario usuario, CancellationToken cancellationToken)
@@ -42,6 +51,26 @@ public sealed class UsuarioRepository : IUsuarioRepository
         entity.UpdatedAt = DateTime.UtcNow;
 
         _dbContext.Usuarios.Update(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ReplaceRestriccionesUsuarioAsync(Guid usuarioId, string tipo, IReadOnlyList<Guid> restriccionIds, CancellationToken cancellationToken)
+    {
+        var existing = await _dbContext.RestriccionesUsuarios
+            .Where(x => x.UsuarioId == usuarioId && x.Restriccion.Tipo == tipo)
+            .ToListAsync(cancellationToken);
+
+        _dbContext.RestriccionesUsuarios.RemoveRange(existing);
+
+        foreach (var id in restriccionIds)
+        {
+            _dbContext.RestriccionesUsuarios.Add(new Nido.Infrastructure.Persistence.Entities.RestriccionesUsuario
+            {
+                UsuarioId = usuarioId,
+                RestriccionId = id
+            });
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

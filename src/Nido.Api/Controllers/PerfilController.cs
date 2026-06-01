@@ -35,13 +35,19 @@ public sealed class PerfilController(
             ? urlResolver.Resolve(usuario.FotoStorageKey)
             : usuario.FotoStorageKey;
 
+        var alergias = await repository.GetRestriccionesUsuarioAsync(userId, "alergia", cancellationToken);
+        var alimentacion = await repository.GetRestriccionesUsuarioAsync(userId, "restriccion_alimentaria", cancellationToken);
+
         return Ok(new 
         {
             nombre = usuario.Nombre,
             email = usuario.Email,
             sexo = usuario.Sexo,
             telefono = usuario.Telefono,
-            fotoUrl
+            fotoUrl,
+            fechaRegistro = usuario.CreatedAt.ToString("dd/MM/yyyy"),
+            alergias,
+            alimentacion
         });
     }
 
@@ -86,5 +92,15 @@ public sealed class PerfilController(
 
        
         return Ok(new { message = "Perfil actualizado con éxito." });
+    }
+
+    [HttpPut("restricciones")]
+    public async Task<IActionResult> ActualizarRestricciones(
+        [FromBody] ActualizarRestriccionesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = currentUser.UsuarioId;
+        await repository.ReplaceRestriccionesUsuarioAsync(userId, request.Tipo, request.RestriccionIds, cancellationToken);
+        return Ok(new { message = "Restricciones actualizadas con éxito." });
     }
 }

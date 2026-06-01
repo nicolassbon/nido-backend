@@ -6,7 +6,7 @@ public sealed class Usuario
     {
     }
 
-    public Usuario(Guid id, string nombre, string email, string sexo, string? telefono = null, string? fotoStorageKey = null, string? fotoUrl = null)
+    public Usuario(Guid id, string nombre, string email, string sexo, string? telefono = null, string? fotoStorageKey = null, string? fotoUrl = null, DateTime createdAt = default)
     {
         Id = id;
         Nombre = nombre;
@@ -15,6 +15,7 @@ public sealed class Usuario
         Telefono = telefono;
         FotoStorageKey = fotoStorageKey;
         FotoUrl = fotoUrl;
+        CreatedAt = createdAt;
     }
 
     public Guid Id { get; private set; }
@@ -30,6 +31,8 @@ public sealed class Usuario
     public string? FotoStorageKey { get; set; }
 
     public string? FotoUrl { get; set; }
+
+    public DateTime CreatedAt { get; private set; }
 
 
     public void ActualizarPerfil(string nombre, string sexo, string? telefono = null, string? fotoStorageKey = null)
