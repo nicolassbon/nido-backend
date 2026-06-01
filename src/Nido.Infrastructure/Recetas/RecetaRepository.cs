@@ -52,7 +52,7 @@ public sealed class RecetaRepository : IRecetaRepository
                     ingrediente.Id,
                     ingrediente.ProductoId,
                     ingrediente.NombreIngrediente,
-                    ingrediente.Producto.Nombre,
+                    ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
                     ingrediente.Cantidad,
                     ingrediente.Unidad))
                 .ToList(),
