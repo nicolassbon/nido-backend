@@ -2,16 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using Nido.Application.UsuariosPerfil;
 using Nido.Domain.Usuarios;
 using Nido.Infrastructure.Persistence;
+using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Infrastructure.UsuariosPerfil;
 
 public sealed class UsuarioRepository : IUsuarioRepository
 {
     private readonly NidoDbContext _dbContext;
+    private readonly IProfileImagePublicUrlResolver _profileImagePublicUrlResolver;
 
-    public UsuarioRepository(NidoDbContext dbContext)
+    public UsuarioRepository(NidoDbContext dbContext, IProfileImagePublicUrlResolver profileImagePublicUrlResolver)
     {
         _dbContext = dbContext;
+        _profileImagePublicUrlResolver = profileImagePublicUrlResolver;
     }
 
     public async Task<Usuario?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
@@ -23,7 +26,7 @@ public sealed class UsuarioRepository : IUsuarioRepository
         if (entity == null)
             return null;
 
-        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.FotoUrl);
+        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.FotoUrl);
     }
 
     public async Task UpdateAsync(Usuario usuario, CancellationToken cancellationToken)
@@ -33,6 +36,8 @@ public sealed class UsuarioRepository : IUsuarioRepository
 
         entity.Nombre = usuario.Nombre;
         entity.Sexo = usuario.Sexo;
+        entity.Telefono = usuario.Telefono;
+        entity.FotoStorageKey = usuario.FotoStorageKey;
         entity.FotoUrl = usuario.FotoUrl;
         entity.UpdatedAt = DateTime.UtcNow;
 

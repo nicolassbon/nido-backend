@@ -932,6 +932,9 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Sexo)
                 .HasMaxLength(30)
                 .HasColumnName("sexo");
+            entity.Property(e => e.Telefono)
+                .HasMaxLength(50)
+                .HasColumnName("telefono");
             entity.Property(e => e.FotoUrl)
                 .HasMaxLength(500)
                 .HasColumnName("foto_url");

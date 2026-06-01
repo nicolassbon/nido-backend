@@ -6,12 +6,14 @@ public sealed class Usuario
     {
     }
 
-    public Usuario(Guid id, string nombre, string email, string sexo, string? fotoUrl = null)
+    public Usuario(Guid id, string nombre, string email, string sexo, string? telefono = null, string? fotoStorageKey = null, string? fotoUrl = null)
     {
         Id = id;
         Nombre = nombre;
         Email = email;
         Sexo = sexo;
+        Telefono = telefono;
+        FotoStorageKey = fotoStorageKey;
         FotoUrl = fotoUrl;
     }
 
@@ -23,14 +25,19 @@ public sealed class Usuario
 
     public string Sexo { get; set; } = string.Empty;
 
+    public string? Telefono { get; set; } = string.Empty;
+
+    public string? FotoStorageKey { get; set; }
+
     public string? FotoUrl { get; set; }
 
-  
-    public void ActualizarPerfil(string nombre, string sexo, string? fotoUrl = null)
+
+    public void ActualizarPerfil(string nombre, string sexo, string? telefono = null, string? fotoStorageKey = null)
     {
         Nombre = nombre;
         Sexo = sexo;
-        FotoUrl = fotoUrl;
+        Telefono = telefono;
+        FotoStorageKey = fotoStorageKey;
     }
 }
 

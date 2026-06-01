@@ -1,23 +1,85 @@
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.UsuariosPerfil;
+using Nido.Application.Common.Security;
 using Nido.Application.UsuariosPerfil;
+using Nido.Application.Common.ProfileImages;
+using Microsoft.Extensions.Options;
+using Nido.Infrastructure.ProfileImages;
+using Nido.Application.Auth.Register;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
 [Route("api/perfiles")]
-public sealed class PerfilController(ActualizarPerfilHandler handler) : ControllerBase
+public sealed class PerfilController(
+    ActualizarPerfilHandler handler, 
+    IUsuarioRepository repository, 
+    ICurrentUserContext currentUser,
+    IOptions<ProfileImageOptions> profileImageOptions) : ControllerBase
 {
-    [HttpPut]
-    public async Task<IActionResult> ActualizarPerfil(
-        [FromBody] ActualizarPerfilRequest request, 
+    [HttpGet]
+    public async Task<IActionResult> ObtenerMiPerfil(
+        [FromServices] IProfileImagePublicUrlResolver urlResolver,
         CancellationToken cancellationToken)
     {
+        var userId = currentUser.UsuarioId; 
+        
+        var usuario = await repository.GetByIdAsync(userId, cancellationToken);
+
+        if (usuario == null)
+        {
+            return NotFound(new { message = "Usuario no encontrado" });
+        }
+
+        var fotoUrl = !string.IsNullOrWhiteSpace(usuario.FotoStorageKey)
+            ? urlResolver.Resolve(usuario.FotoStorageKey)
+            : usuario.FotoStorageKey;
+
+        return Ok(new 
+        {
+            nombre = usuario.Nombre,
+            email = usuario.Email,
+            sexo = usuario.Sexo,
+            telefono = usuario.Telefono,
+            fotoUrl
+        });
+    }
+
+    [HttpPut]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ActualizarPerfil(
+        [FromForm] ActualizarPerfilRequest request, 
+        CancellationToken cancellationToken)
+    {
+        RegistrationProfileImageUpload? foto = null;
+        if (request.Foto is not null)
+        {
+            if (request.Foto.Length == 0)
+            {
+                throw new ArgumentException("Empty file is not allowed for profile image.");
+            }
+
+            var maxSizeInBytes = profileImageOptions.Value.MaxBytes;
+            if (request.Foto.Length > maxSizeInBytes)
+            {
+                throw new ArgumentException("Profile image exceeds the allowed limit.");
+            }
+
+            await using var memoryStream = new MemoryStream();
+            await request.Foto.CopyToAsync(memoryStream, cancellationToken);
+
+            foto = new RegistrationProfileImageUpload(
+                request.Foto.FileName,
+                request.Foto.ContentType,
+                memoryStream.ToArray());
+        }
+
         var command = new ActualizarPerfilCommand(
-            request.UsuarioId,
+            currentUser.UsuarioId,
             request.Nombre,
             request.Sexo,
-            request.FotoUrl
+            request.Telefono,
+            foto
         );
 
         await handler.HandleAsync(command, cancellationToken);

@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Http;
+
 namespace Nido.Api.Contracts.UsuariosPerfil;
 
 public sealed record ActualizarPerfilRequest(
-    Guid UsuarioId,
     string Nombre,
     string Sexo,
-    string? FotoUrl
+    string? Telefono,
+    IFormFile? Foto
 );
