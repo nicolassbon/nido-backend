@@ -6,7 +6,5 @@ public sealed record CreateStockHomeRequest(
     string Ubicacion,
     decimal Cantidad,
     string? UnidadMedida,
-    DateTime? FechaVencimiento,
-    Guid HogarId,
-    Guid UsuarioId
+    DateTime? FechaVencimiento
 );
