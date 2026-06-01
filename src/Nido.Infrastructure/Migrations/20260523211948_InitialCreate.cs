@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -458,7 +458,7 @@ namespace Nido.Infrastructure.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "uuid_generate_v4()"),
                     receta_id = table.Column<Guid>(type: "uuid", nullable: false),
                     nombre_ingrediente = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    producto_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    producto_id = table.Column<Guid>(type: "uuid", nullable: true),
                     cantidad = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: true),
                     unidad = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },

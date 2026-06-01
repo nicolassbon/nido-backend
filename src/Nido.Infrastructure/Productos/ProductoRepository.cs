@@ -28,4 +28,19 @@ public sealed class ProductoRepository : IProductoRepository
                 producto.Categoria != null ? producto.Categoria.TtlDias : null))
             .FirstOrDefaultAsync(ct);
     }
+
+    public async Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
+    {
+        var normalizedName = nombre.Trim();
+
+        return await _db.Productos
+            .AsNoTracking()
+            .Where(producto => EF.Functions.ILike(producto.Nombre, normalizedName))
+            .Select(producto => new GetProductByNameResult(
+                producto.Id,
+                producto.Nombre,
+                producto.CategoriaId,
+                producto.ImagenUrl))
+            .FirstOrDefaultAsync(ct);
+    }
 }

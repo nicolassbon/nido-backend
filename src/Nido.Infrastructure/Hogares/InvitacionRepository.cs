@@ -153,4 +153,39 @@ public sealed class InvitacionRepository : IInvitacionRepository
             .FirstAsync(ct);
         return (user.Email, user.Nombre);
     }
+
+    public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.NombreRepresentado == null, ct);
+
+    public async Task RemoveMiembroAsync(Guid hogarId, Guid targetUsuarioId, CancellationToken ct)
+    {
+        var membership = await _db.MiembrosHogars
+            .FirstOrDefaultAsync(m => m.HogarId == hogarId && m.UsuarioId == targetUsuarioId && m.NombreRepresentado == null, ct);
+
+        if (membership is not null)
+            _db.MiembrosHogars.Remove(membership);
+
+        var userNombre = await _db.Usuarios
+            .Where(u => u.Id == targetUsuarioId)
+            .Select(u => u.Nombre)
+            .FirstAsync(ct);
+
+        var nuevoHogar = new Persistence.Entities.Hogare
+        {
+            Id = Guid.NewGuid(),
+            Nombre = $"Hogar de {userNombre}",
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.Hogares.Add(nuevoHogar);
+        _db.MiembrosHogars.Add(new Persistence.Entities.MiembrosHogar
+        {
+            Id = Guid.NewGuid(),
+            UsuarioId = targetUsuarioId,
+            HogarId = nuevoHogar.Id,
+            Rol = "owner",
+            Puntos = 0
+        });
+
+        await _db.SaveChangesAsync(ct);
+    }
 }

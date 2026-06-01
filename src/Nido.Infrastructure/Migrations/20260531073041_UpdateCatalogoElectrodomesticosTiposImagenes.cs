@@ -68,7 +68,7 @@ namespace Nido.Infrastructure.Migrations
 {
     migrationBuilder.Sql("""
         UPDATE electrodomesticos_catalogo
-        SET tipo = CASE id::text
+        SET tipo = CASE CAST(id AS TEXT)
             WHEN '11111111-1111-1111-1111-111111111111' THEN 'licuadora'
             WHEN '22222222-2222-2222-2222-222222222222' THEN 'microondas'
             WHEN '33333333-3333-3333-3333-333333333333' THEN 'horno_cocina'
@@ -82,7 +82,7 @@ namespace Nido.Infrastructure.Migrations
             ELSE tipo
         END,
         imagen_url = NULL
-        WHERE id::text IN (
+        WHERE CAST(id AS TEXT) IN (
             '11111111-1111-1111-1111-111111111111',
             '22222222-2222-2222-2222-222222222222',
             '33333333-3333-3333-3333-333333333333',

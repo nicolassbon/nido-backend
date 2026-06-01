@@ -1,70 +1,85 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Nido.Application.Common.Security;
 using Nido.Application.Productos;
 using Nido.Api.Contracts.Productos;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("productos")]
 public sealed class ProductsController : ControllerBase
 {
-    private readonly CreateProductoHandler _createProductoHandler;
-private readonly GetProductManualHandler _getProductManualHandler;
+    private readonly CreateStockHomeHandler _createStockHomeHandler;
+    private readonly GetProductManualHandler _getProductManualHandler;
 
-public ProductsController(
-    CreateProductoHandler createProductoHandler,
-    GetProductManualHandler getProductManualHandler)
-{
-    _createProductoHandler = createProductoHandler;
-    _getProductManualHandler = getProductManualHandler;
-}
-
-
-[HttpGet("manual")]
-public async Task<IActionResult> GetManual(
-    [FromQuery] Guid hogarId,
-    CancellationToken ct)
-{
-    var products = await _getProductManualHandler.Handle(
-        new GetProductManualCommand(hogarId),
-        ct);
-
-    var response = products.Select(product => new GetProductManualResponse(
-        product.StockHogarId,
-        product.ProductoId,
-        product.Nombre,
-        product.CategoriaId,
-        product.CategoriaNombre,
-        product.CodigoBarras,
-        product.ImagenUrl,
-        product.Ubicacion,
-        product.Cantidad,
-        product.UnidadMedida,
-        product.FechaVencimiento,
-        product.EstaAbierto,
-        product.PorcentajeConsumido
-    ));
-
-    return Ok(response);
-}
-
-  [HttpPost]
-    public async Task<IActionResult> Create(CreateProductoRequest request, CancellationToken ct)
+    public ProductsController(
+        CreateStockHomeHandler createStockHomeHandler,
+        GetProductManualHandler getProductManualHandler)
     {
-        var result = await _createProductoHandler.Handle(
-            new CreateProductoCommand(request.Nombre ?? string.Empty, request.CategoriaId, request.Cantidad,
-                request.UnidadMedida ?? string.Empty, request.FechaVencimiento, request.HogarId, request.UsuarioId), 
-                ct);
+        _createStockHomeHandler = createStockHomeHandler;
+        _getProductManualHandler = getProductManualHandler;
+    }
 
-        return Ok(new CreateProductoResponse(
+
+    [HttpGet("manual")]
+    public async Task<IActionResult> GetManual(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var products = await _getProductManualHandler.Handle(
+            new GetProductManualCommand(currentUser.HogarId),
+            ct);
+
+        var response = products.Select(product => new GetProductManualResponse(
+            product.StockHogarId,
+            product.ProductoId,
+            product.Nombre,
+            product.CategoriaId,
+            product.CategoriaNombre,
+            product.CodigoBarras,
+            product.ImagenUrl,
+            product.Ubicacion,
+            product.Cantidad,
+            product.UnidadMedida,
+            product.FechaVencimiento,
+            product.EstaAbierto,
+            product.PorcentajeConsumido
+        ));
+
+        return Ok(response);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create(
+        [FromBody] CreateStockHomeRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _createStockHomeHandler.Handle(
+            new CreateStockHomeCommand(
+                request.Nombre,
+                request.CategoriaId,
+                request.Ubicacion,
+                request.Cantidad,
+                request.UnidadMedida ?? string.Empty,
+                request.FechaVencimiento, 
+                currentUser.HogarId,
+                currentUser.UsuarioId),
+            ct);
+
+        return Ok(new CreateStockHomeResponse(
+            result.StockHogarId,
             result.ProductoId,
-            result.Nombre,
-            result.Cantidad,
-            result.UnidadMedida
+            result.CantidadActual,
+            result.UnidadMedida,
+            result.FechaVencimiento,
+            result.UsuarioIngresoId,
+            result.Ubicacion,
+            result.EstaAbierto,
+            result.PorcentajeConsumido,
+            result.CategoriaId
         ));
     }
-
-
-
-    
-    }
+}

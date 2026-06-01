@@ -88,7 +88,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         AlreadyMemberException => (StatusCodes.Status409Conflict, "Conflict"),
         NotSoleOwnerException => (StatusCodes.Status409Conflict, "Conflict"),
         NotHouseholdOwnerException => (StatusCodes.Status403Forbidden, "Forbidden"),
-        NotHouseholdMemberException => (StatusCodes.Status403Forbidden, "Forbidden"),
+        NotHouseholdMemberException => (StatusCodes.Status404NotFound, "Not found"),
+        CannotRemoveSelfException => (StatusCodes.Status400BadRequest, "Validation error"),
 
         // Alacena exceptions
         InvalidStockItemDateException => (StatusCodes.Status400BadRequest, "Validation error"),

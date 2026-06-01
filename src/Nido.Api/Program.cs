@@ -11,6 +11,7 @@ using Nido.Application.Electrodomesticos;
 using Nido.Application.Alacena;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
+using Nido.Application.Recetas;
 using Nido.Application.Common.Security;
 using Nido.Api.Errors;
 using Nido.Api.Security;
@@ -70,6 +71,9 @@ builder.Services.AddElectrodomesticosModule();
 builder.Services.AddAlacenaModule();
 builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
+builder.Services.AddRecetasModule();
+
+
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();

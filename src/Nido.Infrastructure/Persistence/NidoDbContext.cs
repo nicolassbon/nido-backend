@@ -20,6 +20,7 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<ElectrodomesticoCatalogo> ElectrodomesticosCatalogo { get; set; }
 
+    public virtual DbSet<PasoReceta> PasosReceta { get; set; }
 
     public virtual DbSet<Gasto> Gastos { get; set; }
 
@@ -80,6 +81,34 @@ public partial class NidoDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("uuid-ossp");
+
+modelBuilder.Entity<PasoReceta>(entity =>
+{
+    entity.HasKey(e => e.Id).HasName("pasos_receta_pkey");
+
+    entity.ToTable("pasos_receta");
+
+    entity.Property(e => e.Id)
+        .HasDefaultValueSql("uuid_generate_v4()")
+        .HasColumnName("id");
+
+    entity.Property(e => e.RecetaId)
+        .HasColumnName("receta_id");
+
+    entity.Property(e => e.Orden)
+        .HasColumnName("orden");
+
+    entity.Property(e => e.Descripcion)
+        .HasColumnName("descripcion");
+
+    entity.HasOne(e => e.Receta)
+        .WithMany(r => r.PasosReceta)
+        .HasForeignKey(e => e.RecetaId)
+        .OnDelete(DeleteBehavior.Cascade)
+        .HasConstraintName("pasos_receta_receta_id_fkey");
+});
+
+
 
         modelBuilder.Entity<AsignacionesTarea>(entity =>
         {
@@ -642,6 +671,9 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
+            entity.Property(e => e.ImagenUrl)
+                .HasMaxLength(500)
+                .HasColumnName("imagen_url");
             entity.Property(e => e.Porciones).HasColumnName("porciones");
             entity.Property(e => e.TiempoCoccionMin).HasColumnName("tiempo_coccion_min");
         });

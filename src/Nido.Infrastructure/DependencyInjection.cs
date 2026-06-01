@@ -16,13 +16,14 @@ using Nido.Application.Alacena;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
+using Nido.Application.Recetas;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
 using Nido.Infrastructure.UsuariosPerfil;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.Preferencias;
-using Nido.Domain.Productos;
+using Nido.Infrastructure.Recetas;
 using Nido.Infrastructure.StockHogar;
 using Nido.Domain.StockHogar;
 
@@ -45,7 +46,6 @@ public static class DependencyInjection
         services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
-        services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductManualRepository, ProductRepository>();
         services.AddScoped<IStockHogarRepository, StockHogarRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+        services.AddScoped<IRecetaRepository, RecetaRepository>();
         services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
         services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
         services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
