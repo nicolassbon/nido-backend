@@ -1,28 +1,16 @@
 {
 "productos": [
 {
-"nombre": "Pimienta de Jamaica",
+"nombre": "Palta",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Condimentos"
+"categoriaNombre": "Frutas"
 },
 {
-"nombre": "Almendras",
+"nombre": "Microgreens",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Frutos secos"
-},
-{
-"nombre": "Manteca",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Lácteos"
-},
-{
-"nombre": "Caldo de pollo",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Conservas"
+"categoriaNombre": "Verduras"
 },
 {
 "nombre": "Albahaca",
@@ -31,43 +19,31 @@
 "categoriaNombre": "Verduras"
 },
 {
-"nombre": "Pimienta",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Condimentos"
-},
-{
-"nombre": "Pimentón",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Condimentos"
-},
-{
-"nombre": "Arvejas",
+"nombre": "Zanahoria",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Verduras"
 },
 {
-"nombre": "Arroz",
+"nombre": "Apio",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Arroces y pastas"
+"categoriaNombre": "Verduras"
 },
 {
-"nombre": "Sal",
+"nombre": "Pechuga de pollo",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Condimentos"
+"categoriaNombre": "Carnes"
+},
+{
+"nombre": "Perejil",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Verduras"
 },
 {
 "nombre": "Ajo",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Verduras"
-},
-{
-"nombre": "Cebolla",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Verduras"
@@ -79,94 +55,64 @@
 "categoriaNombre": "Aceites"
 },
 {
-"nombre": "Zucchini",
+"nombre": "Tomate en conserva",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Verduras"
+"categoriaNombre": "Conservas"
 },
 {
-"nombre": "Chile en polvo",
+"nombre": "Lentejas rojas",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Legumbres"
+},
+{
+"nombre": "Sal",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Condimentos"
 },
 {
-"nombre": "Pasas de uva",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Frutas"
-},
-{
-"nombre": "Agua",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Bebidas"
-},
-{
-"nombre": "Cubo saborizador",
+"nombre": "Pimienta",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Condimentos"
 },
 {
-"nombre": "Mango",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Frutas"
-},
-{
-"nombre": "Verduras mixtas",
+"nombre": "Nabo",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Verduras"
 },
 {
-"nombre": "Ají picante Scotch Bonnet",
+"nombre": "Caldo de verduras",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Caldos"
+},
+{
+"nombre": "Cebolla",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Verduras"
 },
 {
-"nombre": "Azúcar rubia",
+"nombre": "Aceite vegetal",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Repostería"
+"categoriaNombre": "Aceites"
 },
 {
-"nombre": "Zanahoria",
+"nombre": "Carne picada vacuna",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Verduras"
+"categoriaNombre": "Carnes"
 },
 {
-"nombre": "Arroz integral",
+"nombre": "Carne picada de cerdo",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Arroces y pastas"
-},
-{
-"nombre": "Hongos crimini",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Verduras"
-},
-{
-"nombre": "Huevo",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Huevos"
-},
-{
-"nombre": "Jengibre",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Verduras"
-},
-{
-"nombre": "Chauchas",
-"codigoBarras": null,
-"imagenUrl": null,
-"categoriaNombre": "Verduras"
+"categoriaNombre": "Carnes"
 },
 {
 "nombre": "Cebolla de verdeo",
@@ -175,357 +121,151 @@
 "categoriaNombre": "Verduras"
 },
 {
-"nombre": "Aceite de sésamo",
+"nombre": "Morrón",
 "codigoBarras": null,
 "imagenUrl": null,
-"categoriaNombre": "Aceites"
+"categoriaNombre": "Verduras"
 },
 {
-"nombre": "Salsa de soja",
+"nombre": "Ají molido",
 "codigoBarras": null,
 "imagenUrl": null,
 "categoriaNombre": "Condimentos"
+},
+{
+"nombre": "Harina",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Repostería"
+},
+{
+"nombre": "Polvo para hornear",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Repostería"
+},
+{
+"nombre": "Grasa vegetal",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Repostería"
+},
+{
+"nombre": "Huevo",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Huevos"
+},
+{
+"nombre": "Leche",
+"codigoBarras": null,
+"imagenUrl": null,
+"categoriaNombre": "Lácteos"
 }
 ],
 "recetas": [
 {
-"nombre": "Arroz con almendras y arvejas",
-"descripcion": "Arroz especiado con arvejas, caldo de pollo y almendras tostadas.",
-"tiempoCoccionMin": 45,
+"nombre": "Sopa de lentejas rojas con pollo y nabo",
+"descripcion": "Sopa de lentejas rojas con pollo, nabo, verduras y caldo de verduras.",
+"tiempoCoccionMin": 55,
 "dificultad": "Media",
-"porciones": 4,
-"fuenteId": "spoonacular-653399",
-"imagenUrl": "https://img.spoonacular.com/recipes/653399-556x370.jpg",
+"porciones": 8,
+"fuenteId": "spoonacular-715415",
+"imagenUrl": "https://img.spoonacular.com/recipes/715415-556x370.jpg",
 "ingredientes": [
 {
-"productoNombre": "Pimienta de Jamaica",
-"nombreIngrediente": "Pimienta de Jamaica molida",
-"cantidad": 0.5,
-"unidad": "cdta"
-},
-{
-"productoNombre": "Almendras",
-"nombreIngrediente": "Almendras crudas",
-"cantidad": 0.5,
+"productoNombre": "Palta",
+"nombreIngrediente": "Palta en cubos para decorar",
+"cantidad": null,
 "unidad": null
 },
 {
-"productoNombre": "Manteca",
-"nombreIngrediente": "Manteca",
-"cantidad": 2,
-"unidad": "cda"
-},
-{
-"productoNombre": "Caldo de pollo",
-"nombreIngrediente": "Caldo de pollo",
-"cantidad": 2,
-"unidad": "taza"
+"productoNombre": "Microgreens",
+"nombreIngrediente": "Microgreens para decorar",
+"cantidad": null,
+"unidad": null
 },
 {
 "productoNombre": "Albahaca",
-"nombreIngrediente": "Albahaca fresca para decorar",
+"nombreIngrediente": "Albahaca picada para decorar",
 "cantidad": null,
 "unidad": null
 },
 {
-"productoNombre": "Pimienta",
-"nombreIngrediente": "Pimienta molida fresca",
-"cantidad": 0.25,
-"unidad": "cdta"
-},
-{
-"productoNombre": "Pimentón",
-"nombreIngrediente": "Pimentón para decorar",
-"cantidad": 0.5,
-"unidad": "cdta"
-},
-{
-"productoNombre": "Arvejas",
-"nombreIngrediente": "Arvejas",
-"cantidad": 2,
-"unidad": "taza"
-},
-{
-"productoNombre": "Arroz",
-"nombreIngrediente": "Arroz",
-"cantidad": 1,
-"unidad": "taza"
-},
-{
-"productoNombre": "Sal",
-"nombreIngrediente": "Sal",
-"cantidad": null,
-"unidad": null
-}
-],
-"pasos": [
-{
-"orden": 1,
-"descripcion": "Agregá la manteca y el arroz en una olla a fuego medio. Cociná durante unos 5 minutos."
-},
-{
-"orden": 2,
-"descripcion": "Agregá las arvejas, la pimienta de Jamaica y la sal."
-},
-{
-"orden": 3,
-"descripcion": "Cociná durante unos 2 minutos."
-},
-{
-"orden": 4,
-"descripcion": "Agregá el caldo de pollo o agua."
-},
-{
-"orden": 5,
-"descripcion": "Cociná tapado a fuego bajo durante 20 minutos."
-},
-{
-"orden": 6,
-"descripcion": "En una sartén chica, tostá las almendras con un poco de manteca y sal. Reservá y usá para decorar."
-}
-],
-"nutricion": {
-"calorias": 287.64,
-"proteinas": 8.19,
-"carbohidratos": 48.41,
-"grasas": 6.65
-},
-"electrodomesticos": [
-"Horno/Cocina"
-]
-},
-{
-"nombre": "Arroz con zucchini",
-"descripcion": "Arroz salteado con zucchini, cebolla morada, ajo y especias, cocido en caldo de pollo.",
-"tiempoCoccionMin": 45,
-"dificultad": "Media",
-"porciones": 4,
-"fuenteId": "spoonacular-665781",
-"imagenUrl": "https://img.spoonacular.com/recipes/665781-556x370.jpg",
-"ingredientes": [
-{
-"productoNombre": "Arroz",
-"nombreIngrediente": "Arroz de grano largo",
-"cantidad": 1,
-"unidad": "taza"
-},
-{
-"productoNombre": "Ajo",
-"nombreIngrediente": "Dientes de ajo picados",
+"productoNombre": "Zanahoria",
+"nombreIngrediente": "Zanahorias medianas peladas y en cubos",
 "cantidad": 3,
 "unidad": "unidad"
 },
 {
-"productoNombre": "Cebolla",
-"nombreIngrediente": "Cebolla morada picada",
-"cantidad": 0.75,
+"productoNombre": "Apio",
+"nombreIngrediente": "Tallos de apio en cubos",
+"cantidad": 3,
+"unidad": "unidad"
+},
+{
+"productoNombre": "Pechuga de pollo",
+"nombreIngrediente": "Pechuga de pollo cocida y desmenuzada",
+"cantidad": 280,
+"unidad": "g"
+},
+{
+"productoNombre": "Perejil",
+"nombreIngrediente": "Perejil italiano picado y extra para decorar",
+"cantidad": 30,
+"unidad": "g"
+},
+{
+"productoNombre": "Ajo",
+"nombreIngrediente": "Dientes de ajo bien picados",
+"cantidad": 6,
 "unidad": "unidad"
 },
 {
 "productoNombre": "Aceite de oliva",
 "nombreIngrediente": "Aceite de oliva",
-"cantidad": 1,
+"cantidad": 2,
 "unidad": "cda"
 },
 {
-"productoNombre": "Zucchini",
-"nombreIngrediente": "Zucchini cortado en trozos chicos",
-"cantidad": 1,
-"unidad": "unidad"
+"productoNombre": "Tomate en conserva",
+"nombreIngrediente": "Tomates perita en conserva escurridos, enjuagados y picados",
+"cantidad": 793.787,
+"unidad": "g"
 },
 {
-"productoNombre": "Caldo de pollo",
-"nombreIngrediente": "Caldo de pollo bajo en sodio",
-"cantidad": 2.5,
-"unidad": "taza"
-},
-{
-"productoNombre": "Pimentón",
-"nombreIngrediente": "Pimentón",
-"cantidad": 1,
-"unidad": "cdta"
-},
-{
-"productoNombre": "Chile en polvo",
-"nombreIngrediente": "Chile en polvo",
-"cantidad": 1,
-"unidad": "cdta"
-}
-],
-"pasos": [
-{
-"orden": 1,
-"descripcion": "Colocá una olla a fuego medio-alto."
-},
-{
-"orden": 2,
-"descripcion": "Agregá el aceite de oliva, la cebolla morada y el ajo."
-},
-{
-"orden": 3,
-"descripcion": "Salteá hasta que la cebolla se ablande, aproximadamente 5 minutos."
-},
-{
-"orden": 4,
-"descripcion": "Agregá el zucchini y las especias."
-},
-{
-"orden": 5,
-"descripcion": "Salteá hasta que el zucchini empiece a cocinarse, unos 5 minutos."
-},
-{
-"orden": 6,
-"descripcion": "Agregá el caldo de pollo, mezclá y tapá. Bajá a fuego medio-bajo y cociná durante 20 minutos, hasta que el arroz esté tierno."
-},
-{
-"orden": 7,
-"descripcion": "Separá los granos con un tenedor y serví."
-}
-],
-"nutricion": {
-"calorias": 251.09,
-"proteinas": 7.51,
-"carbohidratos": 44.75,
-"grasas": 4.97
-},
-"electrodomesticos": [
-"Horno/Cocina"
-]
-},
-{
-"nombre": "Arroz pakistaní",
-"descripcion": "Arroz dorado con manteca, pasas de uva, arvejas y cebolla cocida.",
-"tiempoCoccionMin": 45,
-"dificultad": "Media",
-"porciones": 4,
-"fuenteId": "spoonacular-654361",
-"imagenUrl": "https://img.spoonacular.com/recipes/654361-556x370.jpg",
-"ingredientes": [
-{
-"productoNombre": "Cebolla",
-"nombreIngrediente": "Cebolla grande",
-"cantidad": 0.5,
-"unidad": "unidad"
-},
-{
-"productoNombre": "Manteca",
-"nombreIngrediente": "Manteca",
-"cantidad": 3,
-"unidad": "cda"
-},
-{
-"productoNombre": "Pasas de uva",
-"nombreIngrediente": "Pasas de uva",
-"cantidad": 1,
-"unidad": "taza"
-},
-{
-"productoNombre": "Arvejas",
-"nombreIngrediente": "Arvejas",
-"cantidad": 0.5,
-"unidad": "taza"
-},
-{
-"productoNombre": "Arroz",
-"nombreIngrediente": "Arroz precocido",
-"cantidad": 2,
-"unidad": "taza"
-},
-{
-"productoNombre": "Agua",
-"nombreIngrediente": "Agua",
-"cantidad": 2,
-"unidad": "taza"
+"productoNombre": "Lentejas rojas",
+"nombreIngrediente": "Lentejas rojas secas y enjuagadas",
+"cantidad": 360,
+"unidad": "g"
 },
 {
 "productoNombre": "Sal",
-"nombreIngrediente": "Sal",
-"cantidad": 1,
-"unidad": "cdta"
-}
-],
-"pasos": [
-{
-"orden": 1,
-"descripcion": "Colocá la cebolla en 2 tazas de agua y herví durante 10 a 20 minutos."
-},
-{
-"orden": 2,
-"descripcion": "Retirá la cebolla del agua."
-},
-{
-"orden": 3,
-"descripcion": "Agregá las pasas de uva a la manteca y calentá."
-},
-{
-"orden": 4,
-"descripcion": "Agregá el arroz a la manteca caliente con pasas. Mezclá constantemente hasta que el arroz se dore."
-},
-{
-"orden": 5,
-"descripcion": "Agregá las arvejas. Si están congeladas, descongelalas antes."
-},
-{
-"orden": 6,
-"descripcion": "Agregá el agua sin la cebolla. Llevá a hervor, tapá y cociná a fuego bajo durante 5 minutos."
-},
-{
-"orden": 7,
-"descripcion": "Si queda líquido, cociná destapado hasta que se evapore."
-}
-],
-"nutricion": {
-"calorias": 542.39,
-"proteinas": 8.79,
-"carbohidratos": 106.77,
-"grasas": 9.41
-},
-"electrodomesticos": [
-"Horno/Cocina"
-]
-},
-{
-"nombre": "Arroz frito con mango",
-"descripcion": "Arroz cocido en caldo de pollo con verduras, ají picante y mango en cubos.",
-"tiempoCoccionMin": 45,
-"dificultad": "Media",
-"porciones": 2,
-"fuenteId": "spoonacular-716311",
-"imagenUrl": "https://img.spoonacular.com/recipes/716311-556x370.jpg",
-"ingredientes": [
-{
-"productoNombre": "Caldo de pollo",
-"nombreIngrediente": "Caldo de pollo",
-"cantidad": 2,
-"unidad": "taza"
-},
-{
-"productoNombre": "Cubo saborizador",
-"nombreIngrediente": "Cubos saborizadores",
+"nombreIngrediente": "Sal a gusto",
 "cantidad": null,
 "unidad": null
 },
 {
-"productoNombre": "Mango",
-"nombreIngrediente": "Rodajas de mango en cubos",
-"cantidad": 3,
+"productoNombre": "Pimienta",
+"nombreIngrediente": "Pimienta negra a gusto",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Nabo",
+"nombreIngrediente": "Nabo grande pelado y en cubos",
+"cantidad": 1,
 "unidad": "unidad"
 },
 {
-"productoNombre": "Arroz",
-"nombreIngrediente": "Arroz",
-"cantidad": 1,
-"unidad": "taza"
+"productoNombre": "Caldo de verduras",
+"nombreIngrediente": "Caldo de verduras",
+"cantidad": 1.88,
+"unidad": "l"
 },
 {
-"productoNombre": "Verduras mixtas",
-"nombreIngrediente": "Verduras picadas",
-"cantidad": 1,
-"unidad": "taza"
-},
-{
-"productoNombre": "Ají picante Scotch Bonnet",
-"nombreIngrediente": "Ají picante Scotch Bonnet",
+"productoNombre": "Cebolla",
+"nombreIngrediente": "Cebolla amarilla mediana en cubos",
 "cantidad": 1,
 "unidad": "unidad"
 }
@@ -533,67 +273,129 @@
 "pasos": [
 {
 "orden": 1,
-"descripcion": "Lavá el arroz y hervilo a fuego medio con poca agua, porque después se termina de cocinar con caldo de pollo."
+"descripcion": "En una olla grande o cacerola profunda, calentá el aceite de oliva a fuego medio."
 },
 {
 "orden": 2,
-"descripcion": "Cuando el arroz esté apenas tierno y el agua inicial se haya evaporado, bajá el fuego, agregá el caldo de pollo y cociná hasta que se absorba por completo."
+"descripcion": "Agregá la cebolla, las zanahorias y el apio. Cociná durante 8 a 10 minutos, revolviendo cada tanto, hasta que estén tiernos."
 },
 {
 "orden": 3,
-"descripcion": "Subí el fuego y agregá las verduras picadas y el ají."
+"descripcion": "Agregá el ajo y cociná 2 minutos más, hasta que largue aroma. Condimentá con una pizca de sal y pimienta negra."
 },
 {
 "orden": 4,
-"descripcion": "Agregá el cubo saborizador."
+"descripcion": "Sumá los tomates, el nabo y las lentejas rojas. Mezclá bien."
 },
 {
 "orden": 5,
-"descripcion": "Incorporá el mango en cubos y serví tibio con la proteína que prefieras."
+"descripcion": "Incorporá el caldo de verduras, subí el fuego y llevá la sopa a hervor. Bajá a fuego suave y cociná durante 20 minutos, hasta que el nabo esté tierno y las lentejas estén cocidas."
+},
+{
+"orden": 6,
+"descripcion": "Agregá la pechuga de pollo y el perejil. Cociná 5 minutos más y ajustá los condimentos a gusto."
+},
+{
+"orden": 7,
+"descripcion": "Serví la sopa caliente con perejil fresco y los toppings adicionales."
 }
 ],
 "nutricion": {
-"calorias": 486.24,
-"proteinas": 15.96,
-"carbohidratos": 95.36,
-"grasas": 4.03
+"calorias": 477.24,
+"proteinas": 26.93,
+"carbohidratos": 51.78,
+"grasas": 20.34
 },
 "electrodomesticos": [
 "Horno/Cocina"
 ]
 },
 {
-"nombre": "Arroz integral frito",
-"descripcion": "Arroz integral salteado con huevo, verduras, aceite de sésamo y salsa de soja.",
-"tiempoCoccionMin": 25,
+"nombre": "Pasteles de carne de Natchitoches",
+"descripcion": "Pasteles fritos de masa casera rellenos con carne vacuna, cerdo, morrón, cebolla de verdeo y condimentos.",
+"tiempoCoccionMin": 45,
 "dificultad": "Media",
-"porciones": 2,
-"fuenteId": "spoonacular-643674",
-"imagenUrl": "https://img.spoonacular.com/recipes/643674-556x370.jpg",
+"porciones": 16,
+"fuenteId": "spoonacular-652968",
+"imagenUrl": "https://img.spoonacular.com/recipes/652968-556x370.jpg",
 "ingredientes": [
 {
-"productoNombre": "Azúcar rubia",
-"nombreIngrediente": "Azúcar rubia",
+"productoNombre": "Aceite vegetal",
+"nombreIngrediente": "Aceite vegetal",
 "cantidad": 1,
 "unidad": "cda"
 },
 {
-"productoNombre": "Zanahoria",
-"nombreIngrediente": "Zanahorias cortadas finas",
-"cantidad": 2,
+"productoNombre": "Carne picada vacuna",
+"nombreIngrediente": "Carne picada vacuna 80/20",
+"cantidad": 453.592,
+"unidad": "g"
+},
+{
+"productoNombre": "Carne picada de cerdo",
+"nombreIngrediente": "Carne picada de cerdo",
+"cantidad": 453.592,
+"unidad": "g"
+},
+{
+"productoNombre": "Cebolla de verdeo",
+"nombreIngrediente": "Cebolla de verdeo bien picada",
+"cantidad": 1,
 "unidad": "unidad"
 },
 {
-"productoNombre": "Arroz integral",
-"nombreIngrediente": "Arroz integral cocido y frío",
-"cantidad": 2,
-"unidad": "taza"
+"productoNombre": "Morrón",
+"nombreIngrediente": "Morrón chico bien picado",
+"cantidad": 1,
+"unidad": "unidad"
 },
 {
-"productoNombre": "Hongos crimini",
-"nombreIngrediente": "Hongos crimini fileteados",
+"productoNombre": "Ajo",
+"nombreIngrediente": "Diente de ajo grande machacado",
 "cantidad": 1,
-"unidad": "taza"
+"unidad": "unidad"
+},
+{
+"productoNombre": "Ají molido",
+"nombreIngrediente": "Ají molido opcional",
+"cantidad": 0.25,
+"unidad": "cdta"
+},
+{
+"productoNombre": "Sal",
+"nombreIngrediente": "Sal a gusto para el relleno",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Pimienta",
+"nombreIngrediente": "Pimienta negra a gusto para el relleno",
+"cantidad": null,
+"unidad": null
+},
+{
+"productoNombre": "Harina",
+"nombreIngrediente": "Harina común y extra para la superficie",
+"cantidad": 500,
+"unidad": "g"
+},
+{
+"productoNombre": "Sal",
+"nombreIngrediente": "Sal para la masa",
+"cantidad": 2,
+"unidad": "cdta"
+},
+{
+"productoNombre": "Polvo para hornear",
+"nombreIngrediente": "Polvo para hornear",
+"cantidad": 1,
+"unidad": "cdta"
+},
+{
+"productoNombre": "Grasa vegetal",
+"nombreIngrediente": "Grasa vegetal",
+"cantidad": 102.5,
+"unidad": "g"
 },
 {
 "productoNombre": "Huevo",
@@ -602,106 +404,83 @@
 "unidad": "unidad"
 },
 {
-"productoNombre": "Jengibre",
-"nombreIngrediente": "Jengibre fresco picado",
-"cantidad": 2,
-"unidad": "cda"
-},
-{
-"productoNombre": "Ajo",
-"nombreIngrediente": "Ajo picado",
-"cantidad": 1,
-"unidad": "cdta"
-},
-{
-"productoNombre": "Chauchas",
-"nombreIngrediente": "Chauchas picadas",
-"cantidad": 1,
-"unidad": "taza"
-},
-{
-"productoNombre": "Cebolla de verdeo",
-"nombreIngrediente": "Cebolla de verdeo picada",
-"cantidad": 0.5,
-"unidad": "taza"
-},
-{
-"productoNombre": "Aceite de sésamo",
-"nombreIngrediente": "Aceite de sésamo tostado y un poco más para terminar",
-"cantidad": 1,
-"unidad": "cda"
-},
-{
-"productoNombre": "Salsa de soja",
-"nombreIngrediente": "Salsa de soja",
-"cantidad": 4,
-"unidad": "cda"
-},
-{
-"productoNombre": "Zucchini",
-"nombreIngrediente": "Zucchini cortado fino",
-"cantidad": 1,
-"unidad": "unidad"
+"productoNombre": "Leche",
+"nombreIngrediente": "Leche",
+"cantidad": 244,
+"unidad": "ml"
 }
 ],
 "pasos": [
 {
 "orden": 1,
-"descripcion": "Calentá una sartén grande a fuego medio y cubrila con aerosol antiadherente."
+"descripcion": "En una sartén grande a fuego medio-alto, calentá el aceite vegetal y dorá la carne."
 },
 {
 "orden": 2,
-"descripcion": "Agregá los huevos batidos y revolvé casi constantemente con una espátula durante 3 minutos, hasta que queden revueltos, esponjosos y cocidos."
+"descripcion": "Agregá la cebolla de verdeo y el morrón. Cociná, revolviendo seguido, durante unos 5 minutos, hasta que las verduras estén blandas."
 },
 {
 "orden": 3,
-"descripcion": "Retirá los huevos a un plato chico y limpiá la sartén."
+"descripcion": "Agregá el ajo y salteá 1 minuto más."
 },
 {
 "orden": 4,
-"descripcion": "Agregá 1 cucharada de aceite de sésamo a la sartén y subí el fuego a medio-alto."
+"descripcion": "Sumá el ají molido, sal y pimienta a gusto. Reservá el relleno hasta el momento de usar."
 },
 {
 "orden": 5,
-"descripcion": "Agregá las zanahorias, el zucchini, las chauchas, los hongos, el jengibre y el ajo."
+"descripcion": "Tamizá la harina, la sal y el polvo para hornear en un bowl grande o en el bowl de una procesadora."
 },
 {
 "orden": 6,
-"descripcion": "Salteá, revolviendo seguido, durante 5 a 7 minutos, hasta que las verduras se ablanden un poco."
+"descripcion": "Procesá o integrá la grasa vegetal a mano hasta que la mezcla tenga textura de harina de maíz."
 },
 {
 "orden": 7,
-"descripcion": "Agregá el arroz. La mezcla puede parecer seca, pero la idea es que el arroz se dore y quede crocante."
+"descripcion": "Mezclá los huevos con la leche y agregalos de a poco a la harina. Integrá bien hasta formar una masa blanda."
 },
 {
 "orden": 8,
-"descripcion": "Salteá todo durante unos 2 minutos. En un bowl chico, mezclá la salsa de soja con el azúcar rubia hasta que se disuelva."
+"descripcion": "Dividí la masa en 16 porciones iguales. Espolvoreá una superficie limpia y seca con harina."
 },
 {
 "orden": 9,
-"descripcion": "Verté la salsa en la sartén y mezclá para cubrir todo de forma pareja."
+"descripcion": "Formá un bollo con cada porción y estirá cada uno sobre la superficie enharinada hasta lograr un círculo de aproximadamente 15 a 20 cm de diámetro."
 },
 {
 "orden": 10,
-"descripcion": "Terminá con un chorrito adicional de aceite de sésamo, aproximadamente 1 cucharadita."
+"descripcion": "Colocá unas 2 cucharadas colmadas de relleno de carne sobre un lado de cada círculo, dejando un borde limpio."
 },
 {
 "orden": 11,
-"descripcion": "Agregá el huevo revuelto a la sartén y mezclá bien."
+"descripcion": "Pincelá los bordes con un poco de agua tibia. Doblá la masa sobre el relleno, uní los bordes y cerralos presionando con un tenedor. Repetí con el resto de la masa y el relleno."
 },
 {
 "orden": 12,
-"descripcion": "Serví."
+"descripcion": "Calentá aceite para freír en una sartén mediana a fuego medio-alto."
+},
+{
+"orden": 13,
+"descripcion": "Cuando el aceite esté caliente, freí 1 o 2 pasteles por vez hasta que estén dorados de ambos lados, aproximadamente 3 minutos."
+},
+{
+"orden": 14,
+"descripcion": "Retiralos del fuego y escurrilos sobre papel absorbente."
+},
+{
+"orden": 15,
+"descripcion": "Servilos calientes o a temperatura ambiente."
 }
 ],
 "nutricion": {
-"calorias": 470.08,
-"proteinas": 18.2,
-"carbohidratos": 71.9,
-"grasas": 13.56
+"calorias": 355.01,
+"proteinas": 13.65,
+"carbohidratos": 25.07,
+"grasas": 21.78
 },
 "electrodomesticos": [
-"Horno/Cocina"
+"Horno/Cocina",
+"Procesadora"
 ]
 }
 ]

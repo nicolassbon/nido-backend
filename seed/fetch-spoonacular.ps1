@@ -11,8 +11,8 @@ if (-not $apiKeyLine) {
 
 $apiKey = $apiKeyLine.Split("=", 2)[1].Trim()
 
-$query = "rice"
-$number = 5
+$query = "meat"
+$number = 2
 
 $searchUrl = "https://api.spoonacular.com/recipes/complexSearch?query=$query&number=$number&apiKey=$apiKey"
 Write-Host "Buscando recetas..."
