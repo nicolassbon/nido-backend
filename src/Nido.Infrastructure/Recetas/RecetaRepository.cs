@@ -14,7 +14,7 @@ public sealed class RecetaRepository : IRecetaRepository
         _db = db;
     }
 
-    public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct)
     {
         var recetas = await _db.Recetas
             .AsNoTracking()
@@ -26,10 +26,12 @@ public sealed class RecetaRepository : IRecetaRepository
             .OrderBy(receta => receta.Nombre)
             .ToListAsync(ct);
 
-        return recetas.Select(ToResult).ToList();
+        var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
+
+        return recetas.Select(receta => ToResult(receta, productosEnStock)).ToList();
     }
 
-    private static RecetaResult ToResult(Receta receta)
+    private static RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock)
     {
         var nutricion = receta.InfoNutricionalReceta.FirstOrDefault();
 
@@ -54,7 +56,8 @@ public sealed class RecetaRepository : IRecetaRepository
                     ingrediente.NombreIngrediente,
                     ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
                     ingrediente.Cantidad,
-                    ingrediente.Unidad))
+                    ingrediente.Unidad,
+                    productosEnStock.Contains(ingrediente.ProductoId)))
                 .ToList(),
             receta.PasosReceta
                 .OrderBy(paso => paso.Orden)
@@ -69,5 +72,44 @@ public sealed class RecetaRepository : IRecetaRepository
                     electrodomestico.Id,
                     electrodomestico.TipoRequerido))
                 .ToList());
+    }
+
+    public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+    {
+        var receta = await _db.Recetas
+            .AsNoTracking()
+            .Where(r => r.Id == id)
+            .Include(receta => receta.IngredientesReceta)
+                .ThenInclude(ingrediente => ingrediente.Producto)
+            .Include(receta => receta.InfoNutricionalReceta)
+            .Include(receta => receta.PasosReceta)
+            .Include(receta => receta.RecetaElectrodomesticos)
+            .FirstOrDefaultAsync(ct);
+
+        if (receta is null)
+        {
+            return null;
+        }
+
+        var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
+
+        return ToResult(receta, productosEnStock);
+    }
+
+    private async Task<IReadOnlySet<Guid>> GetProductosEnStockAsync(Guid hogarId, CancellationToken ct)
+    {
+        if (hogarId == Guid.Empty)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var productoIds = await _db.StockHogars
+            .AsNoTracking()
+            .Where(stock => stock.HogarId == hogarId && (stock.CantidadActual == null || stock.CantidadActual > 0))
+            .Select(stock => stock.ProductoId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return productoIds.ToHashSet();
     }
 }
