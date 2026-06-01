@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -25,39 +25,6 @@ INSERT INTO categorias_producto (id, nombre) VALUES
     ('7862a467-732d-5ac3-91f3-da043d96de5f', 'Repostería'),
     ('d42568b3-2b2a-59e7-960a-d70ddd29c39a', 'Verduras');
 
-INSERT INTO productos (id, nombre, codigo_barras, imagen_url, categoria_id) VALUES
-    ('ecc03f9f-1e61-5a0d-b488-d8e08ff018da', 'Pimienta de Jamaica', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560'),
-    ('c42f7b80-3815-525c-9f30-f143913ce663', 'Almendras', NULL, NULL, '90cffb0d-38b3-5f31-97e1-cc0fec80b7b6'),
-    ('d5d0d677-ebd5-5be8-927c-cf8e4057aa29', 'Manteca', NULL, NULL, '3426d21e-cac7-5df3-bfdc-a0918ccf5af6'),
-    ('db090066-dd5e-594f-a59a-508338e67b57', 'Caldo de pollo', NULL, NULL, '709b31cd-0d7a-54d8-bd6c-d909f23e2603'),
-    ('25117115-de6e-5e1a-aed9-e27843729f05', 'Albahaca', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('ed60b5b4-fbf0-5486-b2c8-0494132cc208', 'Pimienta', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560'),
-    ('39b156da-6170-5aec-b4b3-d690684b4888', 'Pimentón', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560'),
-    ('68352ec0-2fd1-5ebd-897b-fb533add09d0', 'Arvejas', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('f1cc9d34-717b-57a6-9799-eb9e889e0681', 'Arroz', NULL, NULL, '7aa7c1a0-f8ce-5af1-bb4c-a3ce71a4ed62'),
-    ('bd4d8594-e937-55d6-ab98-3f0b86c5f7fe', 'Sal', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560'),
-    ('7f16df6e-4613-59cb-b52d-059b6a63b362', 'Ajo', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('12ba1936-cbc5-5fe5-9330-f8a61e469be8', 'Cebolla', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('20da9022-c83e-5808-afc8-9717132480f9', 'Aceite de oliva', NULL, NULL, 'aefcb56f-88d9-55b1-8b29-27855a28d151'),
-    ('d47bc825-98f0-5224-9073-62f6588c4dcd', 'Zucchini', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('d470cb71-0869-54b6-a984-b683a318b66f', 'Chile en polvo', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560'),
-    ('cfb56fc1-9d54-5477-bbb7-2cd371511037', 'Pasas de uva', NULL, NULL, '1de21387-806d-5b47-acb3-3a00fb36bf2f'),
-    ('25ee334e-8f40-5d73-b065-63da761cdc37', 'Agua', NULL, NULL, 'd35173a4-9bc1-570b-be2a-1efc9cc63d4c'),
-    ('1335c15d-4cef-5d97-bc5c-9da5c58b1029', 'Cubo saborizador', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560'),
-    ('7821087c-327e-5b40-8724-b347e4bf152d', 'Mango', NULL, NULL, '1de21387-806d-5b47-acb3-3a00fb36bf2f'),
-    ('8d96564d-8408-5592-912a-3ddfabaa8214', 'Verduras mixtas', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('8ebc8d3d-4689-55ba-83c2-0bae8a3ea0a8', 'Ají picante Scotch Bonnet', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('415f4f25-bd66-528c-b718-3f6195f82473', 'Azúcar rubia', NULL, NULL, '7862a467-732d-5ac3-91f3-da043d96de5f'),
-    ('6aad61d1-9c89-58c0-900b-90da37496211', 'Zanahoria', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('659ce871-9bb1-5de1-b455-192440979f71', 'Arroz integral', NULL, NULL, '7aa7c1a0-f8ce-5af1-bb4c-a3ce71a4ed62'),
-    ('f5f2b786-026b-5442-8ff4-4668e11feb0a', 'Hongos crimini', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('3220577d-372b-59c8-a7c6-60fea9dc3e1a', 'Huevo', NULL, NULL, '6546c5e0-9df7-506a-b48d-ed9efcab88fb'),
-    ('e46228db-d390-59d6-a5b8-bb2995bddd0d', 'Jengibre', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('df31ed9a-08ae-5076-81ae-456174fa3a44', 'Chauchas', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('05923054-8fe5-5bc9-8118-d25713e9e15e', 'Cebolla de verdeo', NULL, NULL, 'd42568b3-2b2a-59e7-960a-d70ddd29c39a'),
-    ('91081d57-8e08-526a-980d-23aa64a08c99', 'Aceite de sésamo', NULL, NULL, 'aefcb56f-88d9-55b1-8b29-27855a28d151'),
-    ('93a4b755-67f9-5986-a502-bd49d0bd0f8e', 'Salsa de soja', NULL, NULL, 'db61671a-a9fa-50f6-bbff-8604d0773560');
-
 INSERT INTO recetas (id, nombre, descripcion, tiempo_coccion_min, dificultad, porciones, fuente_id, imagen_url) VALUES
     ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'Arroz con almendras y arvejas', 'Arroz especiado con arvejas, caldo de pollo y almendras tostadas.', 45, 'Media', 4, 'spoonacular-653399', 'https://img.spoonacular.com/recipes/653399-556x370.jpg'),
     ('f1837e2d-173f-56e5-99d7-a623332b0929', 'Arroz con zucchini', 'Arroz salteado con zucchini, cebolla morada, ajo y especias, cocido en caldo de pollo.', 45, 'Media', 4, 'spoonacular-665781', 'https://img.spoonacular.com/recipes/665781-556x370.jpg'),
@@ -66,49 +33,49 @@ INSERT INTO recetas (id, nombre, descripcion, tiempo_coccion_min, dificultad, po
     ('7fa78ac4-50ef-560d-b240-336602872641', 'Arroz integral frito', 'Arroz integral salteado con huevo, verduras, aceite de sésamo y salsa de soja.', 25, 'Media', 2, 'spoonacular-643674', 'https://img.spoonacular.com/recipes/643674-556x370.jpg');
 
 INSERT INTO ingredientes_receta (id, receta_id, producto_id, nombre_ingrediente, cantidad, unidad) VALUES
-    ('5eecea08-df0d-51f9-ad95-3293b116daca', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'ecc03f9f-1e61-5a0d-b488-d8e08ff018da', 'Pimienta de Jamaica molida', 0.5, 'cdta'),
-    ('d3550bad-4d56-5312-8935-9895ac94c37a', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'c42f7b80-3815-525c-9f30-f143913ce663', 'Almendras crudas', 0.5, NULL),
-    ('a3f6638e-12d7-54e2-9a70-a1183f767f11', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'd5d0d677-ebd5-5be8-927c-cf8e4057aa29', 'Manteca', 2, 'cda'),
-    ('96d43406-3087-5d11-b0df-f46b370a46ee', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'db090066-dd5e-594f-a59a-508338e67b57', 'Caldo de pollo', 2, 'taza'),
-    ('2ef7617f-9ba3-5282-a68a-0ae08b8bbd29', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', '25117115-de6e-5e1a-aed9-e27843729f05', 'Albahaca fresca para decorar', NULL, NULL),
-    ('78e0f21f-6a1c-55aa-ae02-036328957247', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'ed60b5b4-fbf0-5486-b2c8-0494132cc208', 'Pimienta molida fresca', 0.25, 'cdta'),
-    ('cacd4380-22e6-5e04-b595-29ab27ddf8a9', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', '39b156da-6170-5aec-b4b3-d690684b4888', 'Pimentón para decorar', 0.5, 'cdta'),
-    ('4828062e-b322-5df9-8b10-2e0c9cafdadb', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', '68352ec0-2fd1-5ebd-897b-fb533add09d0', 'Arvejas', 2, 'taza'),
-    ('4607cbcb-baa0-5c6a-ba06-57d78d8cd96c', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1cc9d34-717b-57a6-9799-eb9e889e0681', 'Arroz', 1, 'taza'),
-    ('840690a5-aee9-533b-8582-de88973d2664', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'bd4d8594-e937-55d6-ab98-3f0b86c5f7fe', 'Sal', NULL, NULL),
-    ('2419273a-091e-5395-a8e4-c6f266095322', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'f1cc9d34-717b-57a6-9799-eb9e889e0681', 'Arroz de grano largo', 1, 'taza'),
-    ('8c3694b3-91dd-54f8-a9e3-e3a44c6a7ae1', 'f1837e2d-173f-56e5-99d7-a623332b0929', '7f16df6e-4613-59cb-b52d-059b6a63b362', 'Dientes de ajo picados', 3, 'unidad'),
-    ('0defffca-3c63-59de-83ca-f9c0b0da44a1', 'f1837e2d-173f-56e5-99d7-a623332b0929', '12ba1936-cbc5-5fe5-9330-f8a61e469be8', 'Cebolla morada picada', 0.75, 'unidad'),
-    ('f6f183f7-a440-5212-88d4-5b87acf93674', 'f1837e2d-173f-56e5-99d7-a623332b0929', '20da9022-c83e-5808-afc8-9717132480f9', 'Aceite de oliva', 1, 'cda'),
-    ('a7e7f671-b5fc-5d79-8848-4c9f6bf0fe68', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'd47bc825-98f0-5224-9073-62f6588c4dcd', 'Zucchini cortado en trozos chicos', 1, 'unidad'),
-    ('e3e1f7c0-76be-598f-9dd0-cde119f8f3b4', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'db090066-dd5e-594f-a59a-508338e67b57', 'Caldo de pollo bajo en sodio', 2.5, 'taza'),
-    ('55afd044-1a7d-5d3f-9b91-057efdcd04f5', 'f1837e2d-173f-56e5-99d7-a623332b0929', '39b156da-6170-5aec-b4b3-d690684b4888', 'Pimentón', 1, 'cdta'),
-    ('fd351de1-1cec-5093-b1f4-d9eb991d1b9d', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'd470cb71-0869-54b6-a984-b683a318b66f', 'Chile en polvo', 1, 'cdta'),
-    ('81fad7cd-b7f1-5799-be06-5a8029563102', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', '12ba1936-cbc5-5fe5-9330-f8a61e469be8', 'Cebolla grande', 0.5, 'unidad'),
-    ('9c25d564-ecd5-504d-b233-aecedf016ec5', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'd5d0d677-ebd5-5be8-927c-cf8e4057aa29', 'Manteca', 3, 'cda'),
-    ('e5750cb9-4fe0-51e3-b6e4-7fbb6dee4c65', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'cfb56fc1-9d54-5477-bbb7-2cd371511037', 'Pasas de uva', 1, 'taza'),
-    ('39d57142-6990-5449-9f86-7021fd6bd562', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', '68352ec0-2fd1-5ebd-897b-fb533add09d0', 'Arvejas', 0.5, 'taza'),
-    ('d30de7b5-fb57-594a-9792-e85073460e4b', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'f1cc9d34-717b-57a6-9799-eb9e889e0681', 'Arroz precocido', 2, 'taza'),
-    ('49a875e3-3ed7-544c-9206-422cda662cc8', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', '25ee334e-8f40-5d73-b065-63da761cdc37', 'Agua', 2, 'taza'),
-    ('749e635a-c787-574a-8d1d-9437f10c3731', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'bd4d8594-e937-55d6-ab98-3f0b86c5f7fe', 'Sal', 1, 'cdta'),
-    ('6593a7ba-be48-5244-b3ee-fa340f625fd1', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', 'db090066-dd5e-594f-a59a-508338e67b57', 'Caldo de pollo', 2, 'taza'),
-    ('99c1b002-8a93-58dd-b3d8-084d5498bd48', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '1335c15d-4cef-5d97-bc5c-9da5c58b1029', 'Cubos saborizadores', NULL, NULL),
-    ('b5713c4c-b41d-59b5-8110-63148718a5e0', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7821087c-327e-5b40-8724-b347e4bf152d', 'Rodajas de mango en cubos', 3, 'unidad'),
-    ('abc13b7e-35b2-5cfb-8f4a-fdf819bbfb0d', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', 'f1cc9d34-717b-57a6-9799-eb9e889e0681', 'Arroz', 1, 'taza'),
-    ('43baa058-a433-54e3-b3ed-8ee5a2d7b9f7', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '8d96564d-8408-5592-912a-3ddfabaa8214', 'Verduras picadas', 1, 'taza'),
-    ('d0dce4e5-9fbc-52e4-904a-bd6ac90ff38e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '8ebc8d3d-4689-55ba-83c2-0bae8a3ea0a8', 'Ají picante Scotch Bonnet', 1, 'unidad'),
-    ('1655ad64-0b93-5692-a3b6-bdc12f095332', '7fa78ac4-50ef-560d-b240-336602872641', '415f4f25-bd66-528c-b718-3f6195f82473', 'Azúcar rubia', 1, 'cda'),
-    ('2b894638-7370-5dc1-9b96-1d58549523b4', '7fa78ac4-50ef-560d-b240-336602872641', '6aad61d1-9c89-58c0-900b-90da37496211', 'Zanahorias cortadas finas', 2, 'unidad'),
-    ('f44501f7-1e0c-5da9-8eab-58be6022f84c', '7fa78ac4-50ef-560d-b240-336602872641', '659ce871-9bb1-5de1-b455-192440979f71', 'Arroz integral cocido y frío', 2, 'taza'),
-    ('36d5ce5e-5a1c-5ece-825e-5958c2930fb1', '7fa78ac4-50ef-560d-b240-336602872641', 'f5f2b786-026b-5442-8ff4-4668e11feb0a', 'Hongos crimini fileteados', 1, 'taza'),
-    ('894a8abd-0712-5580-bf87-d40e38f1db41', '7fa78ac4-50ef-560d-b240-336602872641', '3220577d-372b-59c8-a7c6-60fea9dc3e1a', 'Huevos batidos', 2, 'unidad'),
-    ('4b666846-1ccb-53d6-ae29-458614d50698', '7fa78ac4-50ef-560d-b240-336602872641', 'e46228db-d390-59d6-a5b8-bb2995bddd0d', 'Jengibre fresco picado', 2, 'cda'),
-    ('ea377c94-7528-5384-aea1-fe548ff46aa8', '7fa78ac4-50ef-560d-b240-336602872641', '7f16df6e-4613-59cb-b52d-059b6a63b362', 'Ajo picado', 1, 'cdta'),
-    ('18d8867d-6502-594c-ad52-8165deb57d88', '7fa78ac4-50ef-560d-b240-336602872641', 'df31ed9a-08ae-5076-81ae-456174fa3a44', 'Chauchas picadas', 1, 'taza'),
-    ('f0864efe-c7f5-5db6-b61e-31f1eaa43522', '7fa78ac4-50ef-560d-b240-336602872641', '05923054-8fe5-5bc9-8118-d25713e9e15e', 'Cebolla de verdeo picada', 0.5, 'taza'),
-    ('5430e3dd-0706-5cd3-86d8-ae6565c6249c', '7fa78ac4-50ef-560d-b240-336602872641', '91081d57-8e08-526a-980d-23aa64a08c99', 'Aceite de sésamo tostado y un poco más para terminar', 1, 'cda'),
-    ('710fef82-e8f0-5914-be67-06ecc82a1ed0', '7fa78ac4-50ef-560d-b240-336602872641', '93a4b755-67f9-5986-a502-bd49d0bd0f8e', 'Salsa de soja', 4, 'cda'),
-    ('49c8829a-bd80-5cec-9689-e6999563f78c', '7fa78ac4-50ef-560d-b240-336602872641', 'd47bc825-98f0-5224-9073-62f6588c4dcd', 'Zucchini cortado fino', 1, 'unidad');
+    ('5eecea08-df0d-51f9-ad95-3293b116daca', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Pimienta de Jamaica molida', 0.5, 'cdta'),
+    ('d3550bad-4d56-5312-8935-9895ac94c37a', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Almendras crudas', 0.5, NULL),
+    ('a3f6638e-12d7-54e2-9a70-a1183f767f11', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Manteca', 2, 'cda'),
+    ('96d43406-3087-5d11-b0df-f46b370a46ee', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Caldo de pollo', 2, 'taza'),
+    ('2ef7617f-9ba3-5282-a68a-0ae08b8bbd29', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Albahaca fresca para decorar', NULL, NULL),
+    ('78e0f21f-6a1c-55aa-ae02-036328957247', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Pimienta molida fresca', 0.25, 'cdta'),
+    ('cacd4380-22e6-5e04-b595-29ab27ddf8a9', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Pimentón para decorar', 0.5, 'cdta'),
+    ('4828062e-b322-5df9-8b10-2e0c9cafdadb', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Arvejas', 2, 'taza'),
+    ('4607cbcb-baa0-5c6a-ba06-57d78d8cd96c', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Arroz', 1, 'taza'),
+    ('840690a5-aee9-533b-8582-de88973d2664', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', NULL, 'Sal', NULL, NULL),
+    ('2419273a-091e-5395-a8e4-c6f266095322', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Arroz de grano largo', 1, 'taza'),
+    ('8c3694b3-91dd-54f8-a9e3-e3a44c6a7ae1', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Dientes de ajo picados', 3, 'unidad'),
+    ('0defffca-3c63-59de-83ca-f9c0b0da44a1', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Cebolla morada picada', 0.75, 'unidad'),
+    ('f6f183f7-a440-5212-88d4-5b87acf93674', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Aceite de oliva', 1, 'cda'),
+    ('a7e7f671-b5fc-5d79-8848-4c9f6bf0fe68', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Zucchini cortado en trozos chicos', 1, 'unidad'),
+    ('e3e1f7c0-76be-598f-9dd0-cde119f8f3b4', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Caldo de pollo bajo en sodio', 2.5, 'taza'),
+    ('55afd044-1a7d-5d3f-9b91-057efdcd04f5', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Pimentón', 1, 'cdta'),
+    ('fd351de1-1cec-5093-b1f4-d9eb991d1b9d', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'Chile en polvo', 1, 'cdta'),
+    ('81fad7cd-b7f1-5799-be06-5a8029563102', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Cebolla grande', 0.5, 'unidad'),
+    ('9c25d564-ecd5-504d-b233-aecedf016ec5', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Manteca', 3, 'cda'),
+    ('e5750cb9-4fe0-51e3-b6e4-7fbb6dee4c65', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Pasas de uva', 1, 'taza'),
+    ('39d57142-6990-5449-9f86-7021fd6bd562', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Arvejas', 0.5, 'taza'),
+    ('d30de7b5-fb57-594a-9792-e85073460e4b', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Arroz precocido', 2, 'taza'),
+    ('49a875e3-3ed7-544c-9206-422cda662cc8', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Agua', 2, 'taza'),
+    ('749e635a-c787-574a-8d1d-9437f10c3731', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', NULL, 'Sal', 1, 'cdta'),
+    ('6593a7ba-be48-5244-b3ee-fa340f625fd1', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', NULL, 'Caldo de pollo', 2, 'taza'),
+    ('99c1b002-8a93-58dd-b3d8-084d5498bd48', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', NULL, 'Cubos saborizadores', NULL, NULL),
+    ('b5713c4c-b41d-59b5-8110-63148718a5e0', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', NULL, 'Rodajas de mango en cubos', 3, 'unidad'),
+    ('abc13b7e-35b2-5cfb-8f4a-fdf819bbfb0d', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', NULL, 'Arroz', 1, 'taza'),
+    ('43baa058-a433-54e3-b3ed-8ee5a2d7b9f7', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', NULL, 'Verduras picadas', 1, 'taza'),
+    ('d0dce4e5-9fbc-52e4-904a-bd6ac90ff38e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', NULL, 'Ají picante Scotch Bonnet', 1, 'unidad'),
+    ('1655ad64-0b93-5692-a3b6-bdc12f095332', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Azúcar rubia', 1, 'cda'),
+    ('2b894638-7370-5dc1-9b96-1d58549523b4', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Zanahorias cortadas finas', 2, 'unidad'),
+    ('f44501f7-1e0c-5da9-8eab-58be6022f84c', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Arroz integral cocido y frío', 2, 'taza'),
+    ('36d5ce5e-5a1c-5ece-825e-5958c2930fb1', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Hongos crimini fileteados', 1, 'taza'),
+    ('894a8abd-0712-5580-bf87-d40e38f1db41', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Huevos batidos', 2, 'unidad'),
+    ('4b666846-1ccb-53d6-ae29-458614d50698', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Jengibre fresco picado', 2, 'cda'),
+    ('ea377c94-7528-5384-aea1-fe548ff46aa8', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Ajo picado', 1, 'cdta'),
+    ('18d8867d-6502-594c-ad52-8165deb57d88', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Chauchas picadas', 1, 'taza'),
+    ('f0864efe-c7f5-5db6-b61e-31f1eaa43522', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Cebolla de verdeo picada', 0.5, 'taza'),
+    ('5430e3dd-0706-5cd3-86d8-ae6565c6249c', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Aceite de sésamo tostado y un poco más para terminar', 1, 'cda'),
+    ('710fef82-e8f0-5914-be67-06ecc82a1ed0', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Salsa de soja', 4, 'cda'),
+    ('49c8829a-bd80-5cec-9689-e6999563f78c', '7fa78ac4-50ef-560d-b240-336602872641', NULL, 'Zucchini cortado fino', 1, 'unidad');
 
 INSERT INTO pasos_receta (id, receta_id, orden, descripcion) VALUES
     ('b6c1bc50-4327-5afe-bdfe-b4fcc4b65919', 'a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 1, 'Agregá la manteca y el arroz en una olla a fuego medio. Cociná durante unos 5 minutos.'),
@@ -171,22 +138,20 @@ INSERT INTO receta_electrodomestico (id, receta_id, tipo_requerido) VALUES
         {
             migrationBuilder.Sql("""
 DELETE FROM receta_electrodomestico
-WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
+WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
 
 DELETE FROM info_nutricional_receta
-WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
+WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
 
 DELETE FROM pasos_receta
-WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
+WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
 
 DELETE FROM ingredientes_receta
-WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
+WHERE receta_id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
 
 DELETE FROM recetas
-WHERE id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', 'b3d9dc7c-ae3b-5da4-8b1f-7facff41131e', 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
+WHERE id IN ('a5d4bcbf-6dc3-57de-a7d7-bbf5519c41d8', 'f1837e2d-173f-56e5-99d7-a623332b0929', NULL, 'ea02c8a0-c7e2-5655-b560-31c43800faa6', '7fa78ac4-50ef-560d-b240-336602872641');
 
-DELETE FROM productos
-WHERE id IN ('ecc03f9f-1e61-5a0d-b488-d8e08ff018da', 'c42f7b80-3815-525c-9f30-f143913ce663', 'd5d0d677-ebd5-5be8-927c-cf8e4057aa29', 'db090066-dd5e-594f-a59a-508338e67b57', '25117115-de6e-5e1a-aed9-e27843729f05', 'ed60b5b4-fbf0-5486-b2c8-0494132cc208', '39b156da-6170-5aec-b4b3-d690684b4888', '68352ec0-2fd1-5ebd-897b-fb533add09d0', 'f1cc9d34-717b-57a6-9799-eb9e889e0681', 'bd4d8594-e937-55d6-ab98-3f0b86c5f7fe', '7f16df6e-4613-59cb-b52d-059b6a63b362', '12ba1936-cbc5-5fe5-9330-f8a61e469be8', '20da9022-c83e-5808-afc8-9717132480f9', 'd47bc825-98f0-5224-9073-62f6588c4dcd', 'd470cb71-0869-54b6-a984-b683a318b66f', 'cfb56fc1-9d54-5477-bbb7-2cd371511037', '25ee334e-8f40-5d73-b065-63da761cdc37', '1335c15d-4cef-5d97-bc5c-9da5c58b1029', '7821087c-327e-5b40-8724-b347e4bf152d', '8d96564d-8408-5592-912a-3ddfabaa8214', '8ebc8d3d-4689-55ba-83c2-0bae8a3ea0a8', '415f4f25-bd66-528c-b718-3f6195f82473', '6aad61d1-9c89-58c0-900b-90da37496211', '659ce871-9bb1-5de1-b455-192440979f71', 'f5f2b786-026b-5442-8ff4-4668e11feb0a', '3220577d-372b-59c8-a7c6-60fea9dc3e1a', 'e46228db-d390-59d6-a5b8-bb2995bddd0d', 'df31ed9a-08ae-5076-81ae-456174fa3a44', '05923054-8fe5-5bc9-8118-d25713e9e15e', '91081d57-8e08-526a-980d-23aa64a08c99', '93a4b755-67f9-5986-a502-bd49d0bd0f8e');
 
 DELETE FROM categorias_producto
 WHERE id IN ('aefcb56f-88d9-55b1-8b29-27855a28d151', '7aa7c1a0-f8ce-5af1-bb4c-a3ce71a4ed62', 'd35173a4-9bc1-570b-be2a-1efc9cc63d4c', 'db61671a-a9fa-50f6-bbff-8604d0773560', '709b31cd-0d7a-54d8-bd6c-d909f23e2603', '1de21387-806d-5b47-acb3-3a00fb36bf2f', '90cffb0d-38b3-5f31-97e1-cc0fec80b7b6', '6546c5e0-9df7-506a-b48d-ed9efcab88fb', '3426d21e-cac7-5df3-bfdc-a0918ccf5af6', '7862a467-732d-5ac3-91f3-da043d96de5f', 'd42568b3-2b2a-59e7-960a-d70ddd29c39a');

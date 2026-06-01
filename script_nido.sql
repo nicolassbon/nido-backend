@@ -173,7 +173,7 @@ CREATE TABLE ingredientes_receta (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     receta_id           UUID NOT NULL,
     nombre_ingrediente   VARCHAR(255) NOT NULL,
-    producto_id         UUID NOT NULL,
+    producto_id         UUID,
     cantidad            DECIMAL(10,2),
     unidad              VARCHAR(100),
     FOREIGN KEY (receta_id)     REFERENCES recetas(id),

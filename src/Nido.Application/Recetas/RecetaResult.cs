@@ -19,9 +19,9 @@ public sealed record RecetaResult(
 
 public sealed record RecetaIngredienteResult(
     Guid Id,
-    Guid ProductoId,
+    Guid? ProductoId,
     string Nombre,
-    string ProductoNombre,
+    string? ProductoNombre,
     decimal? Cantidad,
     string? Unidad);
 
