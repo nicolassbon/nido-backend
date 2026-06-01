@@ -54,5 +54,8 @@ public sealed class GetProductByBarcodeHandlerTests
 
         public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, CancellationToken ct)
             => Task.FromResult(Producto);
+
+        public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
+            => Task.FromResult<GetProductByNameResult?>(null);
     }
 }

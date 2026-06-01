@@ -1,14 +1,12 @@
 namespace Nido.Api.Contracts.Productos;
 
 public sealed record CreateStockHomeRequest(
+    string Nombre,
     Guid CategoriaId,
-    Guid ProductoId,
-    decimal CantidadActual,
+    string Ubicacion,
+    decimal Cantidad,
     string? UnidadMedida,
     DateTime? FechaVencimiento,
     Guid HogarId,
-    Guid UsuarioId,
-    string Ubicacion,
-    bool EstaAbierto,
-    decimal PorcentajeConsumido
+    Guid UsuarioId
 );
