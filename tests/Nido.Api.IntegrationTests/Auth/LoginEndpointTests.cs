@@ -35,7 +35,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         }
 
-        var response = await _client.PostAsJsonAsync("/auth/login", new { email, password });
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -59,7 +59,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
             await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
-        var response = await _client.PostAsJsonAsync("/auth/login", new { email, password = "WrongPassword1!" });
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email, password = "WrongPassword1!" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -71,7 +71,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Login_NonExistentEmail_ReturnsUnauthorized()
     {
-        var response = await _client.PostAsJsonAsync("/auth/login", new { email = "missing@test.com", password = "Password123!" });
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email = "missing@test.com", password = "Password123!" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -79,7 +79,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Login_MissingFields_ReturnsBadRequest()
     {
-        var response = await _client.PostAsJsonAsync("/auth/login", new { email = "", password = "" });
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email = "", password = "" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -95,7 +95,7 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
             var (userId, _) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-123"), CancellationToken.None);
         }
 
-        var response = await _client.PostAsJsonAsync("/auth/login", new { email, password = "AnyPassword1!" });
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email, password = "AnyPassword1!" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 

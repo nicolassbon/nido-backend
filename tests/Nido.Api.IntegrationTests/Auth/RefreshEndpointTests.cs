@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
-using Nido.Application.Auth.RefreshToken;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Auth;
@@ -34,13 +33,13 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
             await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
-        var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { email, password });
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
         var cookieValue = ExtractRefreshTokenCookie(loginResponse);
         Assert.NotNull(cookieValue);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         request.Headers.Add("Cookie", $"refreshToken={cookieValue}");
 
         var response = await _client.SendAsync(request);
@@ -55,7 +54,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Refresh_WithoutCookie_ReturnsUnauthorized()
     {
-        var response = await _client.PostAsync("/auth/refresh", null);
+        var response = await _client.PostAsync("/api/auth/refresh", null);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -82,7 +81,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
             await repo.AddRefreshTokenAsync(userId, tokenHash, DateTime.UtcNow.AddDays(-1), CancellationToken.None);
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         request.Headers.Add("Cookie", $"refreshToken={rawToken}");
 
         var response = await _client.SendAsync(request);
@@ -98,7 +97,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Refresh_UnknownToken_ReturnsUnauthorized()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
         request.Headers.Add("Cookie", "refreshToken=totally-unknown-token-value");
 
         var response = await _client.SendAsync(request);

@@ -8,7 +8,7 @@ namespace Nido.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("hogares")]
+[Route("api/hogares")]
 public sealed class HogaresController : ControllerBase
 {
     [HttpPost("invitar")]

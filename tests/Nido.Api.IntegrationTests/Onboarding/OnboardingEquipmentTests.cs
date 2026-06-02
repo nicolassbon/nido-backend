@@ -23,22 +23,22 @@ public sealed class OnboardingEquipmentTests : IClassFixture<NidoTestWebAppFacto
     public async Task SaveEquipment_WhenTwoHouseholdsSubmitEquipment_StoresDataIsolatedPerHousehold()
     {
         using var registerAContent = RegisterMultipartRequest.Create("User A", "equip-a@test.com", "Password123!", "F");
-        var registerA = await _client.PostAsync("/auth/register", registerAContent);
+        var registerA = await _client.PostAsync("/api/auth/register", registerAContent);
         var userA = await registerA.Content.ReadFromJsonAsync<RegisterBody>();
 
         using var registerBContent = RegisterMultipartRequest.Create("User B", "equip-b@test.com", "Password123!", "M");
-        var registerB = await _client.PostAsync("/auth/register", registerBContent);
+        var registerB = await _client.PostAsync("/api/auth/register", registerBContent);
         var userB = await registerB.Content.ReadFromJsonAsync<RegisterBody>();
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userA!.AccessToken);
-        var step3A = await _client.PatchAsJsonAsync("/onboarding/step-3", new
+        var step3A = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new
         {
             skip = false,
             equipments = new[] { new { nombre = "Heladera", tipo = "Fridge", estado = "new" } }
         });
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userB!.AccessToken);
-        var step3B = await _client.PatchAsJsonAsync("/onboarding/step-3", new
+        var step3B = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new
         {
             skip = false,
             equipments = new[] { new { nombre = "Licuadora", tipo = "Blender", estado = "used" } }

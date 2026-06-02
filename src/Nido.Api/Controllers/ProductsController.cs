@@ -8,7 +8,7 @@ namespace Nido.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("productos")]
+[Route("api/productos")]
 public sealed class ProductsController : ControllerBase
 {
     private readonly CreateStockHomeHandler _createStockHomeHandler;

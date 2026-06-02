@@ -1,5 +1,4 @@
 using Nido.Application.Auth.Google.Login;
-using Nido.Application.Auth.Google.Login;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.TestHost;
@@ -30,7 +29,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         var email = $"google-new-{Guid.NewGuid()}@test.com";
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-123"));
 
-        var response = await client.PostAsJsonAsync("/auth/google-login", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -53,7 +52,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-456"));
-        var response = await client.PostAsJsonAsync("/auth/google-login", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -66,7 +65,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
     public async Task GoogleLogin_InvalidToken_ReturnsUnauthorized()
     {
         var client = CreateClientWithFakeValidator(null, shouldThrow: true);
-        var response = await client.PostAsJsonAsync("/auth/google-login", new { idToken = "invalid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "invalid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -90,7 +89,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-789"));
-        var response = await client.PostAsJsonAsync("/auth/google-login", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
@@ -112,7 +111,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-new"));
-        var response = await client.PostAsJsonAsync("/auth/google-login", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 

@@ -8,7 +8,7 @@ namespace Nido.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("onboarding")]
+[Route("api/onboarding")]
 public sealed class OnboardingController : ControllerBase
 {
     [HttpGet("preferencias-alimentarias")]

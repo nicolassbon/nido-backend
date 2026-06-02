@@ -8,7 +8,7 @@ namespace Nido.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("recetas")]
+[Route("api/recetas")]
 public sealed class RecetasController : ControllerBase
 {
     private readonly GetRecetasHandler _getRecetasHandler;

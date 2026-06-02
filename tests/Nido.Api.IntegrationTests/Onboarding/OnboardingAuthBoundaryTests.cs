@@ -26,7 +26,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     [Fact]
     public async Task SaveWellness_WhenTokenIsMissing_ReturnsUnauthorized()
     {
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-4", new { skip = true });
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-4", new { skip = true });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -34,11 +34,11 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     public async Task SaveHousehold_WhenClientSendsForgedUserId_ReturnsForbidden()
     {
         using var registerContent = RegisterMultipartRequest.Create("Ana", "ana@test.com", "Password123!", "F");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new
         {
             skip = false,
             usuarioId = Guid.NewGuid(),
@@ -58,7 +58,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     public async Task SaveHousehold_WhenTokenIsMalformed_ReturnsUnauthorized()
     {
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-jwt");
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new { skip = true });
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = true });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -67,7 +67,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     public async Task SaveHousehold_WhenUserIsNotHouseholdMember_ReturnsForbidden()
     {
         using var registerContent = RegisterMultipartRequest.Create("Leo", "leo@test.com", "Password123!", "M");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
@@ -79,7 +79,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
             await db.SaveChangesAsync();
         }
 
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new { skip = true });
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = true });
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
@@ -87,12 +87,12 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     public async Task SaveHousehold_WhenInvitedMemberSubmitsStep2_SkipsHouseholdLevelOnboarding()
     {
         using var ownerRegisterContent = RegisterMultipartRequest.Create("Owner", "owner@test.com", "Password123!", "F");
-        var ownerRegister = await _client.PostAsync("/auth/register", ownerRegisterContent);
+        var ownerRegister = await _client.PostAsync("/api/auth/register", ownerRegisterContent);
         var owner = await ownerRegister.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.NotNull(owner);
 
         using var invitedRegisterContent = RegisterMultipartRequest.Create("Guest", "guest@test.com", "Password123!", "M");
-        var invitedRegister = await _client.PostAsync("/auth/register", invitedRegisterContent);
+        var invitedRegister = await _client.PostAsync("/api/auth/register", invitedRegisterContent);
         var invited = await invitedRegister.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.NotNull(invited);
 
@@ -116,7 +116,7 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", invitedToken);
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new
         {
             skip = false,
             members = new[] { new { nombre = "No debe guardarse", rol = "child" } }
@@ -138,14 +138,14 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     [Fact]
     public async Task SaveHousehold_WhenTokenIsMissing_ReturnsUnauthorized()
     {
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new { skip = true });
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = true });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
     public async Task SaveEquipment_WhenTokenIsMissing_ReturnsUnauthorized()
     {
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-3", new { skip = true });
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new { skip = true });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -153,11 +153,11 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     public async Task SaveWellness_WhenClientSendsForgedUserId_ReturnsForbidden()
     {
         using var registerContent = RegisterMultipartRequest.Create("Sofi", "sofi@test.com", "Password123!", "F");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-4", new
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-4", new
         {
             skip = false,
             usuarioId = Guid.NewGuid(),

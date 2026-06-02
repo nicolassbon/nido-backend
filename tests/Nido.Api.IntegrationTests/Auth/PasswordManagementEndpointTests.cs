@@ -41,9 +41,9 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google", googleEmail, "google", "google-id"), CancellationToken.None);
         }
 
-        var r1 = await client.PostAsJsonAsync("/auth/forgot-password", new { email = passwordEmail });
-        var r2 = await client.PostAsJsonAsync("/auth/forgot-password", new { email = googleEmail });
-        var r3 = await client.PostAsJsonAsync("/auth/forgot-password", new { email = "missing@test.com" });
+        var r1 = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email = passwordEmail });
+        var r2 = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email = googleEmail });
+        var r3 = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email = "missing@test.com" });
 
         Assert.Equal(HttpStatusCode.OK, r1.StatusCode);
         Assert.Equal(HttpStatusCode.OK, r2.StatusCode);
@@ -78,7 +78,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             await repo.SavePasswordResetTokenAsync(userId, tokenService.HashRefreshToken(rawToken), DateTime.UtcNow.AddMinutes(30), CancellationToken.None);
         }
 
-        var response = await client.PostAsJsonAsync("/auth/reset-password", new
+        var response = await client.PostAsJsonAsync("/api/auth/reset-password", new
         {
             token = rawToken,
             newPassword,
@@ -87,10 +87,10 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var loginResponse = await client.PostAsJsonAsync("/auth/login", new { email, password = newPassword });
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, password = newPassword });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
-        var secondResponse = await client.PostAsJsonAsync("/auth/reset-password", new
+        var secondResponse = await client.PostAsJsonAsync("/api/auth/reset-password", new
         {
             token = rawToken,
             newPassword = "AnotherPassword123!",
@@ -104,7 +104,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
     {
         var client = _factory.CreateClient();
 
-        var missingTokenResponse = await client.PostAsJsonAsync("/auth/reset-password", new
+        var missingTokenResponse = await client.PostAsJsonAsync("/api/auth/reset-password", new
         {
             token = "",
             newPassword = "ValidPassword123!",
@@ -127,7 +127,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             await repo.SavePasswordResetTokenAsync(userId, tokenService.HashRefreshToken(expiredRawToken), DateTime.UtcNow.AddMinutes(-1), CancellationToken.None);
         }
 
-        var expiredTokenResponse = await client.PostAsJsonAsync("/auth/reset-password", new
+        var expiredTokenResponse = await client.PostAsJsonAsync("/api/auth/reset-password", new
         {
             token = expiredRawToken,
             newPassword = "AnotherValid123!",
@@ -155,7 +155,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             await repo.SavePasswordResetTokenAsync(userId, tokenService.HashRefreshToken(rawToken), DateTime.UtcNow.AddMinutes(30), CancellationToken.None);
         }
 
-        var weakReset = await client.PostAsJsonAsync("/auth/reset-password", new
+        var weakReset = await client.PostAsJsonAsync("/api/auth/reset-password", new
         {
             token = rawToken,
             newPassword = "weak",
@@ -177,7 +177,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         }
 
         passwordUserClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", passwordUserToken);
-        var weakChange = await passwordUserClient.PostAsJsonAsync("/auth/change-password", new
+        var weakChange = await passwordUserClient.PostAsJsonAsync("/api/auth/change-password", new
         {
             currentPassword = oldPassword,
             newPassword = "weak",
@@ -198,7 +198,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         }
 
         googleClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", googleToken);
-        var weakAdd = await googleClient.PostAsJsonAsync("/auth/add-password", new
+        var weakAdd = await googleClient.PostAsJsonAsync("/api/auth/add-password", new
         {
             newPassword = "weak",
             newPasswordConfirmation = "weak"
@@ -225,7 +225,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", passwordUserToken);
 
-        var wrongCurrent = await client.PostAsJsonAsync("/auth/change-password", new
+        var wrongCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
         {
             currentPassword = "Wrong123!",
             newPassword = "NewPassword123!",
@@ -233,7 +233,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         });
         Assert.Equal(HttpStatusCode.Unauthorized, wrongCurrent.StatusCode);
 
-        var okCurrent = await client.PostAsJsonAsync("/auth/change-password", new
+        var okCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
         {
             currentPassword,
             newPassword = "NewPassword123!",
@@ -254,21 +254,21 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         }
 
         googleClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", googleToken);
-        var addPassword = await googleClient.PostAsJsonAsync("/auth/add-password", new
+        var addPassword = await googleClient.PostAsJsonAsync("/api/auth/add-password", new
         {
             newPassword = "GooglePassword123!",
             newPasswordConfirmation = "GooglePassword123!"
         });
         Assert.Equal(HttpStatusCode.OK, addPassword.StatusCode);
 
-        var addAgain = await googleClient.PostAsJsonAsync("/auth/add-password", new
+        var addAgain = await googleClient.PostAsJsonAsync("/api/auth/add-password", new
         {
             newPassword = "AnotherPassword123!",
             newPasswordConfirmation = "AnotherPassword123!"
         });
         Assert.Equal(HttpStatusCode.Conflict, addAgain.StatusCode);
 
-        var loginWithAddedPassword = await _factory.CreateClient().PostAsJsonAsync("/auth/login", new { email = googleEmail, password = "GooglePassword123!" });
+        var loginWithAddedPassword = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email = googleEmail, password = "GooglePassword123!" });
         Assert.Equal(HttpStatusCode.OK, loginWithAddedPassword.StatusCode);
     }
 

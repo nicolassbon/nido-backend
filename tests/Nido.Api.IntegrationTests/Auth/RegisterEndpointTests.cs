@@ -38,7 +38,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
     public async Task Register_ReturnsCreatedAndJwtClaims()
     {
         using var content = RegisterMultipartRequest.Create("Nico", "nico@test.com", "Password123!", "M");
-        var response = await _client.PostAsync("/auth/register", content);
+        var response = await _client.PostAsync("/api/auth/register", content);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<RegisterBody>();
@@ -55,8 +55,8 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         using var firstContent = RegisterMultipartRequest.Create("Nico", "nico-dup@test.com", "Password123!", "M");
         using var secondContent = RegisterMultipartRequest.Create("Nico", "nico-dup@test.com", "Password123!", "M");
 
-        var first = await _client.PostAsync("/auth/register", firstContent);
-        var second = await _client.PostAsync("/auth/register", secondContent);
+        var first = await _client.PostAsync("/api/auth/register", firstContent);
+        var second = await _client.PostAsync("/api/auth/register", secondContent);
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
@@ -76,7 +76,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
             { new StringContent("Password123!"), "password" },
             { new StringContent("F"), "sexo" }
         };
-        var response = await _client.PostAsync("/auth/register", content);
+        var response = await _client.PostAsync("/api/auth/register", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -97,7 +97,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         }
 
         using var registerContent = RegisterMultipartRequest.Create("Google User", email, "Password123!", "U");
-        var response = await _client.PostAsync("/auth/register", registerContent);
+        var response = await _client.PostAsync("/api/auth/register", registerContent);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -123,13 +123,13 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         }).CreateClient();
 
         using var registerContent = RegisterMultipartRequest.Create("Err User", "error-user@test.com", "Password123!", "M");
-        var registerResponse = await client.PostAsync("/auth/register", registerContent);
+        var registerResponse = await client.PostAsync("/api/auth/register", registerContent);
         var registerBody = await registerResponse.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", registerBody!.AccessToken);
 
-        var response = await client.PatchAsJsonAsync("/onboarding/step-2", new { skip = true });
+        var response = await client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = true });
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
 
@@ -142,7 +142,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
     public async Task Register_JsonPayload_ReturnsUnsupportedMediaType()
     {
         using var content = new StringContent("{\"nombre\":\"Nico\",\"email\":\"json@test.com\",\"password\":\"Password123!\",\"sexo\":\"M\"}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/auth/register", content);
+        var response = await _client.PostAsync("/api/auth/register", content);
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
     }
 
@@ -155,7 +155,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var image = await CreateValidPngAsync();
 
         using var content = RegisterMultipartRequest.Create("Img User", email, "Password123!", "F", image, "avatar.png", "image/png");
-        var response = await client.PostAsync("/auth/register", content);
+        var response = await client.PostAsync("/api/auth/register", content);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -176,7 +176,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var gifHeader = new byte[] { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x01 };
 
         using var content = RegisterMultipartRequest.Create("Bad Img", email, "Password123!", "M", gifHeader, "avatar.gif", "image/gif");
-        var response = await _client.PostAsync("/auth/register", content);
+        var response = await _client.PostAsync("/api/auth/register", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -193,7 +193,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Array.Fill<byte>(oversize, 0x01);
 
         using var content = RegisterMultipartRequest.Create("Big Img", email, "Password123!", "F", oversize, "avatar.png", "image/png");
-        var response = await _client.PostAsync("/auth/register", content);
+        var response = await _client.PostAsync("/api/auth/register", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -209,7 +209,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var notAnImage = Encoding.UTF8.GetBytes("this-is-not-a-valid-image-payload");
 
         using var content = RegisterMultipartRequest.Create("Corrupt Img", email, "Password123!", "M", notAnImage, "avatar.png", "image/png");
-        var response = await _client.PostAsync("/auth/register", content);
+        var response = await _client.PostAsync("/api/auth/register", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -227,7 +227,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var image = await CreateValidJpegAsync();
         using var content = RegisterMultipartRequest.Create("Storage Fail", email, "Password123!", "F", image, "avatar.jpg", "image/jpeg");
 
-        var response = await client.PostAsync("/auth/register", content);
+        var response = await client.PostAsync("/api/auth/register", content);
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
 
@@ -245,8 +245,8 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         using var firstContent = RegisterMultipartRequest.Create("Race User", email, "Password123!", "U");
         using var secondContent = RegisterMultipartRequest.Create("Race User", email, "Password123!", "U");
 
-        var first = await _client.PostAsync("/auth/register", firstContent);
-        var second = await _client.PostAsync("/auth/register", secondContent);
+        var first = await _client.PostAsync("/api/auth/register", firstContent);
+        var second = await _client.PostAsync("/api/auth/register", secondContent);
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);

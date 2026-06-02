@@ -131,8 +131,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-app.MapGet("/hello", () => Results.Ok(new { message = "Bienvenido a Nido!" }));
-
 app.Run();
 
 public partial class Program { }

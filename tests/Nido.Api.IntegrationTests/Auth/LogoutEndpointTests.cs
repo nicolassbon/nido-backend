@@ -35,13 +35,13 @@ public sealed class LogoutEndpointTests : IClassFixture<NidoTestWebAppFactory>
             await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
         }
 
-        var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { email, password });
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
         var cookieValue = ExtractRefreshTokenCookie(loginResponse);
         Assert.NotNull(cookieValue);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
         request.Headers.Add("Cookie", $"refreshToken={cookieValue}");
 
         var response = await _client.SendAsync(request);
@@ -64,7 +64,7 @@ public sealed class LogoutEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Logout_WithoutCookie_ReturnsNoContent()
     {
-        var response = await _client.PostAsync("/auth/logout", null);
+        var response = await _client.PostAsync("/api/auth/logout", null);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
