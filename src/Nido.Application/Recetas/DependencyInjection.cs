@@ -8,6 +8,7 @@ public static class DependencyInjection
     {
         services.AddScoped<GetRecetasHandler>();
         services.AddScoped<GetRecetaByIdHandler>();
+        services.AddScoped<CocinarRecetaHandler>();
         return services;
     }
 }

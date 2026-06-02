@@ -40,6 +40,7 @@ public sealed class GetRecetaByIdHandler
             result.Grasas,
             result.Ingredientes,
             result.Pasos,
-            result.Electrodomesticos);
+            result.Electrodomesticos,
+            result.VecesCocinada);
     }
 }
