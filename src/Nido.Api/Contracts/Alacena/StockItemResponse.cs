@@ -6,8 +6,10 @@ public sealed record StockItemResponse(
     string Nombre,
     string? Imagen,
     string? CodigoBarras,
+    string? CategoriaNombre,
     string Ubicacion,
     decimal Cantidad,
+    string? UnidadMedida,
     string? FechaVencimiento,       // ISO yyyy-MM-dd or null
     bool EstaAbierto,
     decimal PorcentajeConsumido
