@@ -21,11 +21,16 @@ RUN dotnet publish src/Nido.Migrator/Nido.Migrator.csproj \
     -o /app/migrator
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS migrator
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 WORKDIR /app
 COPY --from=build /app/migrator .
 ENTRYPOINT ["dotnet", "Nido.Migrator.dll"]
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 WORKDIR /app
 COPY --from=build /app/api .
 EXPOSE 8080

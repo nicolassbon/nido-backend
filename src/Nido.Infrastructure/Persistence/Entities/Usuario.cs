@@ -17,9 +17,27 @@ public partial class Usuario
 
     public string? OauthId { get; set; }
 
+    public string Sexo { get; set; } = null!;
+
+    public string? Telefono { get; set; }
+
+    public string? FotoUrl { get; set; }
+
+    public string? FotoStorageKey { get; set; }
+
+    public string? FotoContentType { get; set; }
+
+    public int? FotoWidth { get; set; }
+
+    public int? FotoHeight { get; set; }
+
+    public long? FotoSizeBytes { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    public int AlertaVencimientoDias { get; set; }
 
     public virtual ICollection<AsignacionesTarea> AsignacionesTareas { get; set; } = new List<AsignacionesTarea>();
 
@@ -39,7 +57,14 @@ public partial class Usuario
 
     public virtual ICollection<ReseniasRecetum> ReseniasReceta { get; set; } = new List<ReseniasRecetum>();
 
-    public virtual ICollection<RestriccionesUsuario> RestriccionesUsuarios { get; set; } = new List<RestriccionesUsuario>();
+    public virtual ICollection<RestriccionesUsuario> RestriccionesUsuarios { get; set; } = [];
+
+
+    public virtual ICollection<OnboardingState> OnboardingStates { get; set; } = new List<OnboardingState>();
+
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+    public virtual ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
 
     public virtual ICollection<StockHogar> StockHogarCargadoPorNavigations { get; set; } = new List<StockHogar>();
 

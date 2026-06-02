@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Nido.Infrastructure.Persistence.Entities;
@@ -11,13 +11,13 @@ public partial class IngredientesRecetum
 
     public string NombreIngrediente { get; set; } = null!;
 
-    public Guid ProductoId { get; set; }
+    public Guid? ProductoId { get; set; }
 
     public decimal? Cantidad { get; set; }
 
     public string? Unidad { get; set; }
 
-    public virtual Producto Producto { get; set; } = null!;
+    public virtual Producto? Producto { get; set; }
 
     public virtual Receta Receta { get; set; } = null!;
 }

@@ -24,6 +24,8 @@ services:
     container_name: nido-migrator
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,8 +37,23 @@ services:
     container_name: nido-api
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - ASPNETCORE_ENVIRONMENT=Development
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - Email__Host=${Email__Host}
+      - Email__Port=${Email__Port}
+      - Email__Username=${Email__Username}
+      - Email__Password=${Email__Password}
+      - Email__FromAddress=${Email__FromAddress}
+      - Email__FromName=${Email__FromName}
+      - Frontend__BaseUrl=${Frontend__BaseUrl}
+      - Jwt__Key=${Jwt__Key}
+      - Google__ClientId=${Google__ClientId}
+      - ProfileImages__PublicBaseUrl=${ProfileImages__PublicBaseUrl}
     ports:
       - "8080:8080"
+    volumes:
+      - ./src/Nido.Api/wwwroot/uploads:/app/wwwroot/uploads
     depends_on:
       postgres:
         condition: service_healthy

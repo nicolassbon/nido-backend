@@ -1,177 +1,114 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Nido.Api.Contracts.Alacena;
-using Nido.Infrastructure.Persistence;
-using Nido.Infrastructure.Persistence.Entities;
+using Nido.Application.Alacena;
+using Nido.Application.Common.Security;
 
 namespace Nido.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/alacena")]
 public sealed class AlacenaController : ControllerBase
 {
-    private readonly NidoDbContext _db;
+    private readonly GetStockItemsHandler _getStockItemsHandler;
+    private readonly CreateStockItemHandler _createStockItemHandler;
+    private readonly UpdateStockItemHandler _updateStockItemHandler;
+    private readonly DeleteStockItemHandler _deleteStockItemHandler;
 
-    public AlacenaController(NidoDbContext db) => _db = db;
-
-    // ── GET api/alacena/productos?hogarId={guid} ───────────────────────────
-    // TODO: hogarId will come from JWT claims (HttpContext.User) once auth is implemented
-    [HttpGet("productos")]
-    public async Task<IActionResult> GetProductos([FromQuery] Guid hogarId, CancellationToken ct)
+    public AlacenaController(
+        GetStockItemsHandler getStockItemsHandler,
+        CreateStockItemHandler createStockItemHandler,
+        UpdateStockItemHandler updateStockItemHandler,
+        DeleteStockItemHandler deleteStockItemHandler)
     {
-        var items = await _db.StockHogars
-            .Where(s => s.HogarId == hogarId)
-            .Include(s => s.Producto)
-            .Select(s => new StockItemResponse(
-                s.Id,
-                s.ProductoId,
-                s.Producto.Nombre,
-                s.Producto.ImagenUrl,
-                s.Producto.CodigoBarras,
-                s.Ubicacion,
-                s.CantidadActual ?? 0,
-                s.FechaVencimiento.HasValue
-                    ? s.FechaVencimiento.Value.ToString("yyyy-MM-dd")
-                    : null,
-                s.EstaAbierto,
-                s.PorcentajeConsumido
-            ))
-            .ToListAsync(ct);
-
-        return Ok(items);
+        _getStockItemsHandler = getStockItemsHandler;
+        _createStockItemHandler = createStockItemHandler;
+        _updateStockItemHandler = updateStockItemHandler;
+        _deleteStockItemHandler = deleteStockItemHandler;
     }
 
-    // ── POST api/alacena/productos ─────────────────────────────────────────
-    // TODO: HogarId and UsuarioId will come from JWT claims once auth is implemented
+    [HttpGet("productos")]
+    public async Task<IActionResult> GetProductos(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var items = await _getStockItemsHandler.Handle(
+            new GetStockItemsQuery(currentUser.HogarId), ct);
+
+        return Ok(items.Select(ToResponse));
+    }
+
     [HttpPost("productos")]
     public async Task<IActionResult> CreateProducto(
         [FromBody] CreateStockItemRequest request,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
-        // 1. Find or create the product record
-        Producto? producto = null;
+        var created = await _createStockItemHandler.Handle(
+            new CreateStockItemCommand(
+                currentUser.HogarId,
+                currentUser.UsuarioId,
+                request.Nombre,
+                request.CodigoBarras,
+                request.Imagen,
+                request.Ubicacion,
+                request.Cantidad,
+                request.FechaVencimiento,
+                request.EstaAbierto,
+                request.PorcentajeConsumido),
+            ct);
 
-        if (!string.IsNullOrWhiteSpace(request.CodigoBarras))
-        {
-            producto = await _db.Productos
-                .FirstOrDefaultAsync(p => p.CodigoBarras == request.CodigoBarras, ct);
-        }
-
-        if (producto is null)
-        {
-            producto = new Producto
-            {
-                Nombre       = request.Nombre,
-                CodigoBarras = request.CodigoBarras,
-                ImagenUrl    = request.Imagen,
-            };
-            _db.Productos.Add(producto);
-        }
-        else if (string.IsNullOrWhiteSpace(producto.ImagenUrl) &&
-                 !string.IsNullOrWhiteSpace(request.Imagen))
-        {
-            // Backfill image if we now have one
-            producto.ImagenUrl = request.Imagen;
-        }
-
-        // 2. Parse expiry date
-        DateOnly? fechaVenc = null;
-        if (!string.IsNullOrWhiteSpace(request.FechaVencimiento) &&
-            DateOnly.TryParse(request.FechaVencimiento, out var parsedDate))
-        {
-            fechaVenc = parsedDate;
-        }
-
-        // 3. Create stock entry
-        var stockItem = new StockHogar
-        {
-            HogarId             = request.HogarId,
-            Producto            = producto,
-            CargadoPor          = request.UsuarioId,
-            UpdatedBy           = request.UsuarioId,
-            CantidadActual      = request.Cantidad,
-            UnidadMedida        = "unidad",
-            FechaVencimiento    = fechaVenc,
-            Ubicacion           = request.Ubicacion,
-            EstaAbierto         = request.EstaAbierto,
-            PorcentajeConsumido = request.PorcentajeConsumido,
-        };
-        _db.StockHogars.Add(stockItem);
-
-        await _db.SaveChangesAsync(ct);
-
-        var response = ToResponse(stockItem, producto);
-        return CreatedAtAction(
-            nameof(GetProductos),
-            new { hogarId = request.HogarId },
-            response);
+        return CreatedAtAction(nameof(GetProductos), ToResponse(created));
     }
 
-    // ── PATCH api/alacena/productos/{id} ──────────────────────────────────
-    // TODO: UsuarioId will come from JWT claims once auth is implemented
     [HttpPatch("productos/{id:guid}")]
     public async Task<IActionResult> UpdateProducto(
         Guid id,
         [FromBody] UpdateStockItemRequest request,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
-        var item = await _db.StockHogars
-            .Include(s => s.Producto)
-            .FirstOrDefaultAsync(s => s.Id == id, ct);
+        var updated = await _updateStockItemHandler.Handle(
+            new UpdateStockItemCommand(
+                id,
+                currentUser.UsuarioId,
+                request.Cantidad,
+                request.Ubicacion,
+                request.FechaVencimiento,
+                request.EstaAbierto,
+                request.PorcentajeConsumido),
+            ct);
 
-        if (item is null) return NotFound();
+        if (updated is null) return NotFound();
 
-        if (request.Cantidad.HasValue)
-            item.CantidadActual = request.Cantidad.Value;
-
-        if (request.Ubicacion is not null)
-            item.Ubicacion = request.Ubicacion;
-
-        if (request.EstaAbierto.HasValue)
-            item.EstaAbierto = request.EstaAbierto.Value;
-
-        if (request.PorcentajeConsumido.HasValue)
-            item.PorcentajeConsumido = request.PorcentajeConsumido.Value;
-
-        if (request.FechaVencimiento is not null)
-        {
-            item.FechaVencimiento = DateOnly.TryParse(request.FechaVencimiento, out var d)
-                ? d
-                : null;
-        }
-
-        item.UpdatedBy = request.UsuarioId;
-        item.UpdatedAt = DateTime.UtcNow;
-
-        await _db.SaveChangesAsync(ct);
-
-        return Ok(ToResponse(item, item.Producto));
+        return Ok(ToResponse(updated));
     }
 
-    // ── DELETE api/alacena/productos/{id} ─────────────────────────────────
     [HttpDelete("productos/{id:guid}")]
-    public async Task<IActionResult> DeleteProducto(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteProducto(
+        Guid id,
+        CancellationToken ct)
     {
-        var item = await _db.StockHogars.FindAsync([id], ct);
-        if (item is null) return NotFound();
+        var deleted = await _deleteStockItemHandler.Handle(
+            new DeleteStockItemCommand(id), ct);
 
-        _db.StockHogars.Remove(item);
-        await _db.SaveChangesAsync(ct);
+        if (!deleted) return NotFound();
+
         return NoContent();
     }
 
-    // ── Private ───────────────────────────────────────────────────────────
-    private static StockItemResponse ToResponse(StockHogar s, Producto p) =>
+    private static StockItemResponse ToResponse(StockItemResult item) =>
         new(
-            s.Id,
-            s.ProductoId,
-            p.Nombre,
-            p.ImagenUrl,
-            p.CodigoBarras,
-            s.Ubicacion,
-            s.CantidadActual ?? 0,
-            s.FechaVencimiento?.ToString("yyyy-MM-dd"),
-            s.EstaAbierto,
-            s.PorcentajeConsumido
+            item.Id,
+            item.ProductoId,
+            item.Nombre,
+            item.Imagen,
+            item.CodigoBarras,
+            item.Ubicacion,
+            item.Cantidad,
+            item.FechaVencimiento,
+            item.EstaAbierto,
+            item.PorcentajeConsumido
         );
 }
