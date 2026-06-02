@@ -42,29 +42,6 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
 
-builder.Services.AddScoped<CreateElectrodomesticoHandler>();
-builder.Services.AddScoped<GetElectrodomesticosHandler>();
-builder.Services.AddScoped<RegisterUserHandler>();
-builder.Services.AddScoped<LoginHandler>();
-builder.Services.AddScoped<GoogleLoginHandler>();
-builder.Services.AddScoped<RefreshTokenHandler>();
-builder.Services.AddScoped<LogoutHandler>();
-builder.Services.AddScoped<LinkGoogleHandler>();
-builder.Services.AddScoped<SaveHouseholdStepHandler>();
-builder.Services.AddScoped<SaveEquipmentStepHandler>();
-builder.Services.AddScoped<SaveWellnessStepHandler>();
-builder.Services.AddScoped<GetPreferenciasAlimentariasHandler>();
-builder.Services.AddScoped<GetAlergiasHandler>();
-builder.Services.AddScoped<GetMetasHandler>();
-builder.Services.AddScoped<InvitarConviventeHandler>();
-builder.Services.AddScoped<AceptarInvitacionHandler>();
-builder.Services.AddScoped<GetMiembrosHandler>();
-builder.Services.AddScoped<GetProductByBarcodeHandler>();
-builder.Services.AddScoped<GetStockItemsHandler>();
-builder.Services.AddScoped<CreateStockItemHandler>();
-builder.Services.AddScoped<UpdateStockItemHandler>();
-builder.Services.AddScoped<DeleteStockItemHandler>();
-builder.Services.AddScoped<ActualizarPerfilHandler>();
 builder.Services.AddAuthModule();
 builder.Services.AddOnboardingModule();
 builder.Services.AddHogaresModule();
@@ -73,6 +50,7 @@ builder.Services.AddAlacenaModule();
 builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
+builder.Services.AddUsuariosPerfilModule();
 
 
 
