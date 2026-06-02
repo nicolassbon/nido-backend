@@ -75,7 +75,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             CargadoPor = request.UsuarioId,
             UpdatedBy = request.UsuarioId,
             CantidadActual = request.Cantidad,
-            UnidadMedida = "unidad",
+            UnidadMedida = NormalizeUnit(request.UnidadMedida),
             FechaVencimiento = fechaVencimiento,
             Ubicacion = request.Ubicacion,
             EstaAbierto = request.EstaAbierto,
@@ -145,4 +145,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.FechaVencimiento?.ToString("yyyy-MM-dd"),
             stock.EstaAbierto,
             stock.PorcentajeConsumido);
+
+    private static string NormalizeUnit(string? unit)
+        => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();
 }

@@ -8,6 +8,7 @@ public sealed record CreateStockItemRequestModel(
     string? Imagen,
     string Ubicacion,
     decimal Cantidad,
+    string? UnidadMedida,
     string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido

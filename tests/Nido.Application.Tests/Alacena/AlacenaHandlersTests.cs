@@ -33,7 +33,7 @@ public sealed class AlacenaHandlersTests
 
         await Assert.ThrowsAsync<InvalidStockItemDateException>(() =>
             handler.Handle(
-                new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, "Alacena", 1, "no-fecha", false, 0),
+                new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, "Alacena", 1, "g", "no-fecha", false, 0),
                 CancellationToken.None));
     }
 
@@ -76,7 +76,7 @@ public sealed class AlacenaHandlersTests
 
         public Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(CreatedResult ??
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido));
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido));
 
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);
