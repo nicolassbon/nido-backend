@@ -35,6 +35,7 @@ services:
     container_name: nido-api
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - ASPNETCORE_ENVIRONMENT=Development
       - Email__Host=${Email__Host}
       - Email__Port=${Email__Port}
       - Email__Username=${Email__Username}

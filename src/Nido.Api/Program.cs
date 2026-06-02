@@ -19,12 +19,8 @@ using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
 using Nido.Infrastructure.Auth;
-using Nido.Application.Auth.Register;
-using Nido.Application.Auth.Login;
-using Nido.Application.Auth.Google.Login;
-using Nido.Application.Auth.RefreshToken;
-using Nido.Application.Auth.Logout;
-using Nido.Application.Auth.Google.Link;
+using Nido.Api.OpenApi;
+using Scalar.AspNetCore;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -37,6 +33,11 @@ if (environment == "Development")
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+    options.AddOperationTransformer<SecurityRequirementsOperationTransformer>();
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
@@ -136,6 +137,12 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
     await db.Database.MigrateAsync();
+}
+
+if (!app.Environment.IsProduction())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseStaticFiles();
