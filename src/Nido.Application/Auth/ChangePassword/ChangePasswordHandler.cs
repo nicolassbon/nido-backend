@@ -40,6 +40,11 @@ public sealed class ChangePasswordHandler
             throw new WeakPasswordException();
         }
 
+        if (_passwordHasher.Verify(command.NewPassword, user.PasswordHash))
+        {
+            throw new InvalidPasswordException("PASSWORD_SAME_AS_CURRENT", "New password must be different from the current password.");
+        }
+
         var passwordHash = _passwordHasher.Hash(command.NewPassword);
         await _repository.UpdateUserPasswordAsync(command.UsuarioId, passwordHash, cancellationToken);
 

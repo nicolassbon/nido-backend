@@ -233,6 +233,14 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         });
         Assert.Equal(HttpStatusCode.Unauthorized, wrongCurrent.StatusCode);
 
+        var sameAsCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            currentPassword,
+            newPassword = currentPassword,
+            newPasswordConfirmation = currentPassword
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, sameAsCurrent.StatusCode);
+
         var okCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
         {
             currentPassword,
