@@ -12,17 +12,20 @@ namespace Nido.Api.Controllers;
 public sealed class AlacenaController : ControllerBase
 {
     private readonly GetStockItemsHandler _getStockItemsHandler;
+    private readonly GetStockItemByIdHandler _getStockItemByIdHandler;
     private readonly CreateStockItemHandler _createStockItemHandler;
     private readonly UpdateStockItemHandler _updateStockItemHandler;
     private readonly DeleteStockItemHandler _deleteStockItemHandler;
 
     public AlacenaController(
         GetStockItemsHandler getStockItemsHandler,
+        GetStockItemByIdHandler getStockItemByIdHandler,
         CreateStockItemHandler createStockItemHandler,
         UpdateStockItemHandler updateStockItemHandler,
         DeleteStockItemHandler deleteStockItemHandler)
     {
         _getStockItemsHandler = getStockItemsHandler;
+        _getStockItemByIdHandler = getStockItemByIdHandler;
         _createStockItemHandler = createStockItemHandler;
         _updateStockItemHandler = updateStockItemHandler;
         _deleteStockItemHandler = deleteStockItemHandler;
@@ -37,6 +40,20 @@ public sealed class AlacenaController : ControllerBase
             new GetStockItemsQuery(currentUser.HogarId), ct);
 
         return Ok(items.Select(ToResponse));
+    }
+
+    [HttpGet("productos/{id:guid}")]
+    public async Task<IActionResult> GetProducto(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var item = await _getStockItemByIdHandler.Handle(
+            new GetStockItemByIdQuery(id, currentUser.HogarId), ct);
+
+        if (item is null) return NotFound();
+
+        return Ok(ToResponse(item));
     }
 
     [HttpPost("productos")]
@@ -105,8 +122,10 @@ public sealed class AlacenaController : ControllerBase
             item.Nombre,
             item.Imagen,
             item.CodigoBarras,
+            item.CategoriaNombre,
             item.Ubicacion,
             item.Cantidad,
+            item.UnidadMedida,
             item.FechaVencimiento,
             item.EstaAbierto,
             item.PorcentajeConsumido

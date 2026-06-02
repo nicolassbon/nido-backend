@@ -13,7 +13,7 @@ public sealed class AlacenaHandlersTests
         {
             Items =
             [
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, "779", "Alacena", 1, null, false, 0)
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, "779", null, "Alacena", 1, "unidad", null, false, 0),
             ]
         };
 
@@ -71,9 +71,12 @@ public sealed class AlacenaHandlersTests
         public Task<IReadOnlyList<StockItemResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult(Items);
 
+        public Task<StockItemResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(Items.FirstOrDefault(item => item.Id == id));
+
         public Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(CreatedResult ??
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, request.Ubicacion, request.Cantidad, request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido));
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido));
 
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);

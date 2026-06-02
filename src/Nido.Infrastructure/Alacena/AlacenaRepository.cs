@@ -20,8 +20,21 @@ public sealed class AlacenaRepository : IAlacenaRepository
             .AsNoTracking()
             .Where(stock => stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.Categoria)
             .Select(stock => ToResult(stock, stock.Producto))
             .ToListAsync(ct);
+    }
+
+    public async Task<StockItemResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+    {
+        var item = await _db.StockHogars
+            .AsNoTracking()
+            .Where(stock => stock.Id == id && stock.HogarId == hogarId)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.Categoria)
+            .FirstOrDefaultAsync(ct);
+
+        return item is null ? null : ToResult(item, item.Producto);
     }
 
     public async Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
@@ -125,8 +138,10 @@ public sealed class AlacenaRepository : IAlacenaRepository
             producto.Nombre,
             producto.ImagenUrl,
             producto.CodigoBarras,
+            producto.Categoria?.Nombre,
             stock.Ubicacion,
             stock.CantidadActual ?? 0,
+            stock.UnidadMedida,
             stock.FechaVencimiento?.ToString("yyyy-MM-dd"),
             stock.EstaAbierto,
             stock.PorcentajeConsumido);
