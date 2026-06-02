@@ -15,4 +15,5 @@ public sealed record GetRecetaByIdResult(
     decimal? Grasas,
     IReadOnlyList<RecetaIngredienteResult> Ingredientes,
     IReadOnlyList<RecetaPasoResult> Pasos,
-    IReadOnlyList<RecetaElectrodomesticoResult> Electrodomesticos);
+    IReadOnlyList<RecetaElectrodomesticoResult> Electrodomesticos,
+    int VecesCocinada);

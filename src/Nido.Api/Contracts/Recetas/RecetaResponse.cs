@@ -15,7 +15,8 @@ public sealed record RecetaResponse(
     decimal? Grasas,
     IReadOnlyList<RecetaIngredienteResponse> Ingredientes,
     IReadOnlyList<RecetaPasoResponse> Pasos,
-    IReadOnlyList<RecetaElectrodomesticoResponse> Electrodomesticos);
+    IReadOnlyList<RecetaElectrodomesticoResponse> Electrodomesticos,
+    int VecesCocinada);
 
 public sealed record RecetaIngredienteResponse(
     Guid Id,

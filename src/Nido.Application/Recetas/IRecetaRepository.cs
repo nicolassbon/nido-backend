@@ -4,4 +4,5 @@ public interface IRecetaRepository
 {
     Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct);
     Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct);
+    Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct);
 }
