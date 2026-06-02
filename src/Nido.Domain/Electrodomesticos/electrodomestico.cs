@@ -6,10 +6,11 @@ public sealed class Electrodomestico
     {
     }
 
-    public Electrodomestico(Guid hogarId, string nombre, string? tipo, string? estado, string? marca, string? imagenUrl)
+    public Electrodomestico(Guid hogarId, Guid? catalogoId, string nombre, string? tipo, string? estado, string? marca, string? imagenUrl)
     {
         Id = Guid.NewGuid();
         HogarId = hogarId;
+        CatalogoId = catalogoId;
         Nombre = nombre;
         Tipo = tipo;
         Estado = estado;
@@ -17,10 +18,11 @@ public sealed class Electrodomestico
         ImagenUrl = imagenUrl;
     }
 
-    public Electrodomestico(Guid id, Guid hogarId, string nombre, string? tipo, string? estado, string? marca, string? imagenUrl)
+    public Electrodomestico(Guid id, Guid hogarId, Guid? catalogoId, string nombre, string? tipo, string? estado, string? marca, string? imagenUrl)
     {
         Id = id;
         HogarId = hogarId;
+        CatalogoId = catalogoId;
         Nombre = nombre;
         Tipo = tipo;
         Estado = estado;
@@ -32,6 +34,8 @@ public sealed class Electrodomestico
 
     public Guid HogarId { get; private set; }
 
+    public Guid? CatalogoId { get; private set; }
+
     public string Nombre { get; private set; } = string.Empty;
 
     public string? Tipo { get; private set; }
@@ -40,5 +44,5 @@ public sealed class Electrodomestico
 
     public string? Marca { get; set; }
 
-public string? ImagenUrl { get; set; }
+    public string? ImagenUrl { get; set; }
 }

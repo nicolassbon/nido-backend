@@ -21,7 +21,7 @@ public sealed class CreateElectrodomesticoHandler
             throw new MissingApplianceFieldException("hogar");
         }
 
-        if (string.IsNullOrWhiteSpace(command.Nombre))
+        if (!command.CatalogoId.HasValue && string.IsNullOrWhiteSpace(command.Nombre))
         {
             throw new MissingApplianceFieldException("nombre");
         }
@@ -33,13 +33,31 @@ public sealed class CreateElectrodomesticoHandler
             throw new HouseholdNotFoundException();
         }
 
+        ElectrodomesticoCatalogo? catalogoItem = null;
+
+        if (command.CatalogoId.HasValue)
+        {
+            var catalogo = await _repository.GetCatalogoAsync(cancellationToken);
+            catalogoItem = catalogo.FirstOrDefault(item => item.Id == command.CatalogoId.Value);
+
+            if (catalogoItem is null)
+            {
+                throw new ApplianceCatalogItemNotFoundException();
+            }
+        }
+
+        var nombre = catalogoItem?.Nombre ?? command.Nombre!.Trim();
+        var tipo = catalogoItem?.Tipo ?? command.Tipo;
+        var imagenUrl = catalogoItem?.ImagenUrl;
+
         var electrodomestico = new Electrodomestico(
             command.HogarId,
-            command.Nombre,
-            command.Tipo,
+            catalogoItem?.Id,
+            nombre,
+            tipo,
             command.Estado,
             command.Marca,
-            command.ImagenUrl
+            imagenUrl
         );
 
         await _repository.SaveAsync(electrodomestico, cancellationToken);
@@ -51,7 +69,8 @@ public sealed class CreateElectrodomesticoHandler
             electrodomestico.Tipo,
             electrodomestico.Estado,
             electrodomestico.Marca,
-            electrodomestico.ImagenUrl
+            electrodomestico.ImagenUrl,
+            electrodomestico.CatalogoId
         );
     }
 }

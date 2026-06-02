@@ -3,6 +3,7 @@ namespace Nido.Api.Contracts.Electrodomesticos;
 public sealed record CreateElectrodomesticoRequest(
     Guid HogarId,
     string? Nombre,
+    Guid? CatalogoId,
     string? Tipo,
     string? Estado,
     string? Marca,

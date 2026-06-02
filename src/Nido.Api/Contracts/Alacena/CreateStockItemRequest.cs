@@ -6,6 +6,7 @@ public sealed record CreateStockItemRequest(
     string? Imagen,
     string Ubicacion,
     decimal Cantidad,
+    string? UnidadMedida,
     string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido

@@ -31,6 +31,7 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
         {
             Id = electrodomestico.Id,
             HogarId = electrodomestico.HogarId,
+            CatalogoId = electrodomestico.CatalogoId,
             Nombre = electrodomestico.Nombre,
             Tipo = electrodomestico.Tipo,
             Estado = electrodomestico.Estado,
@@ -83,6 +84,7 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
             .Select(e => new DomainElectrodomestico(
                 e.Id,
                 e.HogarId,
+                e.CatalogoId,
                 e.Nombre,
                 e.Tipo,
                 e.Estado,

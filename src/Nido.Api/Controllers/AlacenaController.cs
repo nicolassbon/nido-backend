@@ -71,6 +71,7 @@ public sealed class AlacenaController : ControllerBase
                 request.Imagen,
                 request.Ubicacion,
                 request.Cantidad,
+                request.UnidadMedida,
                 request.FechaVencimiento,
                 request.EstaAbierto,
                 request.PorcentajeConsumido),
