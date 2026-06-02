@@ -21,7 +21,7 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
         var userB = await RegisterAsync("equip-list-b");
 
         Authenticate(userA);
-        var createA = await _client.PostAsJsonAsync("/electrodomesticos", new
+        var createA = await _client.PostAsJsonAsync("/api/electrodomesticos", new
         {
             nombre = "Heladera",
             tipo = "Cocina",
@@ -29,7 +29,7 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
         });
 
         Authenticate(userB);
-        var createB = await _client.PostAsJsonAsync("/electrodomesticos", new
+        var createB = await _client.PostAsJsonAsync("/api/electrodomesticos", new
         {
             nombre = "Lavarropas",
             tipo = "Lavadero",
@@ -40,7 +40,7 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
         Assert.Equal(HttpStatusCode.Created, createB.StatusCode);
 
         Authenticate(userA);
-        var response = await _client.GetAsync("/electrodomesticos");
+        var response = await _client.GetAsync("/api/electrodomesticos");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -58,7 +58,7 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
         var userB = await RegisterAsync("equip-forbid-b");
 
         Authenticate(userA);
-        var response = await _client.PostAsJsonAsync("/electrodomesticos", new
+        var response = await _client.PostAsJsonAsync("/api/electrodomesticos", new
         {
             hogarId = userB.HogarId,
             nombre = "Horno",
@@ -73,7 +73,7 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
         using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
-        var response = await _client.PostAsync("/auth/register", registerContent);
+        var response = await _client.PostAsync("/api/auth/register", registerContent);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<RegisterBody>();

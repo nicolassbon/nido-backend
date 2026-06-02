@@ -23,11 +23,11 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     public async Task GuardarHogar_CuandoSeAgregaUnMiembroRepresentado_PersisteLosDatasDeMiembro()
     {
         using var registerContent = RegisterMultipartRequest.Create("Marta", "marta@test.com", "Password123!", "F");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new
         {
             skip = false,
             members = new[] { new { nombre = "Pepe", rol = "child" } }
@@ -47,11 +47,11 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     public async Task GuardarHogar_CuandoElDuenioViveSolo_MantieneUnaSolaMembresiaValida()
     {
         using var registerContent = RegisterMultipartRequest.Create("Solo", "solo@test.com", "Password123!", "M");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var step2 = await _client.PatchAsJsonAsync("/onboarding/step-2", new { skip = false, members = Array.Empty<object>() });
+        var step2 = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = false, members = Array.Empty<object>() });
 
         Assert.Equal(HttpStatusCode.NoContent, step2.StatusCode);
 
@@ -69,12 +69,12 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
     public async Task GuardarHogarYEquipamiento_CuandoSeSaltaElHogarYSeGuardaEquipamiento_PersistenPorSeparado()
     {
         using var registerContent = RegisterMultipartRequest.Create("Bob", "bob@test.com", "Password123!", "M");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var step2 = await _client.PatchAsJsonAsync("/onboarding/step-2", new { skip = true });
-        var step3 = await _client.PatchAsJsonAsync("/onboarding/step-3", new { skip = false, equipments = new[] { new { nombre = "Horno", tipo = "Oven", estado = "new" } } });
+        var step2 = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = true });
+        var step3 = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new { skip = false, equipments = new[] { new { nombre = "Horno", tipo = "Oven", estado = "new" } } });
 
         Assert.Equal(HttpStatusCode.NoContent, step2.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, step3.StatusCode);

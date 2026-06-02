@@ -19,12 +19,8 @@ using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
 using Nido.Infrastructure.Auth;
-using Nido.Application.Auth.Register;
-using Nido.Application.Auth.Login;
-using Nido.Application.Auth.Google.Login;
-using Nido.Application.Auth.RefreshToken;
-using Nido.Application.Auth.Logout;
-using Nido.Application.Auth.Google.Link;
+using Nido.Api.OpenApi;
+using Scalar.AspNetCore;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -37,33 +33,15 @@ if (environment == "Development")
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+    options.AddOperationTransformer<SecurityRequirementsOperationTransformer>();
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
 
-builder.Services.AddScoped<CreateElectrodomesticoHandler>();
-builder.Services.AddScoped<GetElectrodomesticosHandler>();
-builder.Services.AddScoped<RegisterUserHandler>();
-builder.Services.AddScoped<LoginHandler>();
-builder.Services.AddScoped<GoogleLoginHandler>();
-builder.Services.AddScoped<RefreshTokenHandler>();
-builder.Services.AddScoped<LogoutHandler>();
-builder.Services.AddScoped<LinkGoogleHandler>();
-builder.Services.AddScoped<SaveHouseholdStepHandler>();
-builder.Services.AddScoped<SaveEquipmentStepHandler>();
-builder.Services.AddScoped<SaveWellnessStepHandler>();
-builder.Services.AddScoped<GetPreferenciasAlimentariasHandler>();
-builder.Services.AddScoped<GetAlergiasHandler>();
-builder.Services.AddScoped<GetMetasHandler>();
-builder.Services.AddScoped<InvitarConviventeHandler>();
-builder.Services.AddScoped<AceptarInvitacionHandler>();
-builder.Services.AddScoped<GetMiembrosHandler>();
-builder.Services.AddScoped<GetProductByBarcodeHandler>();
-builder.Services.AddScoped<GetStockItemsHandler>();
-builder.Services.AddScoped<CreateStockItemHandler>();
-builder.Services.AddScoped<UpdateStockItemHandler>();
-builder.Services.AddScoped<DeleteStockItemHandler>();
-builder.Services.AddScoped<ActualizarPerfilHandler>();
 builder.Services.AddAuthModule();
 builder.Services.AddOnboardingModule();
 builder.Services.AddHogaresModule();
@@ -72,6 +50,7 @@ builder.Services.AddAlacenaModule();
 builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
+builder.Services.AddUsuariosPerfilModule();
 
 
 
@@ -138,6 +117,12 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+if (!app.Environment.IsProduction())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseCookiePolicy();
@@ -145,8 +130,6 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-app.MapGet("/hello", () => Results.Ok(new { message = "Bienvenido a Nido!" }));
 
 app.Run();
 

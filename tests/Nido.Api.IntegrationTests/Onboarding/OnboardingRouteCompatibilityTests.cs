@@ -18,13 +18,13 @@ public sealed class OnboardingRouteCompatibilityTests : IClassFixture<NidoTestWe
     public async Task PublicStepRoutes_WhenAuthenticated_AcceptRequestsOnExistingContracts()
     {
         using var registerContent = RegisterMultipartRequest.Create("Compat", "compat@test.com", "Password123!", "M");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var step2 = await _client.PatchAsJsonAsync("/onboarding/step-2", new { skip = true });
-        var step3 = await _client.PatchAsJsonAsync("/onboarding/step-3", new { skip = true });
-        var step4 = await _client.PatchAsJsonAsync("/onboarding/step-4", new { skip = true });
+        var step2 = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new { skip = true });
+        var step3 = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new { skip = true });
+        var step4 = await _client.PatchAsJsonAsync("/api/onboarding/step-4", new { skip = true });
 
         Assert.Equal(HttpStatusCode.NoContent, step2.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, step3.StatusCode);
@@ -35,11 +35,11 @@ public sealed class OnboardingRouteCompatibilityTests : IClassFixture<NidoTestWe
     public async Task StepRoutes_WhenForbiddenByForgedIdentity_ReturnProblemDetailsShape()
     {
         using var registerContent = RegisterMultipartRequest.Create("Boundary", "boundary@test.com", "Password123!", "F");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
-        var response = await _client.PatchAsJsonAsync("/onboarding/step-2", new
+        var response = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new
         {
             skip = false,
             usuarioId = Guid.NewGuid(),

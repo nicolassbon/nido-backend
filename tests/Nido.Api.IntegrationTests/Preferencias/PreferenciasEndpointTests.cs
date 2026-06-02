@@ -18,7 +18,7 @@ public sealed class PreferenciasEndpointTests : IClassFixture<NidoTestWebAppFact
     {
         var email = $"prefs-{Guid.NewGuid():N}@test.com";
         using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
-        var register = await _client.PostAsync("/auth/register", registerContent);
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", body!.AccessToken);

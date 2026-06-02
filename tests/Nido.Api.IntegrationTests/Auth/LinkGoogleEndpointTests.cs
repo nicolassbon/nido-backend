@@ -36,7 +36,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-link-1"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -51,7 +51,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
     {
         var client = CreateClientWithFakeValidator(new GooglePayload("any@test.com", "google-no-jwt"));
 
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -68,7 +68,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var client = CreateClientWithFakeValidator(null, shouldThrow: true);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "invalid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/link-google", new { idToken = "invalid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -105,7 +105,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-link-4"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
@@ -127,7 +127,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var client = CreateClientWithFakeValidator(new GooglePayload("other@test.com", "google-email-mismatch"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -159,7 +159,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         var client = CreateClientWithFakeValidator(new GooglePayload(email, googleId));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var response = await client.PostAsJsonAsync("/auth/link-google", new { idToken = "valid-token" });
+        var response = await client.PostAsJsonAsync("/api/auth/link-google", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
 
@@ -179,7 +179,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
 
     private async Task<string> LoginAsync(string email, string password)
     {
-        var response = await _client.PostAsJsonAsync("/auth/login", new { email, password });
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<LoginBody>();
         return body!.AccessToken;

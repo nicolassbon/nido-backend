@@ -8,7 +8,7 @@ namespace Nido.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("electrodomesticos")]
+[Route("api/electrodomesticos")]
 public sealed class ElectrodomesticosController : ControllerBase
 {
     private readonly CreateElectrodomesticoHandler _createHandler;

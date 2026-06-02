@@ -20,7 +20,7 @@ using Nido.Infrastructure.ProfileImages;
 namespace Nido.Api.Controllers;
 
 [ApiController]
-[Route("auth")]
+[Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
     private readonly RegisterUserHandler _registerUserHandler;
@@ -218,7 +218,7 @@ public sealed class AuthController : ControllerBase
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
             Secure = _jwtOptions.Value.SecureCookies,
-            Path = "/auth",
+            Path = "/api/auth",
             MaxAge = TimeSpan.FromDays(_jwtOptions.Value.RefreshTokenExpiryDays)
         });
     }
@@ -229,7 +229,7 @@ public sealed class AuthController : ControllerBase
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
-            Path = "/auth",
+            Path = "/api/auth",
             Expires = DateTimeOffset.UnixEpoch
         });
     }
