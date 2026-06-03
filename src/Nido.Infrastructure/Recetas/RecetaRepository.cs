@@ -24,6 +24,19 @@ public sealed class RecetaRepository : IRecetaRepository
         ["Mostaza"] = ["mostaza", "mustard"],
     };
 
+    private static readonly HashSet<string> MatchStopWords =
+    [
+        "a", "al", "con", "de", "del", "e", "el", "en", "la", "las", "los", "para", "por", "sin", "un", "una", "unos", "unas",
+        "bien", "chico", "chica", "chicos", "chicas", "comun", "cortado", "cortada", "cortados", "cortadas", "extra",
+        "fresco", "fresca", "frescos", "frescas", "grande", "grandes", "mediano", "mediana", "medianos", "medianas",
+        "molido", "molida", "molidos", "molidas", "opcional", "picado", "picada", "picados", "picadas", "rallado", "rallada"
+    ];
+
+    private const decimal GenericGramsPerCup = 100m;
+    private const decimal MillilitersPerCup = 240m;
+    private const decimal GenericGramsPerUnit = 100m;
+    private const decimal GenericMillilitersPerUnit = 100m;
+
     private readonly NidoDbContext _db;
 
     public RecetaRepository(NidoDbContext db)
@@ -79,16 +92,13 @@ public sealed class RecetaRepository : IRecetaRepository
             .AsNoTracking()
             .Where(r => r.Id == command.RecetaId)
             .Include(r => r.IngredientesReceta)
+                .ThenInclude(i => i.Producto)
             .FirstOrDefaultAsync(ct);
 
         if (receta is null)
             return null;
 
-        var ingredientesConProducto = receta.IngredientesReceta
-            .Where(i => i.ProductoId.HasValue)
-            .ToList();
-
-        foreach (var ingrediente in ingredientesConProducto)
+        foreach (var ingrediente in receta.IngredientesReceta)
         {
             var consumo = GetIngredientConsumption(ingrediente);
             if (!consumo.HasValue)
@@ -96,7 +106,8 @@ public sealed class RecetaRepository : IRecetaRepository
 
             await ReducirStockAsync(
                 command.HogarId,
-                ingrediente.ProductoId!.Value,
+                ingrediente.ProductoId,
+                BuildIngredientLookupName(ingrediente),
                 consumo.Value.Cantidad,
                 consumo.Value.Unidad,
                 command.UsuarioId,
@@ -124,19 +135,29 @@ public sealed class RecetaRepository : IRecetaRepository
 
     private async Task ReducirStockAsync(
         Guid hogarId,
-        Guid productoId,
+        Guid? productoId,
+        string? productoNombre,
         decimal cantidad,
         string? unidadIngrediente,
         Guid usuarioId,
         CancellationToken ct)
     {
-        var stockItems = await _db.StockHogars
+        var stockItems = (await _db.StockHogars
+            .Include(s => s.Producto)
             .Where(s => s.HogarId == hogarId
-                     && s.ProductoId == productoId
                      && (s.CantidadActual == null || s.CantidadActual > 0))
-            .OrderBy(s => s.FechaVencimiento ?? DateOnly.MaxValue)
-            .ThenBy(s => s.CreatedAt)
-            .ToListAsync(ct);
+            .ToListAsync(ct))
+            .Select(item => new
+            {
+                Item = item,
+                Score = GetStockMatchScore(item, productoId, productoNombre)
+            })
+            .Where(match => match.Score > 0)
+            .OrderByDescending(match => match.Score)
+            .ThenBy(match => match.Item.FechaVencimiento ?? DateOnly.MaxValue)
+            .ThenBy(match => match.Item.CreatedAt)
+            .Select(match => match.Item)
+            .ToList();
 
         var restante = cantidad;
         foreach (var item in stockItems)
@@ -147,14 +168,14 @@ public sealed class RecetaRepository : IRecetaRepository
                 continue;
 
             var disponible = item.CantidadActual.Value;
-            var cantidadEnUnidadStock = ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida);
+            var cantidadEnUnidadStock = ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida, productoNombre);
 
             if (!cantidadEnUnidadStock.HasValue)
                 continue;
 
             if (disponible <= cantidadEnUnidadStock.Value)
             {
-                restante -= ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente) ?? 0;
+                restante -= ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente, productoNombre) ?? 0;
                 _db.StockHogars.Remove(item);
             }
             else
@@ -165,6 +186,61 @@ public sealed class RecetaRepository : IRecetaRepository
                 restante = 0;
             }
         }
+    }
+
+    private static string BuildIngredientLookupName(IngredientesRecetum ingrediente)
+        => $"{ingrediente.NombreIngrediente} {ingrediente.Producto?.Nombre}".Trim();
+
+    private static int GetStockMatchScore(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Guid? productoId, string? ingredientName)
+    {
+        if (productoId.HasValue && stock.ProductoId == productoId.Value)
+            return 1000;
+
+        return GetNameMatchScore(ingredientName, stock.Producto?.Nombre);
+    }
+
+    private static int GetNameMatchScore(string? ingredientName, string? productName)
+    {
+        var ingredient = NormalizeForMatch(ingredientName);
+        var product = NormalizeForMatch(productName);
+
+        if (string.IsNullOrWhiteSpace(ingredient) || string.IsNullOrWhiteSpace(product))
+            return 0;
+
+        if (ingredient == product)
+            return 900;
+
+        if (ContainsPhrase(ingredient, product))
+            return 800;
+
+        var ingredientTokens = GetMeaningfulTokens(ingredient);
+        var productTokens = GetMeaningfulTokens(product);
+        if (ingredientTokens.Count == 0 || productTokens.Count == 0)
+            return 0;
+
+        var matchingTokens = productTokens.Count(ingredientTokens.Contains);
+        if (matchingTokens == productTokens.Count)
+            return 700 + matchingTokens;
+
+        return matchingTokens > 0 ? 500 + matchingTokens : 0;
+    }
+
+    private static bool ContainsPhrase(string text, string phrase)
+        => $" {text} ".Contains($" {phrase} ", StringComparison.Ordinal);
+
+    private static HashSet<string> GetMeaningfulTokens(string value)
+        => value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeTokenForMatch)
+            .Where(token => token.Length > 1 && !MatchStopWords.Contains(token))
+            .ToHashSet();
+
+    private static string NormalizeTokenForMatch(string token)
+    {
+        if (token.Length > 4 && token.EndsWith('s'))
+            return token[..^1];
+
+        return token;
     }
 
     private static IngredientConsumption? GetIngredientConsumption(IngredientesRecetum ingrediente)
@@ -259,15 +335,115 @@ public sealed class RecetaRepository : IRecetaRepository
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    private static decimal? ConvertQuantity(decimal quantity, string? fromUnit, string? toUnit)
+    private static string NormalizeForMatch(string? value)
+    {
+        var normalized = Normalize(value ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var builder = new StringBuilder(normalized.Length);
+        var previousWasSpace = true;
+
+        foreach (var c in normalized)
+        {
+            if (char.IsLetterOrDigit(c))
+            {
+                builder.Append(c);
+                previousWasSpace = false;
+            }
+            else if (!previousWasSpace)
+            {
+                builder.Append(' ');
+                previousWasSpace = true;
+            }
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static decimal? ConvertQuantity(decimal quantity, string? fromUnit, string? toUnit, string? ingredientName = null)
     {
         var from = NormalizeUnit(fromUnit);
         var to = NormalizeUnit(toUnit);
 
-        if (from.Family != to.Family)
-            return null;
+        if (from.Family == to.Family)
+            return quantity * from.Factor / to.Factor;
 
-        return quantity * from.Factor / to.Factor;
+        if (from.Family == "volume" && to.Family == "mass")
+        {
+            var volumeToMassDensity = GetDensityGramsPerMlOrDefault(ingredientName);
+            var milliliters = quantity * from.Factor;
+            var grams = milliliters * volumeToMassDensity;
+            return grams / to.Factor;
+        }
+
+        if (from.Family == "mass" && to.Family == "volume")
+        {
+            var massToVolumeDensity = GetDensityGramsPerMlOrDefault(ingredientName);
+            var grams = quantity * from.Factor;
+            var milliliters = grams / massToVolumeDensity;
+            return milliliters / to.Factor;
+        }
+
+        if (from.Family == "count" && to.Family == "mass")
+            return quantity * GenericGramsPerUnit / to.Factor;
+
+        if (from.Family == "count" && to.Family == "volume")
+            return quantity * GenericMillilitersPerUnit / to.Factor;
+
+        if (from.Family == "mass" && to.Family == "count")
+            return quantity * from.Factor / GenericGramsPerUnit;
+
+        if (from.Family == "volume" && to.Family == "count")
+            return quantity * from.Factor / GenericMillilitersPerUnit;
+
+        return null;
+    }
+
+    private static decimal GetDensityGramsPerMlOrDefault(string? ingredientName)
+        => TryGetDensityGramsPerMl(ingredientName, out var gramsPerMl)
+            ? gramsPerMl
+            : GenericGramsPerCup / MillilitersPerCup;
+
+    private static bool TryGetDensityGramsPerMl(string? ingredientName, out decimal gramsPerMl)
+    {
+        var normalized = Normalize(ingredientName ?? string.Empty);
+
+        gramsPerMl = normalized switch
+        {
+            var name when name.Contains("harina", StringComparison.Ordinal) => 120m / 240m,
+            var name when name.Contains("arroz", StringComparison.Ordinal) => 198m / 240m,
+            var name when name.Contains("arveja", StringComparison.Ordinal) => 160m / 240m,
+            var name when name.Contains("pasa", StringComparison.Ordinal) => 149m / 240m,
+            var name when name.Contains("cebolla", StringComparison.Ordinal) => 142m / 240m,
+            var name when name.Contains("queso", StringComparison.Ordinal) => 113m / 240m,
+            var name when name.Contains("manteca", StringComparison.Ordinal)
+                || name.Contains("mantequilla", StringComparison.Ordinal) => 226m / 240m,
+            var name when name.Contains("aceite", StringComparison.Ordinal) => 200m / 240m,
+            var name when name.Contains("leche", StringComparison.Ordinal) => 227m / 240m,
+            var name when name.Contains("agua", StringComparison.Ordinal)
+                || name.Contains("caldo", StringComparison.Ordinal)
+                || name.Contains("jugo", StringComparison.Ordinal)
+                || name.Contains("salsa", StringComparison.Ordinal) => 1m,
+            var name when ContainsWord(name, "sal") => 18m / 15m,
+            var name when name.Contains("azucar", StringComparison.Ordinal) => 198m / 240m,
+            var name when name.Contains("hongo", StringComparison.Ordinal)
+                || name.Contains("champinon", StringComparison.Ordinal)
+                || name.Contains("champignon", StringComparison.Ordinal) => 78m / 240m,
+            var name when name.Contains("zanahoria", StringComparison.Ordinal) => 142m / 240m,
+            var name when name.Contains("apio", StringComparison.Ordinal) => 142m / 240m,
+            _ => 0m
+        };
+
+        return gramsPerMl > 0;
+    }
+
+    private static bool ContainsWord(string value, string word)
+    {
+        var padded = $" {value} ";
+        return padded.Contains($" {word} ", StringComparison.Ordinal)
+            || padded.Contains($" {word}.", StringComparison.Ordinal)
+            || padded.Contains($" {word},", StringComparison.Ordinal);
     }
 
     private static UnitInfo NormalizeUnit(string? unit)
@@ -286,14 +462,27 @@ public sealed class RecetaRepository : IRecetaRepository
 
         var normalizedUnit = normalized switch
         {
-            "" or "unidad" or "unidades" or "unid" or "u" or "ud" => new UnitInfo("count", 1m),
+            "" or "unidad" or "unidades" or "unid" or "u" or "ud"
+                or "diente" or "dientes" or "hoja" or "hojas" or "lata" or "latas"
+                or "paquete" or "paquetes" or "pieza" or "piezas" or "pote" or "potes"
+                or "frasco" or "frascos" or "rodaja" or "rodajas" or "sobre" or "sobres"
+                or "tallo" or "tallos" => new UnitInfo("count", 1m),
+            "mg" or "miligramo" or "miligramos" => new UnitInfo("mass", 0.001m),
             "g" or "gr" or "grs" or "gramo" or "gramos" => new UnitInfo("mass", 1m),
             "kg" or "kilo" or "kilos" or "kilogramo" or "kilogramos" => new UnitInfo("mass", 1000m),
-            "ml" or "mililitro" or "mililitros" => new UnitInfo("volume", 1m),
+            "oz" or "onza" or "onzas" => new UnitInfo("mass", 28.3495m),
+            "lb" or "lbs" or "libra" or "libras" => new UnitInfo("mass", 453.592m),
+            "pizca" or "pizcas" or "pinch" => new UnitInfo("mass", 0.5m),
+            "ml" or "mililitro" or "mililitros" or "cc" or "cm3" => new UnitInfo("volume", 1m),
+            "cl" or "centilitro" or "centilitros" => new UnitInfo("volume", 10m),
+            "dl" or "decilitro" or "decilitros" => new UnitInfo("volume", 100m),
             "l" or "lt" or "lts" or "litro" or "litros" => new UnitInfo("volume", 1000m),
-            "cdta" or "cdtas" or "cdita" or "cditas" or "cucharadita" or "cucharaditas" => new UnitInfo("volume", 5m),
-            "cda" or "cdas" or "cucharada" or "cucharadas" => new UnitInfo("volume", 15m),
-            "taza" or "tazas" => new UnitInfo("volume", 240m),
+            "cdta" or "cdtas" or "cdita" or "cditas" or "cucharadita" or "cucharaditas"
+                or "tsp" or "teaspoon" or "teaspoons" => new UnitInfo("volume", 5m),
+            "cda" or "cdas" or "cucharada" or "cucharadas"
+                or "tbsp" or "tablespoon" or "tablespoons" => new UnitInfo("volume", 15m),
+            "chorrito" or "chorritos" or "splash" => new UnitInfo("volume", 15m),
+            "taza" or "tazas" or "cup" or "cups" => new UnitInfo("volume", MillilitersPerCup),
             _ => new UnitInfo($"custom:{normalized}", 1m)
         };
 

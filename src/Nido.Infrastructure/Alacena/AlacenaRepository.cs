@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 using Nido.Application.Alacena;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -163,9 +165,12 @@ public sealed class AlacenaRepository : IAlacenaRepository
             return;
         }
 
-        var existingProduct = await _db.Productos
+        var existingProducts = await _db.Productos
             .Include(producto => producto.Categoria)
-            .FirstOrDefaultAsync(producto => producto.Nombre.ToLower() == normalizedName.ToLower(), ct);
+            .ToListAsync(ct);
+        var normalizedLookupName = NormalizeName(normalizedName);
+        var existingProduct = existingProducts
+            .FirstOrDefault(producto => NormalizeName(producto.Nombre) == normalizedLookupName);
 
         if (existingProduct is not null)
         {
@@ -178,7 +183,6 @@ public sealed class AlacenaRepository : IAlacenaRepository
         {
             Id = Guid.NewGuid(),
             Nombre = normalizedName,
-            ImagenUrl = item.Producto.ImagenUrl,
             CategoriaId = item.Producto.CategoriaId,
             Categoria = item.Producto.Categoria
         };
@@ -186,5 +190,19 @@ public sealed class AlacenaRepository : IAlacenaRepository
         _db.Productos.Add(newProduct);
         item.Producto = newProduct;
         item.ProductoId = newProduct.Id;
+    }
+
+    private static string NormalizeName(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(c);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }
