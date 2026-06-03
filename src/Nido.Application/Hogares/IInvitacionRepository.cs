@@ -2,7 +2,13 @@ namespace Nido.Application.Hogares;
 
 public record InvitacionInfo(Guid HogarId, string HogarNombre, string? EmailInvitado, string? Estado, DateTime? ExpiraEn);
 
-public record MiembroInfo(Guid UsuarioId, string Nombre, string? Email, string? Rol, string? FotoUrl);
+public record MiembroInfo(
+    Guid UsuarioId,
+    string Nombre,
+    string? Email,
+    string? Rol,
+    string? FotoUrl,
+    IReadOnlyList<string> Alergias);
 
 public interface IInvitacionRepository
 {

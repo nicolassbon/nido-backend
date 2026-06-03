@@ -7,5 +7,6 @@ public sealed record CreateElectrodomesticoResult(
     string? Tipo,
     string? Estado,
     string? Marca,
-    string? ImagenUrl
+    string? ImagenUrl,
+    Guid? CatalogoId
 );

@@ -18,3 +18,9 @@ public sealed class HouseholdNotFoundException : NidoException
 {
     public HouseholdNotFoundException() : base("HOUSEHOLD_NOT_FOUND", "El hogar indicado no existe.") { }
 }
+
+public sealed class ApplianceCatalogItemNotFoundException : NidoException
+{
+    public ApplianceCatalogItemNotFoundException()
+        : base("APPLIANCE_CATALOG_ITEM_NOT_FOUND", "El electrodomestico del catalogo no existe o no esta activo.") { }
+}

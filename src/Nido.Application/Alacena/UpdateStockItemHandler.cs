@@ -21,8 +21,10 @@ public sealed class UpdateStockItemHandler
         var request = new UpdateStockItemRequestModel(
             command.Id,
             command.UsuarioId,
+            command.Nombre,
             command.Cantidad,
             command.Ubicacion,
+            command.UnidadMedida,
             command.FechaVencimiento,
             command.EstaAbierto,
             command.PorcentajeConsumido);

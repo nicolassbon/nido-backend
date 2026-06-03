@@ -80,6 +80,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         // Electrodomesticos exceptions
         MissingApplianceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
+        ApplianceCatalogItemNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
         HouseholdNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
 
         // Hogares exceptions

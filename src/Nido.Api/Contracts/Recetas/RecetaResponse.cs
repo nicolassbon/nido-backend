@@ -25,7 +25,8 @@ public sealed record RecetaIngredienteResponse(
     string? ProductoNombre,
     decimal? Cantidad,
     string? Unidad,
-    bool EnStock);
+    bool EnStock,
+    IReadOnlyList<string> Alergenos);
 
 public sealed record RecetaPasoResponse(
     Guid Id,

@@ -57,7 +57,8 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
             electrodomestico.Tipo,
             electrodomestico.Estado,
             electrodomestico.Marca,
-            electrodomestico.ImagenUrl
+            electrodomestico.ImagenUrl,
+            electrodomestico.CatalogoId
         ));
 
         return Ok(response);
@@ -83,7 +84,8 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
             electrodomestico.Tipo,
             electrodomestico.Estado,
             electrodomestico.Marca,
-            electrodomestico.ImagenUrl
+            electrodomestico.ImagenUrl,
+            electrodomestico.CatalogoId
         ));
 
         return Ok(response);
@@ -100,11 +102,11 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
             return Forbid();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Nombre))
+        if (!request.CatalogoId.HasValue && string.IsNullOrWhiteSpace(request.Nombre))
         {
             return Problem(
                 title: "Invalid appliance name",
-                detail: "Nombre is required.",
+                detail: "Nombre is required when CatalogoId is not provided.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
@@ -113,6 +115,7 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
             var result = await _createHandler.Handle(
                 new CreateElectrodomesticoCommand(
                     currentUser.HogarId,
+                    request.CatalogoId,
                     request.Nombre,
                     request.Tipo,
                     request.Estado,
@@ -131,7 +134,8 @@ public async Task<IActionResult> GetCatalogo(CancellationToken cancellationToken
                     result.Tipo,
                     result.Estado,
                     result.Marca,
-                    result.ImagenUrl
+                    result.ImagenUrl,
+                    result.CatalogoId
                 )
             );
         }

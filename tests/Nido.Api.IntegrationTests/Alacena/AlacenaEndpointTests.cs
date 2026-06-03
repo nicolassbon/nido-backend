@@ -48,18 +48,24 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         var patchResponse = await _client.PatchAsJsonAsync($"/api/alacena/productos/{created!.Id}", new
         {
+            nombre = "Yerba editada",
             cantidad = 2,
             ubicacion = "Heladera",
+            unidadMedida = "kg",
             fechaVencimiento = "2026-12-02",
             estaAbierto = true,
             porcentajeConsumido = 25
         });
         Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+        var patched = await patchResponse.Content.ReadFromJsonAsync<StockItemBody>();
+        Assert.NotNull(patched);
+        Assert.Equal("Yerba editada", patched!.Nombre);
+        Assert.Equal("kg", patched.UnidadMedida);
 
         var deleteResponse = await _client.DeleteAsync($"/api/alacena/productos/{created.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
-    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido);
+    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido);
 }

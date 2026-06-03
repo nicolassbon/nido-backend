@@ -26,6 +26,7 @@ public sealed class CreateStockItemHandler
             command.Imagen,
             command.Ubicacion,
             command.Cantidad,
+            command.UnidadMedida,
             command.FechaVencimiento,
             command.EstaAbierto,
             command.PorcentajeConsumido);
