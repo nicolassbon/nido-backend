@@ -70,6 +70,50 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetAll_CuandoIngredienteMatcheaAlergeno_DevuelveAlergenos()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Harina de trigo"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Pan casero",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Harina de trigo",
+                Cantidad = 200,
+                Unidad = "g"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/recetas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<RecetaConIngredientesBody>>();
+        var receta = lista!.Single(r => r.Id == recetaId);
+        Assert.Contains("Gluten", receta.Ingredientes.Single().Alergenos);
+    }
+
+    [Fact]
     public async Task GetById_CuandoExiste_Returns200ConVecesCocinada()
     {
         await AuthenticateAsync();
@@ -171,5 +215,7 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record RecetaBody(Guid Id, string Nombre, int VecesCocinada);
+    private sealed record RecetaConIngredientesBody(Guid Id, string Nombre, List<IngredienteBody> Ingredientes);
+    private sealed record IngredienteBody(Guid Id, List<string> Alergenos);
     private sealed record CocinarBody(Guid RecetaId, int VecesCocinada);
 }
