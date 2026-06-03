@@ -92,6 +92,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
     {
         var item = await _db.StockHogars
             .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.Categoria)
             .FirstOrDefaultAsync(stock => stock.Id == request.Id, ct);
 
         if (item is null)
@@ -101,8 +102,12 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
         if (request.Cantidad.HasValue)
             item.CantidadActual = request.Cantidad.Value;
+        if (!string.IsNullOrWhiteSpace(request.Nombre))
+            await UpdateProductReferenceAsync(item, request.Nombre, ct);
         if (request.Ubicacion is not null)
             item.Ubicacion = request.Ubicacion;
+        if (request.UnidadMedida is not null)
+            item.UnidadMedida = NormalizeUnit(request.UnidadMedida);
         if (request.EstaAbierto.HasValue)
             item.EstaAbierto = request.EstaAbierto.Value;
         if (request.PorcentajeConsumido.HasValue)
@@ -148,4 +153,38 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();
+
+    private async Task UpdateProductReferenceAsync(Nido.Infrastructure.Persistence.Entities.StockHogar item, string nombre, CancellationToken ct)
+    {
+        var normalizedName = nombre.Trim();
+
+        if (string.Equals(item.Producto.Nombre, normalizedName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var existingProduct = await _db.Productos
+            .Include(producto => producto.Categoria)
+            .FirstOrDefaultAsync(producto => producto.Nombre.ToLower() == normalizedName.ToLower(), ct);
+
+        if (existingProduct is not null)
+        {
+            item.Producto = existingProduct;
+            item.ProductoId = existingProduct.Id;
+            return;
+        }
+
+        var newProduct = new Producto
+        {
+            Id = Guid.NewGuid(),
+            Nombre = normalizedName,
+            ImagenUrl = item.Producto.ImagenUrl,
+            CategoriaId = item.Producto.CategoriaId,
+            Categoria = item.Producto.Categoria
+        };
+
+        _db.Productos.Add(newProduct);
+        item.Producto = newProduct;
+        item.ProductoId = newProduct.Id;
+    }
 }
