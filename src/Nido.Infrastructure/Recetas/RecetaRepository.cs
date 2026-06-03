@@ -12,13 +12,14 @@ public sealed class RecetaRepository : IRecetaRepository
     private static readonly IReadOnlyDictionary<string, string[]> AllergenAliases = new Dictionary<string, string[]>
     {
         ["Maní"] = ["mani", "cacahuate", "peanut", "peanuts"],
-        ["Gluten"] = ["gluten", "harina", "trigo", "fideos", "pasta", "pan", "masa"],
-        ["Lactosa"] = ["lactosa", "leche", "queso", "crema", "manteca", "yogur", "yogurt", "milk", "cheese"],
+        ["Gluten"] = ["gluten", "harina", "trigo", "fideos", "pasta", "pan", "pan rallado", "masa", "avena"],
+        ["Lactosa"] = ["lactosa", "leche", "leche en polvo", "queso", "queso crema", "crema", "manteca", "mantequilla", "yogur", "yogurt", "ricota", "mozzarella", "parmesano", "dulce de leche", "milk", "cheese", "butter", "cream"],
         ["Mariscos"] = ["mariscos", "camaron", "camarones", "langostino", "langostinos", "mejillon", "mejillones", "calamar", "calamares"],
         ["Soja"] = ["soja", "soya", "tofu", "salsa de soja"],
-        ["Huevo"] = ["huevo", "huevos", "clara", "yema", "egg"],
+        ["Huevo"] = ["huevo", "huevos", "clara", "claras", "yema", "yemas", "egg", "eggs"],
         ["Frutos secos"] = ["frutos secos", "almendra", "almendras", "nuez", "nueces", "avellana", "avellanas", "castana", "castanas", "pistacho", "pistachos"],
         ["Pescado"] = ["pescado", "atun", "salmon", "merluza", "sardina", "sardinas"],
+        ["Carne"] = ["carne", "pollo", "pechuga", "cerdo", "jamon", "panceta", "tocino", "chorizo", "salchicha", "vacuno", "vacuna", "res", "ternera", "cordero", "pavo", "beef", "chicken", "pork", "bacon", "ham"],
         ["Sésamo"] = ["sesamo", "tahini"],
         ["Mostaza"] = ["mostaza", "mustard"],
     };
@@ -84,15 +85,20 @@ public sealed class RecetaRepository : IRecetaRepository
             return null;
 
         var ingredientesConProducto = receta.IngredientesReceta
-            .Where(i => i.ProductoId.HasValue && i.Cantidad.HasValue && i.Cantidad.Value > 0)
+            .Where(i => i.ProductoId.HasValue)
             .ToList();
 
         foreach (var ingrediente in ingredientesConProducto)
         {
+            var consumo = GetIngredientConsumption(ingrediente);
+            if (!consumo.HasValue)
+                continue;
+
             await ReducirStockAsync(
                 command.HogarId,
                 ingrediente.ProductoId!.Value,
-                ingrediente.Cantidad!.Value,
+                consumo.Value.Cantidad,
+                consumo.Value.Unidad,
                 command.UsuarioId,
                 ct);
         }
@@ -116,7 +122,13 @@ public sealed class RecetaRepository : IRecetaRepository
         return new CocinarRecetaResult(command.RecetaId, vecesCocinada);
     }
 
-    private async Task ReducirStockAsync(Guid hogarId, Guid productoId, decimal cantidad, Guid usuarioId, CancellationToken ct)
+    private async Task ReducirStockAsync(
+        Guid hogarId,
+        Guid productoId,
+        decimal cantidad,
+        string? unidadIngrediente,
+        Guid usuarioId,
+        CancellationToken ct)
     {
         var stockItems = await _db.StockHogars
             .Where(s => s.HogarId == hogarId
@@ -131,21 +143,46 @@ public sealed class RecetaRepository : IRecetaRepository
         {
             if (restante <= 0) break;
 
-            var disponible = item.CantidadActual ?? 0;
+            if (!item.CantidadActual.HasValue)
+                continue;
 
-            if (disponible <= restante)
+            var disponible = item.CantidadActual.Value;
+            var cantidadEnUnidadStock = ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida);
+
+            if (!cantidadEnUnidadStock.HasValue)
+                continue;
+
+            if (disponible <= cantidadEnUnidadStock.Value)
             {
-                restante -= disponible;
+                restante -= ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente) ?? 0;
                 _db.StockHogars.Remove(item);
             }
             else
             {
-                item.CantidadActual = disponible - restante;
+                item.CantidadActual = disponible - cantidadEnUnidadStock.Value;
                 item.UpdatedBy = usuarioId;
                 item.UpdatedAt = DateTime.UtcNow;
                 restante = 0;
             }
         }
+    }
+
+    private static IngredientConsumption? GetIngredientConsumption(IngredientesRecetum ingrediente)
+    {
+        if (ingrediente.Cantidad.HasValue && ingrediente.Cantidad.Value > 0)
+        {
+            if (TryReadLeadingQuantity(ingrediente.Unidad, out var embeddedQuantity, out var unit)
+                && AreSameQuantity(ingrediente.Cantidad.Value, embeddedQuantity))
+            {
+                return new IngredientConsumption(ingrediente.Cantidad.Value, unit);
+            }
+
+            return new IngredientConsumption(ingrediente.Cantidad.Value, ingrediente.Unidad);
+        }
+
+        return TryReadLeadingQuantity(ingrediente.Unidad, out var quantityFromUnit, out var unitFromUnit)
+            ? new IngredientConsumption(quantityFromUnit, unitFromUnit)
+            : null;
     }
 
     private static RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada)
@@ -221,6 +258,183 @@ public sealed class RecetaRepository : IRecetaRepository
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
+
+    private static decimal? ConvertQuantity(decimal quantity, string? fromUnit, string? toUnit)
+    {
+        var from = NormalizeUnit(fromUnit);
+        var to = NormalizeUnit(toUnit);
+
+        if (from.Family != to.Family)
+            return null;
+
+        return quantity * from.Factor / to.Factor;
+    }
+
+    private static UnitInfo NormalizeUnit(string? unit)
+    {
+        var multiplier = 1m;
+        var unitValue = unit;
+        if (TryReadLeadingQuantity(unit, out var quantity, out var unitWithoutQuantity))
+        {
+            multiplier = quantity;
+            unitValue = unitWithoutQuantity;
+        }
+
+        var normalized = Normalize(unitValue ?? string.Empty)
+            .Replace(".", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+
+        var normalizedUnit = normalized switch
+        {
+            "" or "unidad" or "unidades" or "unid" or "u" or "ud" => new UnitInfo("count", 1m),
+            "g" or "gr" or "grs" or "gramo" or "gramos" => new UnitInfo("mass", 1m),
+            "kg" or "kilo" or "kilos" or "kilogramo" or "kilogramos" => new UnitInfo("mass", 1000m),
+            "ml" or "mililitro" or "mililitros" => new UnitInfo("volume", 1m),
+            "l" or "lt" or "lts" or "litro" or "litros" => new UnitInfo("volume", 1000m),
+            "cdta" or "cdtas" or "cdita" or "cditas" or "cucharadita" or "cucharaditas" => new UnitInfo("volume", 5m),
+            "cda" or "cdas" or "cucharada" or "cucharadas" => new UnitInfo("volume", 15m),
+            "taza" or "tazas" => new UnitInfo("volume", 240m),
+            _ => new UnitInfo($"custom:{normalized}", 1m)
+        };
+
+        return normalizedUnit with { Factor = normalizedUnit.Factor * multiplier };
+    }
+
+    private static bool TryReadLeadingQuantity(string? value, out decimal quantity, out string unit)
+    {
+        quantity = 0;
+        unit = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var text = value.Trim();
+        if (TryReadUnicodeFraction(text[0], out var unicodeFraction))
+        {
+            var remaining = text[1..].Trim();
+            if (string.IsNullOrWhiteSpace(remaining))
+                return false;
+
+            quantity = unicodeFraction;
+            unit = remaining;
+            return true;
+        }
+
+        var firstTokenLength = 0;
+        while (firstTokenLength < text.Length && IsQuantityChar(text[firstTokenLength]))
+        {
+            firstTokenLength++;
+        }
+
+        if (firstTokenLength == 0)
+            return false;
+
+        var firstToken = text[..firstTokenLength];
+        if (!TryParseQuantityToken(firstToken, out var parsedQuantity))
+            return false;
+
+        var rest = text[firstTokenLength..].TrimStart();
+        if (TryConsumeFractionToken(rest, out var fraction, out var restAfterFraction))
+        {
+            parsedQuantity += fraction;
+            rest = restAfterFraction.TrimStart();
+        }
+
+        if (string.IsNullOrWhiteSpace(rest))
+            return false;
+
+        quantity = parsedQuantity;
+        unit = rest;
+        return true;
+    }
+
+    private static bool TryConsumeFractionToken(string value, out decimal fraction, out string rest)
+    {
+        fraction = 0;
+        rest = value;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var text = value.TrimStart();
+        if (TryReadUnicodeFraction(text[0], out fraction))
+        {
+            rest = text[1..];
+            return true;
+        }
+
+        var tokenLength = 0;
+        while (tokenLength < text.Length && IsQuantityChar(text[tokenLength]))
+        {
+            tokenLength++;
+        }
+
+        if (tokenLength == 0)
+            return false;
+
+        var token = text[..tokenLength];
+        if (!token.Contains('/', StringComparison.Ordinal) || !TryParseQuantityToken(token, out fraction))
+            return false;
+
+        rest = text[tokenLength..];
+        return true;
+    }
+
+    private static bool TryParseQuantityToken(string token, out decimal quantity)
+    {
+        quantity = 0;
+
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        var normalized = token.Trim().Replace(',', '.');
+        if (normalized.Contains('/', StringComparison.Ordinal))
+        {
+            var parts = normalized.Split('/', 2);
+            if (parts.Length != 2
+                || !decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out var numerator)
+                || !decimal.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out var denominator)
+                || denominator == 0)
+            {
+                return false;
+            }
+
+            quantity = numerator / denominator;
+            return quantity > 0;
+        }
+
+        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out quantity)
+            && quantity > 0;
+    }
+
+    private static bool TryReadUnicodeFraction(char value, out decimal quantity)
+    {
+        quantity = value switch
+        {
+            '¼' => 0.25m,
+            '½' => 0.5m,
+            '¾' => 0.75m,
+            '⅓' => 1m / 3m,
+            '⅔' => 2m / 3m,
+            '⅛' => 0.125m,
+            '⅜' => 0.375m,
+            '⅝' => 0.625m,
+            '⅞' => 0.875m,
+            _ => 0m
+        };
+
+        return quantity > 0;
+    }
+
+    private static bool IsQuantityChar(char value)
+        => char.IsDigit(value) || value is '/' or '.' or ',';
+
+    private static bool AreSameQuantity(decimal left, decimal right)
+        => Math.Abs(left - right) < 0.0001m;
+
+    private readonly record struct IngredientConsumption(decimal Cantidad, string? Unidad);
+
+    private readonly record struct UnitInfo(string Family, decimal Factor);
 
     private async Task<IReadOnlySet<Guid>> GetProductosEnStockAsync(Guid hogarId, CancellationToken ct)
     {
