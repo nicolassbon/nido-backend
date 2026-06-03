@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Nido.Application.Recetas;
 using Nido.Infrastructure.Persistence;
@@ -7,6 +9,20 @@ namespace Nido.Infrastructure.Recetas;
 
 public sealed class RecetaRepository : IRecetaRepository
 {
+    private static readonly IReadOnlyDictionary<string, string[]> AllergenAliases = new Dictionary<string, string[]>
+    {
+        ["Maní"] = ["mani", "cacahuate", "peanut", "peanuts"],
+        ["Gluten"] = ["gluten", "harina", "trigo", "fideos", "pasta", "pan", "masa"],
+        ["Lactosa"] = ["lactosa", "leche", "queso", "crema", "manteca", "yogur", "yogurt", "milk", "cheese"],
+        ["Mariscos"] = ["mariscos", "camaron", "camarones", "langostino", "langostinos", "mejillon", "mejillones", "calamar", "calamares"],
+        ["Soja"] = ["soja", "soya", "tofu", "salsa de soja"],
+        ["Huevo"] = ["huevo", "huevos", "clara", "yema", "egg"],
+        ["Frutos secos"] = ["frutos secos", "almendra", "almendras", "nuez", "nueces", "avellana", "avellanas", "castana", "castanas", "pistacho", "pistachos"],
+        ["Pescado"] = ["pescado", "atun", "salmon", "merluza", "sardina", "sardinas"],
+        ["Sésamo"] = ["sesamo", "tahini"],
+        ["Mostaza"] = ["mostaza", "mustard"],
+    };
+
     private readonly NidoDbContext _db;
 
     public RecetaRepository(NidoDbContext db)
@@ -158,7 +174,8 @@ public sealed class RecetaRepository : IRecetaRepository
                     ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
                     ingrediente.Cantidad,
                     ingrediente.Unidad,
-                    ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value)))
+                    ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value),
+                    DetectAlergenos(ingrediente)))
                 .ToList(),
             receta.PasosReceta
                 .OrderBy(paso => paso.Orden)
@@ -174,6 +191,35 @@ public sealed class RecetaRepository : IRecetaRepository
                     electrodomestico.TipoRequerido))
                 .ToList(),
             vecesCocinada);
+    }
+
+    private static IReadOnlyList<string> DetectAlergenos(IngredientesRecetum ingrediente)
+    {
+        var text = Normalize($"{ingrediente.NombreIngrediente} {ingrediente.Producto?.Nombre}");
+        if (string.IsNullOrWhiteSpace(text))
+            return [];
+
+        return AllergenAliases
+            .Where(entry => entry.Value.Any(alias => text.Contains(Normalize(alias), StringComparison.Ordinal)))
+            .Select(entry => entry.Key)
+            .ToList();
+    }
+
+    private static string Normalize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(c);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private async Task<IReadOnlySet<Guid>> GetProductosEnStockAsync(Guid hogarId, CancellationToken ct)

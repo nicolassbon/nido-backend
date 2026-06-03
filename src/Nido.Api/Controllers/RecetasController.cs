@@ -86,7 +86,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.ProductoNombre,
                 ingrediente.Cantidad,
                 ingrediente.Unidad,
-                ingrediente.EnStock)).ToList(),
+                ingrediente.EnStock,
+                ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(
                 paso.Id,
                 paso.Orden,
@@ -119,7 +120,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.ProductoNombre,
                 ingrediente.Cantidad,
                 ingrediente.Unidad,
-                ingrediente.EnStock)).ToList(),
+                ingrediente.EnStock,
+                ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(
                 paso.Id,
                 paso.Orden,

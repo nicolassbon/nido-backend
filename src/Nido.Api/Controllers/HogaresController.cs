@@ -61,7 +61,13 @@ public sealed class HogaresController : ControllerBase
             currentUser.UsuarioId,
             currentUser.HogarId), cancellationToken);
 
-        var response = miembros.Select(m => new MiembroResponse(m.UsuarioId, m.Nombre, m.Email, m.Rol, m.FotoUrl));
+        var response = miembros.Select(m => new MiembroResponse(
+            m.UsuarioId,
+            m.Nombre,
+            m.Email,
+            m.Rol,
+            m.FotoUrl,
+            m.Alergias));
         return Ok(response);
     }
 
