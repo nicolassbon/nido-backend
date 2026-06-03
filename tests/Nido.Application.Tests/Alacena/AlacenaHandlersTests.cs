@@ -44,7 +44,7 @@ public sealed class AlacenaHandlersTests
         var handler = new UpdateStockItemHandler(repo);
 
         var result = await handler.Handle(
-            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), null, null, null, null, null),
+            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), null, null, null, null, null, null, null),
             CancellationToken.None);
 
         Assert.Null(result);
