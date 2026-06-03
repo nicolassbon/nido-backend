@@ -1,6 +1,8 @@
+using System.Net;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using MimeKit;
 using Nido.Application.Hogares;
 
@@ -9,10 +11,12 @@ namespace Nido.Infrastructure.Email;
 public sealed class SmtpEmailService : IEmailService
 {
     private readonly IConfiguration _configuration;
+    private readonly ILogger<SmtpEmailService> _logger;
 
-    public SmtpEmailService(IConfiguration configuration)
+    public SmtpEmailService(IConfiguration configuration, ILogger<SmtpEmailService> logger)
     {
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task SendInvitationEmailAsync(string toEmail, string hogarNombre, string invitadoPorNombre, string invitationToken, CancellationToken ct)
@@ -58,17 +62,8 @@ public sealed class SmtpEmailService : IEmailService
                 """
         };
 
-        using var client = new SmtpClient();
-        client.CheckCertificateRevocation = false;
-        // Docker containers lack the root CA store to validate external certs.
-        // Gmail's cert is valid; this only skips chain validation in containerized envs.
-        client.ServerCertificateValidationCallback = (_, _, _, _) => true;
         var port = int.TryParse(portStr, out var p) ? p : 587;
-        await client.ConnectAsync(host, port, SecureSocketOptions.StartTls, ct);
-        if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
-            await client.AuthenticateAsync(username, password, ct);
-        await client.SendAsync(message, ct);
-        await client.DisconnectAsync(true, ct);
+        await SendViaSmtpAsync(message, host, port, username, password, ct);
     }
 
     public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct)
@@ -135,15 +130,36 @@ public sealed class SmtpEmailService : IEmailService
         message.Subject = subject;
         message.Body = new TextPart("plain") { Text = body };
 
+        var port = int.TryParse(portStr, out var p) ? p : 587;
+        await SendViaSmtpAsync(message, host, port, username, password, ct);
+    }
+
+    private async Task SendViaSmtpAsync(MimeMessage message, string host, int port, string? username, string? password, CancellationToken ct)
+    {
         using var client = new SmtpClient();
         client.CheckCertificateRevocation = false;
         client.ServerCertificateValidationCallback = (_, _, _, _) => true;
 
-        var port = int.TryParse(portStr, out var p) ? p : 587;
-        await client.ConnectAsync(host, port, SecureSocketOptions.StartTls, ct);
-        if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
-            await client.AuthenticateAsync(username, password, ct);
-        await client.SendAsync(message, ct);
-        await client.DisconnectAsync(true, ct);
+        try
+        {
+            var addresses = await Dns.GetHostAddressesAsync(host, ct);
+            var address = SmtpConnectionHelper.SelectPreferredAddress(addresses);
+            _logger.LogInformation("SMTP connecting to {Host} via {AddressFamily} ({Address}:{Port})",
+                host, address.AddressFamily, address, port);
+
+            await client.ConnectAsync(address.ToString(), port, SecureSocketOptions.StartTls, ct);
+
+            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+                await client.AuthenticateAsync(username, password, ct);
+
+            await client.SendAsync(message, ct);
+            await client.DisconnectAsync(true, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SMTP send failed for {Host}:{Port} to {Recipient}",
+                host, port, message.To.ToString());
+            throw;
+        }
     }
 }
