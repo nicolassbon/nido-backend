@@ -1,7 +1,6 @@
 using Nido.Application.Auth.Register;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
@@ -9,10 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
-using Nido.Application.Auth.RefreshToken;
+using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Security;
 using Nido.Infrastructure.Persistence;
@@ -50,7 +48,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task Register_DuplicateEmail_ReturnsConflict()
+    public async Task Register_DuplicateEmail_ReturnsSilentSuccess()
     {
         using var firstContent = RegisterMultipartRequest.Create("Nico", "nico-dup@test.com", "Password123!", "M");
         using var secondContent = RegisterMultipartRequest.Create("Nico", "nico-dup@test.com", "Password123!", "M");
@@ -59,12 +57,38 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var second = await _client.PostAsync("/api/auth/register", secondContent);
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
 
-        var problem = await second.Content.ReadFromJsonAsync<ProblemDetailsBody>();
-        Assert.NotNull(problem);
-        Assert.Equal(409, problem!.Status);
-        Assert.Equal("EMAIL_ALREADY_EXISTS", problem.Title);
+        var body = await second.Content.ReadFromJsonAsync<RegisterBody>();
+        Assert.NotNull(body);
+        Assert.True(body!.IsSilentSuccess);
+        Assert.Null(body.UsuarioId);
+        Assert.Null(body.HogarId);
+        Assert.Null(body.AccessToken);
+        Assert.False(string.IsNullOrWhiteSpace(body.Message));
+        Assert.False(second.Headers.TryGetValues("Set-Cookie", out var _));
+    }
+
+    [Fact]
+    public async Task Register_DuplicateEmail_SendsNoticeEmail()
+    {
+        var spy = new SpyEmailService();
+        var client = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<IEmailService>();
+            services.AddSingleton<IEmailService>(spy);
+        }).CreateClient();
+
+        var email = $"register-dup-{Guid.NewGuid():N}@test.com";
+        using var firstContent = RegisterMultipartRequest.Create("Nico", email, "Password123!", "M");
+        using var secondContent = RegisterMultipartRequest.Create("Nico", email, "Password123!", "M");
+
+        var first = await client.PostAsync("/api/auth/register", firstContent);
+        var second = await client.PostAsync("/api/auth/register", secondContent);
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Contains(email, spy.DuplicateSignupNoticeEmails);
     }
 
     [Fact]
@@ -86,28 +110,27 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task Register_GoogleOnlyAccount_AddsPasswordAndReturnsCreatedWithTokens()
+    public async Task Register_GoogleOnlyAccount_ReturnsSilentSuccess()
     {
         var email = $"google-add-pw-{Guid.NewGuid()}@test.com";
 
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var (userId, hogarId) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-123"), CancellationToken.None);
+            await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-123"), CancellationToken.None);
         }
 
         using var registerContent = RegisterMultipartRequest.Create("Google User", email, "Password123!", "U");
         var response = await _client.PostAsync("/api/auth/register", registerContent);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.NotNull(body);
-        Assert.False(string.IsNullOrEmpty(body!.AccessToken));
-        Assert.NotEqual(Guid.Empty, body.UsuarioId);
-        Assert.NotEqual(Guid.Empty, body.HogarId);
-
-        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var values) && values.Any(v => v.StartsWith("refreshToken=")));
+        Assert.True(body!.IsSilentSuccess);
+        Assert.Null(body.AccessToken);
+        Assert.Null(body.UsuarioId);
+        Assert.Null(body.HogarId);
     }
 
     [Fact]
@@ -249,7 +272,11 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var second = await _client.PostAsync("/api/auth/register", secondContent);
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+
+        var duplicateBody = await second.Content.ReadFromJsonAsync<RegisterBody>();
+        Assert.NotNull(duplicateBody);
+        Assert.True(duplicateBody!.IsSilentSuccess);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
@@ -257,7 +284,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(1, count);
     }
 
-    private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
+    private sealed record RegisterBody(Guid? UsuarioId, Guid? HogarId, string? AccessToken, string Message, bool IsSilentSuccess);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 
     private sealed class ThrowingCurrentUserContext : ICurrentUserContext
@@ -286,6 +313,23 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         }
 
         public Task DeleteAsync(string storageKey, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class SpyEmailService : IEmailService
+    {
+        public List<string> DuplicateSignupNoticeEmails { get; } = [];
+
+        public Task SendInvitationEmailAsync(string toEmail, string hogarNombre, string invitadoPorNombre, string invitationToken, CancellationToken ct) => Task.CompletedTask;
+
+        public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct) => Task.CompletedTask;
+
+        public Task SendGoogleOnlyInfoEmailAsync(string toEmail, CancellationToken ct) => Task.CompletedTask;
+
+        public Task SendDuplicateSignupNoticeEmailAsync(string toEmail, CancellationToken ct)
+        {
+            DuplicateSignupNoticeEmails.Add(toEmail);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class CapturingProfileImageStorage : IProfileImageStorage

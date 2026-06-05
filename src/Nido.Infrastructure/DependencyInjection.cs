@@ -12,6 +12,7 @@ using Nido.Infrastructure.Onboarding;
 using Nido.Infrastructure.Hogares;
 using Nido.Infrastructure.Email;
 using Nido.Application.Alacena;
+using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;

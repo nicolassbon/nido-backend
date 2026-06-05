@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Application.Auth;
+using Nido.Application.Auth.Exceptions;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
@@ -114,7 +115,7 @@ public sealed class AuthRepository : IAuthRepository
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("usuarios_email_key", StringComparison.OrdinalIgnoreCase) == true ||
                                           ex.InnerException?.Message.Contains("UNIQUE constraint failed: Usuarios.Email", StringComparison.OrdinalIgnoreCase) == true)
         {
-            throw new InvalidOperationException("Email already exists.", ex);
+            throw new EmailAlreadyExistsException();
         }
 
         return (usuario.Id, hogar.Id);

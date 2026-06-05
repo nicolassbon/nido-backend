@@ -1,7 +1,7 @@
 using System.Text.Encodings.Web;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Nido.Application.Hogares;
+using Nido.Application.Common.Notifications;
 using Resend;
 
 namespace Nido.Infrastructure.Email;
@@ -119,6 +119,34 @@ public sealed class ResendEmailService : IEmailService
             htmlBody,
             ct,
             debugMessage: $"[EMAIL][GOOGLE-ONLY] To: {toEmail}");
+    }
+
+    public async Task SendDuplicateSignupNoticeEmailAsync(string toEmail, CancellationToken ct)
+    {
+        const string textBody = """
+            Hola,
+
+            Alguien intentó registrarse en Nido usando este correo electrónico.
+
+            Si fuiste vos, podés iniciar sesión normalmente con tu cuenta.
+            Si no reconocés este intento, te recomendamos cambiar tu contraseña o revisar tu acceso.
+
+            El equipo de Nido
+            """;
+
+        var htmlBody = BuildHtmlBody(
+            "Alguien intentó registrarse en Nido usando este correo electrónico.",
+            "Si fuiste vos, podés iniciar sesión normalmente con tu cuenta.",
+            "Si no reconocés este intento, te recomendamos cambiar tu contraseña o revisar tu acceso.",
+            "El equipo de Nido");
+
+        await SendEmailAsync(
+            toEmail,
+            "Intentaron registrarse con tu correo en Nido",
+            textBody,
+            htmlBody,
+            ct,
+            debugMessage: $"[EMAIL][DUPLICATE-SIGNUP] To: {toEmail}");
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string textBody, string htmlBody, CancellationToken ct, string debugMessage)
