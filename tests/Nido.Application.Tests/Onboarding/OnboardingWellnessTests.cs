@@ -149,5 +149,11 @@ public sealed class OnboardingWellnessTests
 
         public Task<IReadOnlyList<MetaCatalogoResult>> GetMetasCatalogoAsync(CancellationToken ct)
             => Task.FromResult<IReadOnlyList<MetaCatalogoResult>>([]);
+
+        public Task<IReadOnlyList<Guid>> GetUserRestriccionesAsync(Guid usuarioId, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<Guid>>(RestriccionesGuardadas);
+
+        public Task<IReadOnlyList<Guid>> GetHogarMetasAsync(Guid hogarId, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<Guid>>(MetasGuardadas);
     }
 }
