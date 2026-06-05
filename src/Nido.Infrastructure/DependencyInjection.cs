@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Electrodomesticos;
-using Nido.Application.Electrodomesticos;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Onboarding;
 using Nido.Application.Hogares;
@@ -25,7 +24,7 @@ using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.Preferencias;
 using Nido.Infrastructure.Recetas;
 using Nido.Infrastructure.StockHogar;
-using Nido.Domain.StockHogar;
+using Resend;
 
 namespace Nido.Infrastructure;
 
@@ -56,7 +55,15 @@ public static class DependencyInjection
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
-        services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddOptions();
+        services.AddHttpClient<ResendClient>();
+        services.Configure<ResendClientOptions>(options =>
+        {
+            options.ApiToken = configuration["RESEND_API_KEY"] ?? string.Empty;
+            options.ThrowExceptions = true;
+        });
+        services.AddTransient<IResend, ResendClient>();
+        services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
