@@ -763,7 +763,7 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         using var verifyScope = _factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
         Assert.Equal(0.52m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == aguaStockId)).CantidadActual);
-        Assert.Equal(1.604m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == arrozStockId)).CantidadActual);
+        Assert.Equal(1.60m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == arrozStockId)).CantidadActual);
         Assert.Equal(0.95m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == cebollaStockId)).CantidadActual);
         Assert.Equal(0.55m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == mantecaStockId)).CantidadActual);
         Assert.Equal(94m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == salStockId)).CantidadActual);

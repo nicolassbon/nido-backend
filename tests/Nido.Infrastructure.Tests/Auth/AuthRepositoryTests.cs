@@ -1,41 +1,46 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Nido.Application.Auth;
-using Nido.Application.Auth.Helpers;
-using Nido.Application.Auth.Interfaces;
-using Nido.Application.Auth.RefreshToken;
 using Nido.Infrastructure.Auth;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
+using Nido.Tests.Shared;
 
 namespace Nido.Infrastructure.Tests.Auth;
 
-public sealed class AuthRepositoryTests : IDisposable
+public sealed class AuthRepositoryTests : IAsyncLifetime
 {
-    private readonly SqliteConnection _connection;
-    private readonly NidoDbContext _dbContext;
-    private readonly AuthRepository _repository;
+    private PostgresTestDatabase? _testDatabase;
+    private NidoDbContext? _dbContext;
+    private AuthRepository? _repository;
 
-    public AuthRepositoryTests()
+    private NidoDbContext DbContext => _dbContext ?? throw new InvalidOperationException("Test database not initialized.");
+    private AuthRepository Repository => _repository ?? throw new InvalidOperationException("Repository not initialized.");
+
+    public async Task InitializeAsync()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-        _connection.CreateFunction<string>("uuid_generate_v4", () => Guid.NewGuid().ToString());
-        _connection.CreateFunction<string>("now", () => DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+        var server = await PostgresTestServer.GetSharedAsync();
+        _testDatabase = await server.CreateDatabaseAsync(nameof(AuthRepositoryTests));
 
         var options = new DbContextOptionsBuilder<NidoDbContext>()
-            .UseSqlite(_connection)
+            .UseNpgsql(_testDatabase.ConnectionString)
             .Options;
 
         _dbContext = new NidoDbContext(options);
-        _dbContext.Database.EnsureCreated();
+        await _dbContext.Database.MigrateAsync();
         _repository = new AuthRepository(_dbContext);
     }
 
-    public void Dispose()
+    public async Task DisposeAsync()
     {
-        _dbContext.Dispose();
-        _connection.Dispose();
+        if (_dbContext is not null)
+        {
+            await _dbContext.DisposeAsync();
+        }
+
+        if (_testDatabase is not null)
+        {
+            await _testDatabase.DisposeAsync();
+        }
     }
 
     private static Usuario CreateUsuario(string email, string? passwordHash = null, string? oauthProvider = null, string? oauthId = null)
@@ -58,10 +63,10 @@ public sealed class AuthRepositoryTests : IDisposable
     public async Task FindByEmailAsync_ExistingEmail_ReturnsUser()
     {
         var usuario = CreateUsuario("test@mail.com", "hashedpassword");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
-        var result = await _repository.FindByEmailAsync("test@mail.com", CancellationToken.None);
+        var result = await Repository.FindByEmailAsync("test@mail.com", CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(usuario.Id, result.Id);
@@ -72,7 +77,7 @@ public sealed class AuthRepositoryTests : IDisposable
     [Fact]
     public async Task FindByEmailAsync_NonExistingEmail_ReturnsNull()
     {
-        var result = await _repository.FindByEmailAsync("none@mail.com", CancellationToken.None);
+        var result = await Repository.FindByEmailAsync("none@mail.com", CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -81,10 +86,10 @@ public sealed class AuthRepositoryTests : IDisposable
     public async Task FindByGoogleIdAsync_Existing_ReturnsUser()
     {
         var usuario = CreateUsuario("google@mail.com", oauthProvider: "google", oauthId: "g123");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
-        var result = await _repository.FindByGoogleIdAsync("g123", CancellationToken.None);
+        var result = await Repository.FindByGoogleIdAsync("g123", CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(usuario.Id, result.Id);
@@ -95,7 +100,7 @@ public sealed class AuthRepositoryTests : IDisposable
     [Fact]
     public async Task FindByGoogleIdAsync_NonExisting_ReturnsNull()
     {
-        var result = await _repository.FindByGoogleIdAsync("none", CancellationToken.None);
+        var result = await Repository.FindByGoogleIdAsync("none", CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -103,23 +108,23 @@ public sealed class AuthRepositoryTests : IDisposable
     [Fact]
     public async Task SaveChanges_DuplicateOAuthIdentity_ThrowsDbUpdateException()
     {
-        _dbContext.Usuarios.Add(CreateUsuario("google-1@mail.com", oauthProvider: "google", oauthId: "g123"));
-        _dbContext.Usuarios.Add(CreateUsuario("google-2@mail.com", oauthProvider: "google", oauthId: "g123"));
+        DbContext.Usuarios.Add(CreateUsuario("google-1@mail.com", oauthProvider: "google", oauthId: "g123"));
+        DbContext.Usuarios.Add(CreateUsuario("google-2@mail.com", oauthProvider: "google", oauthId: "g123"));
 
-        await Assert.ThrowsAsync<DbUpdateException>(() => _dbContext.SaveChangesAsync());
+        await Assert.ThrowsAsync<DbUpdateException>(() => DbContext.SaveChangesAsync());
     }
 
     [Fact]
     public async Task AddRefreshTokenAsync_AddsToken()
     {
         var usuario = CreateUsuario("token@mail.com");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
         var expiresAt = DateTime.UtcNow.AddDays(7);
-        await _repository.AddRefreshTokenAsync(usuario.Id, "hash123", expiresAt, CancellationToken.None);
+        await Repository.AddRefreshTokenAsync(usuario.Id, "hash123", expiresAt, CancellationToken.None);
 
-        var token = await _dbContext.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == "hash123");
+        var token = await DbContext.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == "hash123");
         Assert.NotNull(token);
         Assert.Equal(usuario.Id, token.UsuarioId);
         Assert.True(token.ExpiresAt > DateTime.UtcNow.AddDays(6));
@@ -129,8 +134,8 @@ public sealed class AuthRepositoryTests : IDisposable
     public async Task GetValidRefreshTokenAsync_ValidToken_ReturnsTokenInfo()
     {
         var usuario = CreateUsuario("valid@mail.com");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
         var refreshToken = new RefreshToken
         {
@@ -140,10 +145,10 @@ public sealed class AuthRepositoryTests : IDisposable
             ExpiresAt = DateTime.UtcNow.AddDays(7),
             CreatedAt = DateTime.UtcNow
         };
-        _dbContext.RefreshTokens.Add(refreshToken);
-        await _dbContext.SaveChangesAsync();
+        DbContext.RefreshTokens.Add(refreshToken);
+        await DbContext.SaveChangesAsync();
 
-        var result = await _repository.GetValidRefreshTokenAsync("validhash", CancellationToken.None);
+        var result = await Repository.GetValidRefreshTokenAsync("validhash", CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(refreshToken.Id, result.Id);
@@ -154,8 +159,8 @@ public sealed class AuthRepositoryTests : IDisposable
     public async Task GetValidRefreshTokenAsync_ExpiredToken_ReturnsNull()
     {
         var usuario = CreateUsuario("expired@mail.com");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
         var refreshToken = new RefreshToken
         {
@@ -165,10 +170,10 @@ public sealed class AuthRepositoryTests : IDisposable
             ExpiresAt = DateTime.UtcNow.AddDays(-1),
             CreatedAt = DateTime.UtcNow.AddDays(-8)
         };
-        _dbContext.RefreshTokens.Add(refreshToken);
-        await _dbContext.SaveChangesAsync();
+        DbContext.RefreshTokens.Add(refreshToken);
+        await DbContext.SaveChangesAsync();
 
-        var result = await _repository.GetValidRefreshTokenAsync("expiredhash", CancellationToken.None);
+        var result = await Repository.GetValidRefreshTokenAsync("expiredhash", CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -177,8 +182,8 @@ public sealed class AuthRepositoryTests : IDisposable
     public async Task RemoveRefreshTokenAsync_RemovesToken()
     {
         var usuario = CreateUsuario("remove@mail.com");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
         var refreshToken = new RefreshToken
         {
@@ -188,13 +193,13 @@ public sealed class AuthRepositoryTests : IDisposable
             ExpiresAt = DateTime.UtcNow.AddDays(7),
             CreatedAt = DateTime.UtcNow
         };
-        _dbContext.RefreshTokens.Add(refreshToken);
-        await _dbContext.SaveChangesAsync();
+        DbContext.RefreshTokens.Add(refreshToken);
+        await DbContext.SaveChangesAsync();
 
-        await _repository.RemoveRefreshTokenAsync("removehash", CancellationToken.None);
-        await _dbContext.SaveChangesAsync();
+        await Repository.RemoveRefreshTokenAsync("removehash", CancellationToken.None);
+        await DbContext.SaveChangesAsync();
 
-        var exists = await _dbContext.RefreshTokens.AnyAsync(r => r.TokenHash == "removehash");
+        var exists = await DbContext.RefreshTokens.AnyAsync(r => r.TokenHash == "removehash");
         Assert.False(exists);
     }
 
@@ -202,13 +207,13 @@ public sealed class AuthRepositoryTests : IDisposable
     public async Task UpdateUserAsync_UpdatesFields()
     {
         var usuario = CreateUsuario("update@mail.com", oauthProvider: "google", oauthId: "g456");
-        _dbContext.Usuarios.Add(usuario);
-        await _dbContext.SaveChangesAsync();
+        DbContext.Usuarios.Add(usuario);
+        await DbContext.SaveChangesAsync();
 
         var user = new User(usuario.Id, "Test", "update@mail.com", "newpasswordhash", null, null);
-        await _repository.UpdateUserAsync(user, CancellationToken.None);
+        await Repository.UpdateUserAsync(user, CancellationToken.None);
 
-        var updated = await _dbContext.Usuarios.FindAsync(usuario.Id);
+        var updated = await DbContext.Usuarios.FindAsync(usuario.Id);
         Assert.NotNull(updated);
         Assert.Equal("newpasswordhash", updated.PasswordHash);
         Assert.Null(updated.OauthProvider);
