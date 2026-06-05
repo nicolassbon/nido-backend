@@ -1,6 +1,6 @@
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
-using Nido.Application.Hogares;
+using Nido.Application.Common.Notifications;
 
 namespace Nido.Application.Auth.ForgotPassword;
 

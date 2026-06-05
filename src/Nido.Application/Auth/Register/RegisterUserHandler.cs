@@ -3,6 +3,7 @@ using Nido.Application.Auth;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
+using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Auth.Register;
@@ -14,6 +15,7 @@ public sealed class RegisterUserHandler
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IProfileImageProcessor _profileImageProcessor;
     private readonly IProfileImageStorage _profileImageStorage;
+    private readonly IEmailService _emailService;
     private readonly ILogger<RegisterUserHandler> _logger;
 
     public RegisterUserHandler(
@@ -22,6 +24,7 @@ public sealed class RegisterUserHandler
         IJwtTokenService jwtTokenService,
         IProfileImageProcessor profileImageProcessor,
         IProfileImageStorage profileImageStorage,
+        IEmailService emailService,
         ILogger<RegisterUserHandler> logger)
     {
         _repository = repository;
@@ -29,6 +32,7 @@ public sealed class RegisterUserHandler
         _jwtTokenService = jwtTokenService;
         _profileImageProcessor = profileImageProcessor;
         _profileImageStorage = profileImageStorage;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -41,7 +45,8 @@ public sealed class RegisterUserHandler
 
         if (existingUser is not null)
         {
-            return await HandleExistingUserAsync(existingUser, command.Password, normalizedEmail, cancellationToken);
+            await TrySendDuplicateSignupNoticeAsync(normalizedEmail, cancellationToken);
+            return RegisterUserResult.SilentSuccess();
         }
 
         var usuarioId = Guid.NewGuid();
@@ -51,6 +56,12 @@ public sealed class RegisterUserHandler
         try
         {
             await PersistNewUserAsync(registration, imageUpload?.Metadata, cancellationToken);
+        }
+        catch (EmailAlreadyExistsException)
+        {
+            await CleanupUploadedProfileImageAsync(imageUpload?.StorageKey, registration.UsuarioId, registration.HogarId, normalizedEmail);
+            await TrySendDuplicateSignupNoticeAsync(normalizedEmail, cancellationToken);
+            return RegisterUserResult.SilentSuccess();
         }
         catch
         {
@@ -67,7 +78,7 @@ public sealed class RegisterUserHandler
             command.Nombre,
             cancellationToken);
 
-        return new RegisterUserResult(registration.UsuarioId, registration.HogarId, accessToken, refreshToken);
+        return RegisterUserResult.Created(registration.UsuarioId, registration.HogarId, accessToken, refreshToken);
     }
 
     private static void ValidateCommand(RegisterUserCommand command)
@@ -87,36 +98,6 @@ public sealed class RegisterUserHandler
         {
             throw new WeakPasswordException();
         }
-    }
-
-    private async Task<RegisterUserResult> HandleExistingUserAsync(
-        User existingUser,
-        string password,
-        string normalizedEmail,
-        CancellationToken cancellationToken)
-    {
-        if (existingUser.OauthProvider != "google" || !string.IsNullOrEmpty(existingUser.PasswordHash))
-        {
-            throw new EmailAlreadyExistsException();
-        }
-
-        var passwordHash = _passwordHasher.Hash(password);
-        var updatedUser = existingUser with { PasswordHash = passwordHash };
-        await _repository.UpdateUserAsync(updatedUser, cancellationToken);
-
-        var hogarId = await _repository.GetUserHogarIdAsync(existingUser.Id, cancellationToken)
-            ?? throw new NoHouseholdAssociatedException();
-
-        var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
-            _jwtTokenService,
-            _repository,
-            existingUser.Id,
-            hogarId,
-            normalizedEmail,
-            existingUser.Nombre,
-            cancellationToken);
-
-        return new RegisterUserResult(existingUser.Id, hogarId, accessToken, refreshToken);
     }
 
     private NewUserRegistrationData BuildNewRegistrationData(RegisterUserCommand command, string normalizedEmail, Guid usuarioId)
@@ -168,6 +149,18 @@ public sealed class RegisterUserHandler
             registration.Sexo,
             imageMetadata,
             cancellationToken);
+    }
+
+    private async Task TrySendDuplicateSignupNoticeAsync(string normalizedEmail, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _emailService.SendDuplicateSignupNoticeEmailAsync(normalizedEmail, cancellationToken);
+        }
+        catch (Exception emailEx)
+        {
+            _logger.LogError(emailEx, "Duplicate signup notice email failed for {Email}", normalizedEmail);
+        }
     }
 
     private async Task CleanupUploadedProfileImageAsync(

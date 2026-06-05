@@ -5,8 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
-using Nido.Application.Hogares;
-using Nido.Infrastructure.Persistence;
+using Nido.Application.Common.Notifications;
 
 namespace Nido.Api.IntegrationTests.Auth;
 
@@ -286,6 +285,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         public List<string> InvitationEmails { get; } = [];
         public List<string> PasswordResetEmails { get; } = [];
         public List<string> GoogleInfoEmails { get; } = [];
+        public List<string> DuplicateSignupNoticeEmails { get; } = [];
 
         public Task SendInvitationEmailAsync(string toEmail, string hogarNombre, string invitadoPorNombre, string invitationToken, CancellationToken ct)
         {
@@ -302,6 +302,12 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         public Task SendGoogleOnlyInfoEmailAsync(string toEmail, CancellationToken ct)
         {
             GoogleInfoEmails.Add(toEmail);
+            return Task.CompletedTask;
+        }
+
+        public Task SendDuplicateSignupNoticeEmailAsync(string toEmail, CancellationToken ct)
+        {
+            DuplicateSignupNoticeEmails.Add(toEmail);
             return Task.CompletedTask;
         }
     }

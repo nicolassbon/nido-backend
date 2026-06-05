@@ -1,3 +1,4 @@
+using Nido.Application.Common.Notifications;
 using Nido.Application.Hogares;
 using Nido.Application.Hogares.Exceptions;
 
@@ -103,5 +104,7 @@ public sealed class InvitarConviventeHandlerTests
         public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct) => Task.CompletedTask;
 
         public Task SendGoogleOnlyInfoEmailAsync(string toEmail, CancellationToken ct) => Task.CompletedTask;
+
+        public Task SendDuplicateSignupNoticeEmailAsync(string toEmail, CancellationToken ct) => Task.CompletedTask;
     }
 }
