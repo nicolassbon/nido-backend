@@ -2,11 +2,16 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Application.Alacena.Exceptions;
 using Nido.Application.Auth.Exceptions;
+using Nido.Application.CatalogoElectrodomesticos.UploadCatalogImage;
+using Nido.Application.Common.Images;
 using Nido.Application.Electrodomesticos.Exceptions;
+using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Hogares.Exceptions;
 using Nido.Application.Onboarding.Exceptions;
 using Nido.Application.Preferencias.Exceptions;
 using Nido.Application.Productos.Exceptions;
+using Nido.Application.Productos.UploadProductImage;
+using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Domain.Exceptions;
 
 namespace Nido.Api.Errors;
@@ -39,8 +44,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         {
             Status = status,
             Title = title,
-            Detail = status == StatusCodes.Status500InternalServerError 
-                ? "An unexpected error occurred." 
+            Detail = status == StatusCodes.Status500InternalServerError && exception is not ImageStorageConfigurationException
+                ? "An unexpected error occurred."
                 : exception.Message
         };
 
@@ -101,6 +106,15 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         // Productos exceptions
         MissingProductFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
+        ProductImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        ElectrodomesticoImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        CatalogImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        RecipeImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        MissingImageFileException => (StatusCodes.Status400BadRequest, "Validation error"),
+        UnsupportedImageTypeException => (StatusCodes.Status400BadRequest, "Validation error"),
+        ImageSizeExceededException => (StatusCodes.Status413PayloadTooLarge, "Validation error"),
+        ImageStorageFailureException => (StatusCodes.Status502BadGateway, "Storage error"),
+        ImageStorageConfigurationException => (StatusCodes.Status500InternalServerError, "Configuration error"),
 
         // Preferencias exceptions
         MissingPreferenceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),

@@ -64,6 +64,16 @@ public sealed class RecetasController : ControllerBase
         return Ok(new CocinarRecetaResponse(result.RecetaId, result.VecesCocinada));
     }
 
+    [HttpPost("{id:guid}/imagen")]
+    [Consumes("multipart/form-data")]
+    public IActionResult UploadImage(
+        Guid id,
+        [FromForm(Name = "imagen")] IFormFile? imagen,
+        CancellationToken cancellationToken)
+    {
+        return Forbid();
+    }
+
     private static RecetaResponse ToResponse(RecetaResult receta)
     {
         return new RecetaResponse(

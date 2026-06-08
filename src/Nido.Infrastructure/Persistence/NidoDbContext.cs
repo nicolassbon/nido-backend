@@ -84,31 +84,31 @@ public partial class NidoDbContext : DbContext
     {
         modelBuilder.HasPostgresExtension("uuid-ossp");
 
-modelBuilder.Entity<PasoReceta>(entity =>
-{
-    entity.HasKey(e => e.Id).HasName("pasos_receta_pkey");
+        modelBuilder.Entity<PasoReceta>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("pasos_receta_pkey");
 
-    entity.ToTable("pasos_receta");
+            entity.ToTable("pasos_receta");
 
-    entity.Property(e => e.Id)
-        .HasDefaultValueSql("uuid_generate_v4()")
-        .HasColumnName("id");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
 
-    entity.Property(e => e.RecetaId)
-        .HasColumnName("receta_id");
+            entity.Property(e => e.RecetaId)
+                .HasColumnName("receta_id");
 
-    entity.Property(e => e.Orden)
-        .HasColumnName("orden");
+            entity.Property(e => e.Orden)
+                .HasColumnName("orden");
 
-    entity.Property(e => e.Descripcion)
-        .HasColumnName("descripcion");
+            entity.Property(e => e.Descripcion)
+                .HasColumnName("descripcion");
 
-    entity.HasOne(e => e.Receta)
-        .WithMany(r => r.PasosReceta)
-        .HasForeignKey(e => e.RecetaId)
-        .OnDelete(DeleteBehavior.Cascade)
-        .HasConstraintName("pasos_receta_receta_id_fkey");
-});
+            entity.HasOne(e => e.Receta)
+                .WithMany(r => r.PasosReceta)
+                .HasForeignKey(e => e.RecetaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("pasos_receta_receta_id_fkey");
+        });
 
 
 
@@ -378,9 +378,6 @@ modelBuilder.Entity<PasoReceta>(entity =>
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
-            entity.Property(e => e.Codigo)
-                .HasMaxLength(255)
-                .HasColumnName("codigo");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
@@ -969,21 +966,12 @@ modelBuilder.Entity<PasoReceta>(entity =>
             entity.Property(e => e.Telefono)
                 .HasMaxLength(50)
                 .HasColumnName("telefono");
-            entity.Property(e => e.FotoUrl)
-                .HasMaxLength(500)
-                .HasColumnName("foto_url");
             entity.Property(e => e.FotoStorageKey)
                 .HasMaxLength(512)
                 .HasColumnName("foto_storage_key");
-            entity.Property(e => e.FotoContentType)
-                .HasMaxLength(100)
-                .HasColumnName("foto_content_type");
-            entity.Property(e => e.FotoWidth)
-                .HasColumnName("foto_width");
-            entity.Property(e => e.FotoHeight)
-                .HasColumnName("foto_height");
-            entity.Property(e => e.FotoSizeBytes)
-                .HasColumnName("foto_size_bytes");
+            entity.Property(e => e.FotoUpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("foto_updated_at");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");

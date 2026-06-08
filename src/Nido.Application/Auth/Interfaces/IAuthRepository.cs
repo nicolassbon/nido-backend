@@ -19,7 +19,7 @@ public interface IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
         CancellationToken cancellationToken);
     Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken);
     Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken);

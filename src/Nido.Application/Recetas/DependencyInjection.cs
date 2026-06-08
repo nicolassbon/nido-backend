@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Application.Recetas.UploadRecipeImage;
 
 namespace Nido.Application.Recetas;
 
@@ -9,6 +10,7 @@ public static class DependencyInjection
         services.AddScoped<GetRecetasHandler>();
         services.AddScoped<GetRecetaByIdHandler>();
         services.AddScoped<CocinarRecetaHandler>();
+        services.AddScoped<UploadRecipeImageHandler>();
         return services;
     }
 }
