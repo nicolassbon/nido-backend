@@ -12,5 +12,6 @@ public sealed record StockItemResult(
     string? UnidadMedida,
     string? FechaVencimiento,
     bool EstaAbierto,
-    decimal PorcentajeConsumido
+    decimal PorcentajeConsumido,
+    int CantidadEnvases
 );

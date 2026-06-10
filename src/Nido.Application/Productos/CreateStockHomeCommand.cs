@@ -8,5 +8,6 @@ public sealed record CreateStockHomeCommand(
     string UnidadMedida,
     DateTime? FechaVencimiento,
     Guid HogarId,
-    Guid UsuarioIngresoId
+    Guid UsuarioIngresoId,
+    int CantidadEnvases = 1
 );

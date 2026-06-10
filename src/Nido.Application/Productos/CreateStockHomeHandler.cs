@@ -45,6 +45,8 @@ public sealed class CreateStockHomeHandler
             throw new ArgumentException($"No existe un producto precargado con nombre '{command.Nombre}'.");
         }
 
+        var cantidadEnvases = command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases;
+
         var stockHogar = new StockHogar(
             command.HogarId,
             producto.Id,
@@ -54,7 +56,8 @@ public sealed class CreateStockHomeHandler
             command.UsuarioIngresoId,
             command.Ubicacion,
             false,
-            0
+            0,
+            cantidadEnvases
         );
 
         await _stockHogarRepository.SaveAsync(
@@ -71,8 +74,8 @@ public sealed class CreateStockHomeHandler
             stockHogar.Ubicacion,
             stockHogar.EstaAbierto,
             stockHogar.PorcentajeConsumido,
-            producto.CategoriaId ?? command.CategoriaId
-          
+            producto.CategoriaId ?? command.CategoriaId,
+            stockHogar.CantidadEnvases
         );
     }
 }

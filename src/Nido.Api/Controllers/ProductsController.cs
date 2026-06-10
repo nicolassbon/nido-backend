@@ -45,7 +45,8 @@ public sealed class ProductsController : ControllerBase
             product.UnidadMedida,
             product.FechaVencimiento,
             product.EstaAbierto,
-            product.PorcentajeConsumido
+            product.PorcentajeConsumido,
+            product.CantidadEnvases
         ));
 
         return Ok(response);
@@ -64,9 +65,10 @@ public sealed class ProductsController : ControllerBase
                 request.Ubicacion,
                 request.Cantidad,
                 request.UnidadMedida ?? string.Empty,
-                request.FechaVencimiento, 
+                request.FechaVencimiento,
                 currentUser.HogarId,
-                currentUser.UsuarioId),
+                currentUser.UsuarioId,
+                CantidadEnvases: request.CantidadEnvases ?? 1),
             ct);
 
         return Ok(new CreateStockHomeResponse(
@@ -79,7 +81,8 @@ public sealed class ProductsController : ControllerBase
             result.Ubicacion,
             result.EstaAbierto,
             result.PorcentajeConsumido,
-            result.CategoriaId
+            result.CategoriaId,
+            result.CantidadEnvases
         ));
     }
 }
