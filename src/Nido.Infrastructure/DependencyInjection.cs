@@ -19,6 +19,8 @@ using Nido.Application.Common.ProfileImages;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
+using Nido.Application.Estadisticas;
+using Nido.Infrastructure.Estadisticas;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
@@ -73,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IResenaRecetaRepository, ResenaRecetaRepository>();
         services.AddScoped<IRecetaRepository, RecetaRepository>();
+        services.AddScoped<IEstadisticasRepository, EstadisticasRepository>();
         services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
         services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
         services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
