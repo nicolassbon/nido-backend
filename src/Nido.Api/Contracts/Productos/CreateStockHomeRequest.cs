@@ -6,5 +6,7 @@ public sealed record CreateStockHomeRequest(
     string Ubicacion,
     decimal Cantidad,
     string? UnidadMedida,
-    DateTime? FechaVencimiento
+    DateTime? FechaVencimiento,
+    // Cantidad de envases idénticos. Default 1.
+    int? CantidadEnvases = 1
 );

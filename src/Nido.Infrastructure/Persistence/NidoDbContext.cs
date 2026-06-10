@@ -863,6 +863,9 @@ modelBuilder.Entity<PasoReceta>(entity =>
                 .HasPrecision(5, 2)
                 .HasDefaultValue(0m)
                 .HasColumnName("porcentaje_consumido");
+            entity.Property(e => e.CantidadEnvases)
+                .HasDefaultValue(1)
+                .HasColumnName("cantidad_envases");
 
             entity.HasOne(d => d.CargadoPorNavigation).WithMany(p => p.StockHogarCargadoPorNavigations)
                 .HasForeignKey(d => d.CargadoPor)
