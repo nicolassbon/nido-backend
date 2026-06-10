@@ -11,18 +11,27 @@ namespace Nido.Api.Controllers;
 [Route("api/recetas")]
 public sealed class RecetasController : ControllerBase
 {
-    private readonly GetRecetasHandler _getRecetasHandler;
-    private readonly GetRecetaByIdHandler _getRecetaByIdHandler;
-    private readonly CocinarRecetaHandler _cocinarRecetaHandler;
+    private readonly GetRecetasHandler           _getRecetasHandler;
+    private readonly GetRecetaByIdHandler        _getRecetaByIdHandler;
+    private readonly CocinarRecetaHandler        _cocinarRecetaHandler;
+    private readonly UpsertResenaHandler         _upsertResenaHandler;
+    private readonly GetResenasByRecetaHandler   _getResenasHandler;
+    private readonly DeleteResenaHandler         _deleteResenaHandler;
 
     public RecetasController(
         GetRecetasHandler getRecetasHandler,
         GetRecetaByIdHandler getRecetaByIdHandler,
-        CocinarRecetaHandler cocinarRecetaHandler)
+        CocinarRecetaHandler cocinarRecetaHandler,
+        UpsertResenaHandler upsertResenaHandler,
+        GetResenasByRecetaHandler getResenasHandler,
+        DeleteResenaHandler deleteResenaHandler)
     {
-        _getRecetasHandler = getRecetasHandler;
+        _getRecetasHandler    = getRecetasHandler;
         _getRecetaByIdHandler = getRecetaByIdHandler;
         _cocinarRecetaHandler = cocinarRecetaHandler;
+        _upsertResenaHandler  = upsertResenaHandler;
+        _getResenasHandler    = getResenasHandler;
+        _deleteResenaHandler  = deleteResenaHandler;
     }
 
     [HttpGet]
@@ -64,6 +73,57 @@ public sealed class RecetasController : ControllerBase
         return Ok(new CocinarRecetaResponse(result.RecetaId, result.VecesCocinada));
     }
 
+    [HttpGet("{id}/resenas")]
+    public async Task<IActionResult> GetResenas(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getResenasHandler.Handle(
+            new GetResenasByRecetaQuery(id, currentUser.UsuarioId), ct);
+
+        return Ok(new ResenasRecetaResponse(
+            result.Items.Select(ToResenaResponse).ToList(),
+            result.Resumen.Promedio,
+            result.Resumen.Total,
+            result.MiResena is null ? null : ToResenaResponse(result.MiResena)));
+    }
+
+    [HttpPut("{id}/resenas")]
+    public async Task<IActionResult> UpsertResena(
+        Guid id,
+        [FromBody] UpsertResenaRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        try
+        {
+            var resena = await _upsertResenaHandler.Handle(
+                new UpsertResenaCommand(id, currentUser.UsuarioId, request.Puntuacion, request.Comentario), ct);
+
+            return Ok(ToResenaResponse(resena));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}/resenas")]
+    public async Task<IActionResult> DeleteResena(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        await _deleteResenaHandler.Handle(
+            new DeleteResenaCommand(id, currentUser.UsuarioId), ct);
+        return NoContent();
+    }
+
+    private static ResenaResponse ToResenaResponse(ResenaItem item) =>
+        new(item.Id, item.RecetaId, item.UsuarioId, item.UsuarioNombre, item.UsuarioFotoUrl,
+            item.Puntuacion, item.Comentario, item.CreatedAt, item.UpdatedAt);
+
     private static RecetaResponse ToResponse(RecetaResult receta)
     {
         return new RecetaResponse(
@@ -95,7 +155,9 @@ public sealed class RecetasController : ControllerBase
             receta.Electrodomesticos.Select(electrodomestico => new RecetaElectrodomesticoResponse(
                 electrodomestico.Id,
                 electrodomestico.TipoRequerido)).ToList(),
-            receta.VecesCocinada);
+            receta.VecesCocinada,
+            receta.CalificacionPromedio,
+            receta.CalificacionTotal);
     }
 
     private static RecetaResponse ToResponseFromById(GetRecetaByIdResult receta)
@@ -129,6 +191,8 @@ public sealed class RecetasController : ControllerBase
             receta.Electrodomesticos.Select(electrodomestico => new RecetaElectrodomesticoResponse(
                 electrodomestico.Id,
                 electrodomestico.TipoRequerido)).ToList(),
-            receta.VecesCocinada);
+            receta.VecesCocinada,
+            receta.CalificacionPromedio,
+            receta.CalificacionTotal);
     }
 }

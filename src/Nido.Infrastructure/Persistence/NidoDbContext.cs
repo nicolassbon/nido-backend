@@ -748,9 +748,17 @@ modelBuilder.Entity<PasoReceta>(entity =>
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
             entity.Property(e => e.Puntuacion).HasColumnName("puntuacion");
             entity.Property(e => e.RecetaId).HasColumnName("receta_id");
             entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+
+            // 1 reseña por (receta, usuario)
+            entity.HasIndex(e => new { e.RecetaId, e.UsuarioId })
+                .IsUnique()
+                .HasDatabaseName("resenias_receta_receta_id_usuario_id_key");
 
             entity.HasOne(d => d.Receta).WithMany(p => p.ReseniasReceta)
                 .HasForeignKey(d => d.RecetaId)
