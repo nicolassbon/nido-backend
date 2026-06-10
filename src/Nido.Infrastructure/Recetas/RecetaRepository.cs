@@ -180,9 +180,25 @@ public sealed class RecetaRepository : IRecetaRepository
             }
             else
             {
-                item.CantidadActual = disponible - cantidadEnUnidadStock.Value;
-                item.UpdatedBy = usuarioId;
-                item.UpdatedAt = DateTime.UtcNow;
+                // Reducción parcial:
+                //  - bajamos CantidadActual por el consumo
+                //  - recalculamos porcentajeConsumido respecto a la cantidad
+                //    original del envase (inferida desde el estado previo)
+                //  - marcamos el envase como abierto
+                var nuevaCantidad = disponible - cantidadEnUnidadStock.Value;
+                var cantidadOriginal = item.PorcentajeConsumido < 100m
+                    ? disponible / ((100m - item.PorcentajeConsumido) / 100m)
+                    : disponible;
+
+                var nuevoPctConsumido = cantidadOriginal > 0m
+                    ? Math.Clamp(((cantidadOriginal - nuevaCantidad) / cantidadOriginal) * 100m, 0m, 99m)
+                    : item.PorcentajeConsumido;
+
+                item.CantidadActual       = nuevaCantidad;
+                item.EstaAbierto          = true;
+                item.PorcentajeConsumido  = decimal.Round(nuevoPctConsumido, 2);
+                item.UpdatedBy            = usuarioId;
+                item.UpdatedAt            = DateTime.UtcNow;
                 restante = 0;
             }
         }
