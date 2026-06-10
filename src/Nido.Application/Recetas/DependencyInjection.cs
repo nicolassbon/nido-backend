@@ -9,6 +9,9 @@ public static class DependencyInjection
         services.AddScoped<GetRecetasHandler>();
         services.AddScoped<GetRecetaByIdHandler>();
         services.AddScoped<CocinarRecetaHandler>();
+        services.AddScoped<UpsertResenaHandler>();
+        services.AddScoped<GetResenasByRecetaHandler>();
+        services.AddScoped<DeleteResenaHandler>();
         return services;
     }
 }

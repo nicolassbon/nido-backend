@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+        services.AddScoped<IResenaRecetaRepository, ResenaRecetaRepository>();
         services.AddScoped<IRecetaRepository, RecetaRepository>();
         services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
         services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
