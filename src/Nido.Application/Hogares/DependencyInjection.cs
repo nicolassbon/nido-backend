@@ -11,6 +11,8 @@ public static class DependencyInjection
         services.AddScoped<GetInvitacionPreviewHandler>();
         services.AddScoped<GetMiembrosHandler>();
         services.AddScoped<RemoveMiembroHandler>();
+        services.AddScoped<GetHogarHandler>();
+        services.AddScoped<UpdateHogarHandler>();
         return services;
     }
 }
