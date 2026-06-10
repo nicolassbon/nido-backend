@@ -56,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
+        services.AddScoped<IHogarRepository, HogarRepository>();
         services.AddOptions();
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>
