@@ -149,4 +149,22 @@ public sealed class OnboardingRepository : IOnboardingRepository
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Guid>> GetUserRestriccionesAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.RestriccionesUsuarios
+            .AsNoTracking()
+            .Where(x => x.UsuarioId == usuarioId)
+            .Select(x => x.RestriccionId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetHogarMetasAsync(Guid hogarId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.HogarMetas
+            .AsNoTracking()
+            .Where(x => x.HogarId == hogarId)
+            .Select(x => x.MetaId)
+            .ToListAsync(cancellationToken);
+    }
 }

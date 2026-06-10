@@ -10,13 +10,10 @@ namespace Nido.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            if (ActiveProvider.Contains("Npgsql"))
-            {
-                migrationBuilder.Sql("""
-                    ALTER TABLE ingredientes_receta
-                    ALTER COLUMN producto_id DROP NOT NULL;
-                    """);
-            }
+            migrationBuilder.Sql("""
+                ALTER TABLE ingredientes_receta
+                ALTER COLUMN producto_id DROP NOT NULL;
+                """);
         }
 
         /// <inheritdoc />

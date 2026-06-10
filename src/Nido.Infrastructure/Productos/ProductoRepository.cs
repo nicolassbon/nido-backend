@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
 using Nido.Application.Productos;
 using Nido.Infrastructure.Persistence;
 
@@ -31,16 +33,44 @@ public sealed class ProductoRepository : IProductoRepository
 
     public async Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
     {
-        var normalizedName = nombre.Trim();
+        var normalizedName = NormalizeName(nombre);
 
-        return await _db.Productos
+        var exactMatch = await _db.Productos
             .AsNoTracking()
-            .Where(producto => EF.Functions.ILike(producto.Nombre, normalizedName))
+            .Where(producto => EF.Functions.ILike(producto.Nombre, nombre.Trim()))
             .Select(producto => new GetProductByNameResult(
                 producto.Id,
                 producto.Nombre,
                 producto.CategoriaId,
                 producto.ImagenUrl))
             .FirstOrDefaultAsync(ct);
+
+        if (exactMatch is not null)
+            return exactMatch;
+
+        var products = await _db.Productos
+            .AsNoTracking()
+            .Select(producto => new GetProductByNameResult(
+                producto.Id,
+                producto.Nombre,
+                producto.CategoriaId,
+                producto.ImagenUrl))
+            .ToListAsync(ct);
+
+        return products.FirstOrDefault(producto => NormalizeName(producto.Nombre) == normalizedName);
+    }
+
+    private static string NormalizeName(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(c);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

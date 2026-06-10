@@ -40,10 +40,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
-      - Email__Host=${Email__Host}
-      - Email__Port=${Email__Port}
-      - Email__Username=${Email__Username}
-      - Email__Password=${Email__Password}
+      - RESEND_API_KEY=${RESEND_API_KEY}
       - Email__FromAddress=${Email__FromAddress}
       - Email__FromName=${Email__FromName}
       - Frontend__BaseUrl=${Frontend__BaseUrl}

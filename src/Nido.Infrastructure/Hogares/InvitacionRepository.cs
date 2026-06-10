@@ -133,6 +133,20 @@ public sealed class InvitacionRepository : IInvitacionRepository
                 (m, u) => new { u.Id, u.Nombre, u.Email, m.Rol, u.FotoStorageKey, u.FotoUrl })
             .ToListAsync(ct);
 
+        var userIds = members.Select(x => x.Id).ToList();
+        var alergias = await _db.RestriccionesUsuarios
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.UsuarioId)
+                && (x.Restriccion.Tipo == "alergia" || x.Restriccion.Tipo == "restriccion_alimentaria"))
+            .Select(x => new { x.UsuarioId, x.Restriccion.Nombre })
+            .ToListAsync(ct);
+
+        var alergiasByUser = alergias
+            .GroupBy(x => x.UsuarioId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<string>)group.Select(x => x.Nombre).OrderBy(nombre => nombre).ToList());
+
         return members
             .Select(x => new MiembroInfo(
                 x.Id,
@@ -141,7 +155,8 @@ public sealed class InvitacionRepository : IInvitacionRepository
                 x.Rol,
                 !string.IsNullOrWhiteSpace(x.FotoStorageKey)
                     ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey)
-                    : x.FotoUrl))
+                    : x.FotoUrl,
+                alergiasByUser.GetValueOrDefault(x.Id, [])))
             .ToList();
     }
 

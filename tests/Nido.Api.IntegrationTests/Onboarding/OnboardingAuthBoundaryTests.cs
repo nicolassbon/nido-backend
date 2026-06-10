@@ -150,6 +150,13 @@ public sealed class OnboardingAuthBoundaryTests : IClassFixture<NidoTestWebAppFa
     }
 
     [Fact]
+    public async Task GetWellness_WhenTokenIsMissing_ReturnsUnauthorized()
+    {
+        var response = await _client.GetAsync("/api/onboarding/wellness");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task SaveWellness_WhenClientSendsForgedUserId_ReturnsForbidden()
     {
         using var registerContent = RegisterMultipartRequest.Create("Sofi", "sofi@test.com", "Password123!", "F");
