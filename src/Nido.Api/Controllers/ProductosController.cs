@@ -11,12 +11,18 @@ namespace Nido.Api.Controllers;
 [Route("api/productos")]
 public sealed class ProductoController : ControllerBase
 {
-    private readonly GetProductByBarcodeHandler _getByBarcodeHandler;
+    private readonly GetProductByBarcodeHandler        _getByBarcodeHandler;
+    private readonly SearchProductosHandler            _searchHandler;
+    private readonly LookupExternalProductoHandler     _externalLookupHandler;
 
     public ProductoController(
-        GetProductByBarcodeHandler getByBarcodeHandler)
+        GetProductByBarcodeHandler getByBarcodeHandler,
+        SearchProductosHandler searchHandler,
+        LookupExternalProductoHandler externalLookupHandler)
     {
-        _getByBarcodeHandler = getByBarcodeHandler;
+        _getByBarcodeHandler   = getByBarcodeHandler;
+        _searchHandler         = searchHandler;
+        _externalLookupHandler = externalLookupHandler;
     }
 
     [HttpGet("barcode/{barcode}")]
@@ -43,5 +49,47 @@ public sealed class ProductoController : ControllerBase
         ));
     }
 
-  
+    [HttpGet("external-lookup/{barcode}")]
+    public async Task<IActionResult> ExternalLookup(
+        string barcode,
+        CancellationToken ct)
+    {
+        LookupExternalProductoResult result;
+        try
+        {
+            result = await _externalLookupHandler.Handle(
+                new LookupExternalProductoQuery(barcode),
+                ct);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+
+        return Ok(new
+        {
+            name              = result.Name,
+            image             = result.Image,
+            brands            = result.Brands,
+            categoriesTags    = result.CategoriesTags,
+            categoriaSugerida = result.CategoriaSugerida,
+            foundInDb         = result.FoundInDb,
+        });
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(
+        [FromQuery] string q,
+        CancellationToken ct)
+    {
+        var results = await _searchHandler.Handle(new SearchProductosQuery(q), ct);
+        return Ok(results.Select(r => new
+        {
+            r.Nombre,
+            r.CategoriaNombre,
+            r.CategoriaId,
+            r.UnidadMedida,
+            r.Ubicacion,
+        }));
+    }
 }

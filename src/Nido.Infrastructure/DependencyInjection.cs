@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Nido.Infrastructure.Persistence;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Electrodomesticos;
@@ -74,6 +76,27 @@ public static class DependencyInjection
         services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
         services.AddScoped<IProfileImagePublicUrlResolver, ConfigurableProfileImagePublicUrlResolver>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
+
+        // ── Lookup externo de productos por barcode ────────────────────────
+        // Pipeline:
+        //   IExternalProductLookupService
+        //     → CachedExternalProductLookupService   (decorator: cache en memoria)
+        //         → OpenFoodFactsLookupService        (consulta OFF + UPC Item DB)
+        services.AddOptions<ExternalLookupOptions>()
+            .Bind(configuration.GetSection(ExternalLookupOptions.SectionName));
+        services.AddMemoryCache();
+        services.AddSingleton<ProductCategoryMapper>();
+        services.AddHttpClient<OpenFoodFactsLookupService>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<ExternalLookupOptions>>().Value;
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(opts.UserAgent);
+        });
+        services.AddScoped<IExternalProductLookupService>(sp =>
+            new CachedExternalProductLookupService(
+                sp.GetRequiredService<OpenFoodFactsLookupService>(),
+                sp.GetRequiredService<IMemoryCache>(),
+                sp.GetRequiredService<IOptions<ExternalLookupOptions>>()));
 
         return services;
     }

@@ -60,6 +60,25 @@ public sealed class ProductoRepository : IProductoRepository
         return products.FirstOrDefault(producto => NormalizeName(producto.Nombre) == normalizedName);
     }
 
+    public async Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
+    {
+        var pattern = $"%{query.Trim()}%";
+
+        return await _db.Productos
+            .AsNoTracking()
+            .Where(p => EF.Functions.ILike(p.Nombre, pattern))
+            .OrderBy(p => p.Nombre)
+            .Take(10)
+            .Select(p => new SearchProductosResult(
+                p.Nombre,
+                p.Categoria != null ? p.Categoria.Nombre : null,
+                p.CategoriaId,
+                p.StockHogars.OrderByDescending(s => s.CreatedAt).Select(s => s.UnidadMedida).FirstOrDefault(),
+                p.StockHogars.OrderByDescending(s => s.CreatedAt).Select(s => s.Ubicacion).FirstOrDefault()
+            ))
+            .ToListAsync(ct);
+    }
+
     private static string NormalizeName(string value)
     {
         var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
