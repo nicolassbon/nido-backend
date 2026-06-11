@@ -22,6 +22,8 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<PasoReceta> PasosReceta { get; set; }
 
+    public virtual DbSet<Factura> Facturas { get; set; }
+
     public virtual DbSet<Gasto> Gastos { get; set; }
 
     public virtual DbSet<Hogare> Hogares { get; set; }
@@ -220,6 +222,34 @@ modelBuilder.Entity<PasoReceta>(entity =>
                 .HasColumnName("activo");
         });
 
+        modelBuilder.Entity<Factura>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("facturas_pkey");
+            entity.ToTable("facturas");
+            entity.HasIndex(e => e.HogarId, "idx_facturas_hogar");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
+            entity.Property(e => e.Nombre).HasMaxLength(255).HasColumnName("nombre");
+            entity.Property(e => e.Tipo).HasMaxLength(50).HasColumnName("tipo");
+            entity.Property(e => e.Monto).HasPrecision(10, 2).HasColumnName("monto");
+            entity.Property(e => e.FechaVencimiento).HasColumnName("fecha_vencimiento");
+            entity.Property(e => e.ArchivoStorageKey).HasMaxLength(500).HasColumnName("archivo_storage_key");
+            entity.Property(e => e.Pagada).HasDefaultValue(false).HasColumnName("pagada");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("facturas_hogar_id_fkey");
+            entity.HasOne(d => d.CreadoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadoPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("facturas_creado_por_fkey");
+        });
+
         modelBuilder.Entity<Gasto>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("gastos_pkey");
@@ -272,6 +302,9 @@ modelBuilder.Entity<PasoReceta>(entity =>
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.ModoAhorro)
+                .HasDefaultValue(false)
+                .HasColumnName("modo_ahorro");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");

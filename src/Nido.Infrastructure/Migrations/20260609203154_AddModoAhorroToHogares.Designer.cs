@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nido.Infrastructure.Migrations
 {
     [DbContext(typeof(NidoDbContext))]
-    partial class NidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260609203154_AddModoAhorroToHogares")]
+    partial class AddModoAhorroToHogares
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -175,70 +178,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasName("electrodomesticos_catalogo_pkey");
 
                     b.ToTable("electrodomesticos_catalogo", (string)null);
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<string>("ArchivoStorageKey")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("archivo_storage_key");
-
-                    b.Property<Guid>("CreadoPor")
-                        .HasColumnType("uuid")
-                        .HasColumnName("creado_por");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<DateOnly?>("FechaVencimiento")
-                        .HasColumnType("date")
-                        .HasColumnName("fecha_vencimiento");
-
-                    b.Property<Guid>("HogarId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("hogar_id");
-
-                    b.Property<decimal?>("Monto")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("monto");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("nombre");
-
-                    b.Property<bool>("Pagada")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("pagada");
-
-                    b.Property<string>("Tipo")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("tipo");
-
-                    b.HasKey("Id")
-                        .HasName("facturas_pkey");
-
-                    b.HasIndex("CreadoPor");
-
-                    b.HasIndex(new[] { "HogarId" }, "idx_facturas_hogar");
-
-                    b.ToTable("facturas", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Gasto", b =>
@@ -1486,25 +1425,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("electrodomesticos_hogar_id_fkey");
 
                     b.Navigation("Catalogo");
-
-                    b.Navigation("Hogar");
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
-                {
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")
-                        .WithMany()
-                        .HasForeignKey("CreadoPor")
-                        .IsRequired()
-                        .HasConstraintName("facturas_creado_por_fkey");
-
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
-                        .WithMany()
-                        .HasForeignKey("HogarId")
-                        .IsRequired()
-                        .HasConstraintName("facturas_hogar_id_fkey");
-
-                    b.Navigation("CreadoPorNavigation");
 
                     b.Navigation("Hogar");
                 });

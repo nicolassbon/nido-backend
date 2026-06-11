@@ -25,6 +25,8 @@ using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.Preferencias;
 using Nido.Infrastructure.Recetas;
 using Nido.Infrastructure.StockHogar;
+using Nido.Application.Finanzas;
+using Nido.Infrastructure.Finanzas;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -74,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
         services.AddScoped<IProfileImagePublicUrlResolver, ConfigurableProfileImagePublicUrlResolver>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
+        services.AddScoped<IFinanzasRepository, FinanzasRepository>();
 
         return services;
     }
