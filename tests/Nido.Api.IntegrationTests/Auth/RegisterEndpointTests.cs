@@ -12,6 +12,7 @@ using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Storage;
 using Nido.Application.Common.Security;
 using Nido.Infrastructure.Persistence;
 using SixLabors.ImageSharp;
@@ -172,7 +173,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Register_WithValidImage_ReturnsCreated()
     {
-        var storage = new CapturingProfileImageStorage();
+        var storage = new CapturingFileStorageService();
         var client = CreateClientWithStorage(storage);
         var email = $"with-image-{Guid.NewGuid():N}@test.com";
         var image = await CreateValidPngAsync();
@@ -244,7 +245,7 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
     [Fact]
     public async Task Register_StorageUploadFailure_ReturnsServerError()
     {
-        var client = CreateClientWithStorage(new ThrowingProfileImageStorage(throwOnUpload: true));
+        var client = CreateClientWithStorage(new ThrowingFileStorageService(throwOnUpload: true));
 
         var email = $"storage-fail-{Guid.NewGuid():N}@test.com";
         var image = await CreateValidJpegAsync();
@@ -293,26 +294,26 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         public Guid HogarId => throw new Exception("boom");
     }
 
-    private sealed class ThrowingProfileImageStorage : IProfileImageStorage
+    private sealed class ThrowingFileStorageService : IFileStorageService
     {
         private readonly bool _throwOnUpload;
 
-        public ThrowingProfileImageStorage(bool throwOnUpload)
+        public ThrowingFileStorageService(bool throwOnUpload)
         {
             _throwOnUpload = throwOnUpload;
         }
 
-        public Task UploadAsync(string storageKey, byte[] content, string contentType, CancellationToken cancellationToken)
+        public Task<FileStorageUploadResult> UploadAsync(Stream stream, string key, string contentType, CancellationToken cancellationToken)
         {
             if (_throwOnUpload)
             {
                 throw new Exception("Simulated storage upload failure");
             }
 
-            return Task.CompletedTask;
+            return Task.FromResult(new FileStorageUploadResult(key, $"https://cdn.test.local/{key}"));
         }
 
-        public Task DeleteAsync(string storageKey, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task DeleteAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class SpyEmailService : IEmailService
@@ -332,28 +333,30 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         }
     }
 
-    private sealed class CapturingProfileImageStorage : IProfileImageStorage
+    private sealed class CapturingFileStorageService : IFileStorageService
     {
         public string? LastContentType { get; private set; }
         public byte[]? LastContent { get; private set; }
 
-        public Task UploadAsync(string storageKey, byte[] content, string contentType, CancellationToken cancellationToken)
+        public async Task<FileStorageUploadResult> UploadAsync(Stream stream, string key, string contentType, CancellationToken cancellationToken)
         {
             LastContentType = contentType;
-            LastContent = content;
-            return Task.CompletedTask;
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, cancellationToken);
+            LastContent = ms.ToArray();
+            return new FileStorageUploadResult(key, $"https://cdn.test.local/{key}");
         }
 
-        public Task DeleteAsync(string storageKey, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task DeleteAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private HttpClient CreateClientWithStorage(IProfileImageStorage storage)
+    private HttpClient CreateClientWithStorage(IFileStorageService storage)
     {
         return _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
-                NidoTestWebAppFactory.ReplaceProfileImageStorage(services, storage);
+                NidoTestWebAppFactory.ReplaceFileStorageService(services, storage);
             });
         }).CreateClient();
     }
