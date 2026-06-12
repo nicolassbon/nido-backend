@@ -188,6 +188,21 @@ public sealed class ImageUploadAuthorizationEndpointTests : IClassFixture<NidoTe
     }
 
     [Fact]
+    public async Task ElectrodomesticoUpload_WhenImageIsMissing_ReturnsBadRequestAndDoesNotUpload()
+    {
+        var storage = new CapturingFileStorageService();
+        var factory = _factory.WithStorageOverride(services => NidoTestWebAppFactory.ReplaceFileStorageService(services, storage));
+        var client = factory.CreateClient();
+        await RegisterAndAuthenticateAsync(client, "electro-upload-missing-image");
+
+        using var content = new MultipartFormDataContent();
+        var response = await client.PostAsync($"/api/electrodomesticos/{Guid.NewGuid()}/imagen", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(storage.UploadedKey);
+    }
+
+    [Fact]
     public async Task ProductUpload_WhenImageIsMissing_ReturnsBadRequestAndDoesNotUpload()
     {
         var storage = new CapturingFileStorageService();
