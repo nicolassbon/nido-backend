@@ -893,7 +893,7 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
-            entity.Property(e => e.CompletadoPor).HasColumnName("completado_por");
+            entity.Property(e => e.CompletadoPor).HasColumnName("completado_por").IsRequired(false);
             entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
