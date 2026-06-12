@@ -1,4 +1,4 @@
-using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Storage;
 using Nido.Application.Finanzas.Exceptions;
 
 namespace Nido.Application.Finanzas;
@@ -10,17 +10,17 @@ public sealed class CreateFacturaHandler
         ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
     private readonly IFinanzasRepository _repository;
-    private readonly IProfileImageStorage _fileStorage;
-    private readonly IProfileImagePublicUrlResolver _urlResolver;
+    private readonly IFileStorageService _fileStorage;
+    private readonly StorageKeyFactory _storageKeyFactory;
 
     public CreateFacturaHandler(
         IFinanzasRepository repository,
-        IProfileImageStorage fileStorage,
-        IProfileImagePublicUrlResolver urlResolver)
+        IFileStorageService fileStorage,
+        StorageKeyFactory storageKeyFactory)
     {
         _repository = repository;
         _fileStorage = fileStorage;
-        _urlResolver = urlResolver;
+        _storageKeyFactory = storageKeyFactory;
     }
 
     public async Task<FacturaResult> Handle(CreateFacturaCommand command, CancellationToken ct)
@@ -49,8 +49,9 @@ public sealed class CreateFacturaHandler
                 "image/webp" => "webp",
                 _ => "jpg"
             };
-            storageKey = $"facturas/{command.HogarId}/{facturaId}.{ext}";
-            await _fileStorage.UploadAsync(storageKey, command.Archivo.Content, command.Archivo.ContentType, ct);
+            storageKey = _storageKeyFactory.ForFactura(command.HogarId, facturaId, ext);
+            using var stream = new MemoryStream(command.Archivo.Content, writable: false);
+            await _fileStorage.UploadAsync(stream, storageKey, command.Archivo.ContentType, ct);
         }
 
         return await _repository.CreateFacturaAsync(command, facturaId, storageKey, ct);

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Assets;
 using Nido.Application.Finanzas;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -9,9 +9,9 @@ namespace Nido.Infrastructure.Finanzas;
 public sealed class FinanzasRepository : IFinanzasRepository
 {
     private readonly NidoDbContext _db;
-    private readonly IProfileImagePublicUrlResolver _urlResolver;
+    private readonly IPublicAssetUrlResolver _urlResolver;
 
-    public FinanzasRepository(NidoDbContext db, IProfileImagePublicUrlResolver urlResolver)
+    public FinanzasRepository(NidoDbContext db, IPublicAssetUrlResolver urlResolver)
     {
         _db = db;
         _urlResolver = urlResolver;
@@ -115,7 +115,7 @@ public sealed class FinanzasRepository : IFinanzasRepository
             return new BalanceMiembroResult(
                 m.UsuarioId,
                 m.Usuario.Nombre,
-                m.Usuario.FotoUrl,
+                _urlResolver.Resolve(m.Usuario.FotoStorageKey),
                 aportado,
                 montoCorrespondido,
                 Math.Round(aportado - montoCorrespondido, 2)

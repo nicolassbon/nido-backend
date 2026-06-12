@@ -2,7 +2,7 @@ namespace Nido.Application.Common.Storage;
 
 public static class StorageKeyRules
 {
-    private static readonly string[] AllowedPrefixes = ["products/", "electrodomesticos/", "recipes/", "avatars/", "catalog/", "usuarios/"];
+    private static readonly string[] AllowedPrefixes = ["products/", "electrodomesticos/", "recipes/", "avatars/", "catalog/", "usuarios/", "facturas/"];
 
     public static bool IsStorageKey(string? value)
     {
