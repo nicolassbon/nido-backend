@@ -150,6 +150,85 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetProducto_WhenStockBelongsToAnotherHousehold_ReturnsNotFound()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "alacena-get-owner");
+        using var outsiderClient = _factory.CreateClient();
+        _ = await RegisterAndAuthenticateAsync(outsiderClient, "alacena-get-outsider");
+        var stockId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto { Id = productId, Nombre = "Queso" });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = owner.HogarId,
+                ProductoId = productId,
+                CargadoPor = owner.UsuarioId,
+                UpdatedBy = owner.UsuarioId,
+                CantidadActual = 1m,
+                UnidadMedida = "kg",
+                Ubicacion = "Heladera",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await outsiderClient.GetAsync($"/api/alacena/productos/{stockId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateProducto_WhenDateIsInvalid_ReturnsBadRequest()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-update-invalid-date");
+        var stockId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto { Id = productId, Nombre = "Manteca" });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = user.HogarId,
+                ProductoId = productId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CantidadActual = 1m,
+                UnidadMedida = "kg",
+                Ubicacion = "Heladera",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PatchAsJsonAsync($"/api/alacena/productos/{stockId}", new
+        {
+            nombre = "Manteca",
+            cantidad = 1m,
+            ubicacion = "Heladera",
+            unidadMedida = "kg",
+            fechaVencimiento = "31/12/2026",
+            estaAbierto = false,
+            porcentajeConsumido = 0m
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(400, problem!.Status);
+        Assert.Equal("INVALID_STOCK_ITEM_DATE", problem.Title);
+    }
+
+    [Fact]
     public async Task UpdateProducto_WhenStockBelongsToAnotherHousehold_ReturnsNotFoundAndDoesNotModifyTarget()
     {
         var owner = await RegisterAndAuthenticateAsync(_client, "alacena-update-owner");

@@ -985,6 +985,119 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(100m, stock.CantidadActual);
     }
 
+    [Fact]
+    public async Task Cocinar_CuandoNoHayStock_RegistraCoccionYNoModificaStock()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Leche"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Panqueques sin stock",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Leche",
+                Cantidad = 1,
+                Unidad = "lt"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CocinarBody>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.VecesCocinada);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.HogarId == auth.HogarId && s.ProductoId == productoId));
+        Assert.Equal(1, await verifyDb.RecetasCocinadas.CountAsync(rc => rc.RecetaId == recetaId && rc.HogarId == auth.HogarId));
+    }
+
+    [Fact]
+    public async Task Cocinar_CuandoStockEsInsuficiente_ConsumeTodoElStockDisponibleYRegistraCoccion()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Harina"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Pan casero",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Harina",
+                Cantidad = 500,
+                Unidad = "g"
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = auth.HogarId,
+                ProductoId = productoId,
+                CargadoPor = auth.UsuarioId,
+                UpdatedBy = auth.UsuarioId,
+                CantidadActual = 200,
+                UnidadMedida = "g",
+                FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                Ubicacion = "Alacena",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CocinarBody>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.VecesCocinada);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == stockId));
+        Assert.Equal(1, await verifyDb.RecetasCocinadas.CountAsync(rc => rc.RecetaId == recetaId && rc.HogarId == auth.HogarId));
+    }
+
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record RecetaBody(Guid Id, string Nombre, int VecesCocinada);
     private sealed record RecetaDetalleBody(Guid Id, List<IngredienteDetalleBody> Ingredientes, int VecesCocinada);

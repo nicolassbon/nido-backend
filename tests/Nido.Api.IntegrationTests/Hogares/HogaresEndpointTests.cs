@@ -152,6 +152,134 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem.Title);
     }
 
+    [Fact]
+    public async Task InvitarConvivente_CuandoUsuarioNoEsOwner_DevuelveForbidden()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "invitar-owner", "Owner Invite");
+        var memberClient = _factory.CreateClient();
+        var member = await RegisterAndAuthenticateAsync(memberClient, "invitar-member", "Member Invite");
+        var memberToken = await MoveUserIntoHouseholdAsync(member, owner, role: "conviviente");
+        memberClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberToken);
+
+        var response = await memberClient.PostAsJsonAsync("/api/hogares/invitar", new { EmailInvitado = "guest@test.com" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(403, problem!.Status);
+        Assert.Equal("NOT_HOUSEHOLD_OWNER", problem.Title);
+    }
+
+    [Fact]
+    public async Task InvitarConvivente_CuandoEmailVacio_DevuelveBadRequest()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "invitar-empty", "Owner Empty");
+
+        var response = await _client.PostAsJsonAsync("/api/hogares/invitar", new { EmailInvitado = "   " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(400, problem!.Status);
+        Assert.Equal("MISSING_INVITATION_TOKEN", problem.Title);
+    }
+
+    [Fact]
+    public async Task InvitarConvivente_CuandoHogarLleno_DevuelveConflict()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "invitar-full", "Owner Full");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            for (int i = 0; i < 5; i++)
+            {
+                var uid = Guid.NewGuid();
+                db.Usuarios.Add(new Usuario
+                {
+                    Id = uid,
+                    Nombre = $"Miembro {i}",
+                    Email = $"fill{i}-{Guid.NewGuid():N}@test.com",
+                    PasswordHash = "x",
+                    Sexo = "U",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+                db.MiembrosHogars.Add(new MiembrosHogar
+                {
+                    Id = Guid.NewGuid(),
+                    UsuarioId = uid,
+                    HogarId = owner.HogarId,
+                    Rol = "conviviente"
+                });
+            }
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync("/api/hogares/invitar", new { EmailInvitado = "guest@test.com" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(409, problem!.Status);
+        Assert.Equal("MAX_MEMBERS_EXCEEDED", problem.Title);
+    }
+
+    [Fact]
+    public async Task AceptarInvitacion_CuandoTokenValido_UsuarioCambiaDeHogarYRecibeNuevoTokenQueFunciona()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "aceptar-owner", "Owner Accept");
+        var inviteeClient = _factory.CreateClient();
+        var invitee = await RegisterAndAuthenticateAsync(inviteeClient, "aceptar-invitee", "Invitee Accept");
+
+        var token = $"aceptar-{Guid.NewGuid():N}";
+        await SeedInvitationAsync(owner.HogarId, owner.UsuarioId, token, invitee.Email, "pendiente", DateTime.UtcNow.AddDays(7));
+
+        var response = await inviteeClient.PostAsJsonAsync("/api/hogares/aceptar-invitacion", new { Token = token });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AceptarInvitacionBody>();
+        Assert.NotNull(body);
+        Assert.Equal(owner.HogarId, body!.HogarId);
+        Assert.Equal("Hogar de Owner Accept", body.HogarNombre);
+        Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
+
+        // Prove the new token works and reflects the new household
+        var newClient = _factory.CreateClient();
+        newClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.AccessToken);
+        var miembrosResponse = await newClient.GetAsync("/api/hogares/miembros");
+        Assert.Equal(HttpStatusCode.OK, miembrosResponse.StatusCode);
+        var miembros = await miembrosResponse.Content.ReadFromJsonAsync<List<MiembroBody>>();
+        Assert.NotNull(miembros);
+        Assert.Contains(miembros!, m => m.UsuarioId == owner.UsuarioId);
+        Assert.Contains(miembros!, m => m.UsuarioId == invitee.UsuarioId);
+
+        // Prove the database reflects the move
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var membership = await db.MiembrosHogars.SingleAsync(x => x.UsuarioId == invitee.UsuarioId);
+        Assert.Equal(owner.HogarId, membership.HogarId);
+        Assert.Equal("conviviente", membership.Rol);
+    }
+
+    [Fact]
+    public async Task AceptarInvitacion_CuandoTokenExpirado_DevuelveGone()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "aceptar-exp-owner", "Owner Expired");
+        var inviteeClient = _factory.CreateClient();
+        var invitee = await RegisterAndAuthenticateAsync(inviteeClient, "aceptar-exp-invitee", "Invitee Expired");
+
+        var token = $"exp-aceptar-{Guid.NewGuid():N}";
+        await SeedInvitationAsync(owner.HogarId, owner.UsuarioId, token, invitee.Email, "pendiente", DateTime.UtcNow.AddMinutes(-5));
+
+        var response = await inviteeClient.PostAsJsonAsync("/api/hogares/aceptar-invitacion", new { Token = token });
+
+        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(410, problem!.Status);
+        Assert.Equal("INVITATION_EXPIRED", problem.Title);
+    }
+
     private async Task<AuthenticatedUser> RegisterAndAuthenticateAsync(HttpClient client, string prefix, string name = "Test User")
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
@@ -202,4 +330,5 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed record InvitacionPreviewBody(string HogarNombre, string? EmailInvitado, DateTime? ExpiraEn);
     private sealed record MiembroBody(Guid UsuarioId, string Nombre, List<string> Alergias);
+    private sealed record AceptarInvitacionBody(Guid HogarId, string HogarNombre, string AccessToken);
 }
