@@ -109,6 +109,8 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
     options.Secure = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
 
+builder.Services.AddHttpClient();
+
 var app = builder.Build();
 
 if (!app.Environment.IsProduction())
