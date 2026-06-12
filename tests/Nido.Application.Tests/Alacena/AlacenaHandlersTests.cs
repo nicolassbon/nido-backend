@@ -44,7 +44,7 @@ public sealed class AlacenaHandlersTests
         var handler = new UpdateStockItemHandler(repo);
 
         var result = await handler.Handle(
-            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), null, null, null, null, null, null, null),
+            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, null, null, null, null, null, null),
             CancellationToken.None);
 
         Assert.Null(result);
@@ -56,7 +56,7 @@ public sealed class AlacenaHandlersTests
         var repo = new FakeAlacenaRepository { DeleteResult = true };
         var handler = new DeleteStockItemHandler(repo);
 
-        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result);
     }
@@ -81,7 +81,7 @@ public sealed class AlacenaHandlersTests
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);
 
-        public Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+        public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct)
             => Task.FromResult(DeleteResult);
     }
 }

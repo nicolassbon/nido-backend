@@ -1,4 +1,5 @@
 using Nido.Application.Alacena.Exceptions;
+using System.Globalization;
 
 namespace Nido.Application.Alacena;
 
@@ -13,7 +14,8 @@ public sealed class CreateStockItemHandler
 
     public async Task<StockItemResult> Handle(CreateStockItemCommand command, CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(command.FechaVencimiento) && !DateOnly.TryParse(command.FechaVencimiento, out _))
+        if (!string.IsNullOrWhiteSpace(command.FechaVencimiento)
+            && !DateOnly.TryParseExact(command.FechaVencimiento, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
         {
             throw new InvalidStockItemDateException();
         }

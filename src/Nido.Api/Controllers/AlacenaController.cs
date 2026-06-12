@@ -91,6 +91,7 @@ public sealed class AlacenaController : ControllerBase
             new UpdateStockItemCommand(
                 id,
                 currentUser.UsuarioId,
+                currentUser.HogarId,
                 request.Nombre,
                 request.Cantidad,
                 request.Ubicacion,
@@ -108,10 +109,11 @@ public sealed class AlacenaController : ControllerBase
     [HttpDelete("productos/{id:guid}")]
     public async Task<IActionResult> DeleteProducto(
         Guid id,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         var deleted = await _deleteStockItemHandler.Handle(
-            new DeleteStockItemCommand(id), ct);
+            new DeleteStockItemCommand(id, currentUser.HogarId), ct);
 
         if (!deleted) return NotFound();
 

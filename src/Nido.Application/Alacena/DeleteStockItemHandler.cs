@@ -11,6 +11,6 @@ public sealed class DeleteStockItemHandler
 
     public async Task<bool> Handle(DeleteStockItemCommand command, CancellationToken ct)
     {
-        return await _repository.DeleteAsync(command.Id, ct);
+        return await _repository.DeleteAsync(command.Id, command.HogarId, ct);
     }
 }
