@@ -5,6 +5,7 @@ using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Storage;
 
 namespace Nido.Application.Auth.Register;
 
@@ -14,7 +15,8 @@ public sealed class RegisterUserHandler
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IProfileImageProcessor _profileImageProcessor;
-    private readonly IProfileImageStorage _profileImageStorage;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly StorageKeyFactory _storageKeyFactory;
     private readonly IEmailService _emailService;
     private readonly ILogger<RegisterUserHandler> _logger;
 
@@ -23,7 +25,8 @@ public sealed class RegisterUserHandler
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
         IProfileImageProcessor profileImageProcessor,
-        IProfileImageStorage profileImageStorage,
+        IFileStorageService fileStorageService,
+        StorageKeyFactory storageKeyFactory,
         IEmailService emailService,
         ILogger<RegisterUserHandler> logger)
     {
@@ -31,7 +34,8 @@ public sealed class RegisterUserHandler
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _profileImageProcessor = profileImageProcessor;
-        _profileImageStorage = profileImageStorage;
+        _fileStorageService = fileStorageService;
+        _storageKeyFactory = storageKeyFactory;
         _emailService = emailService;
         _logger = logger;
     }
@@ -51,21 +55,21 @@ public sealed class RegisterUserHandler
 
         var usuarioId = Guid.NewGuid();
         var registration = BuildNewRegistrationData(command, normalizedEmail, usuarioId);
-        var imageUpload = await UploadProfileImageIfPresentAsync(command.Foto, usuarioId, cancellationToken);
+        var fotoStorageKey = await UploadProfileImageIfPresentAsync(command.Foto, usuarioId, cancellationToken);
 
         try
         {
-            await PersistNewUserAsync(registration, imageUpload?.Metadata, cancellationToken);
+            await PersistNewUserAsync(registration, fotoStorageKey, cancellationToken);
         }
         catch (EmailAlreadyExistsException)
         {
-            await CleanupUploadedProfileImageAsync(imageUpload?.StorageKey, registration.UsuarioId, registration.HogarId, normalizedEmail);
+            await CleanupUploadedProfileImageAsync(fotoStorageKey, usuarioId, registration.HogarId);
             await TrySendDuplicateSignupNoticeAsync(normalizedEmail, cancellationToken);
             return RegisterUserResult.SilentSuccess();
         }
         catch
         {
-            await CleanupUploadedProfileImageAsync(imageUpload?.StorageKey, registration.UsuarioId, registration.HogarId, normalizedEmail);
+            await CleanupUploadedProfileImageAsync(fotoStorageKey, usuarioId, registration.HogarId);
             throw;
         }
 
@@ -111,7 +115,7 @@ public sealed class RegisterUserHandler
             command.Sexo.Trim());
     }
 
-    private async Task<ProfileImageUploadResult?> UploadProfileImageIfPresentAsync(
+    private async Task<string?> UploadProfileImageIfPresentAsync(
         RegistrationProfileImageUpload? foto,
         Guid usuarioId,
         CancellationToken cancellationToken)
@@ -122,22 +126,17 @@ public sealed class RegisterUserHandler
         }
 
         var processed = await _profileImageProcessor.ProcessAsync(foto, cancellationToken);
-        var storageKey = $"usuarios/{usuarioId}/profile/{Guid.NewGuid():N}.webp";
-        await _profileImageStorage.UploadAsync(storageKey, processed.Content, processed.ContentType, cancellationToken);
+        var storageKey = _storageKeyFactory.ForAvatar(usuarioId);
 
-        var metadata = new UserProfileImageMetadata(
-            storageKey,
-            processed.ContentType,
-            processed.Width,
-            processed.Height,
-            processed.Length);
+        await using var stream = new MemoryStream(processed.Content);
+        await _fileStorageService.UploadAsync(stream, storageKey, processed.ContentType, cancellationToken);
 
-        return new ProfileImageUploadResult(storageKey, metadata);
+        return storageKey;
     }
 
     private Task PersistNewUserAsync(
         NewUserRegistrationData registration,
-        UserProfileImageMetadata? imageMetadata,
+        string? fotoStorageKey,
         CancellationToken cancellationToken)
     {
         return _repository.CreateUserWithPasswordAsync(
@@ -147,7 +146,7 @@ public sealed class RegisterUserHandler
             registration.Email,
             registration.PasswordHash,
             registration.Sexo,
-            imageMetadata,
+            fotoStorageKey,
             cancellationToken);
     }
 
@@ -166,8 +165,7 @@ public sealed class RegisterUserHandler
     private async Task CleanupUploadedProfileImageAsync(
         string? uploadedStorageKey,
         Guid usuarioId,
-        Guid hogarId,
-        string normalizedEmail)
+        Guid hogarId)
     {
         if (uploadedStorageKey is null)
         {
@@ -176,16 +174,15 @@ public sealed class RegisterUserHandler
 
         try
         {
-            await _profileImageStorage.DeleteAsync(uploadedStorageKey, CancellationToken.None);
+            await _fileStorageService.DeleteAsync(uploadedStorageKey, CancellationToken.None);
         }
         catch (Exception cleanupEx)
         {
             _logger.LogError(
                 cleanupEx,
-                "Profile image cleanup failed for usuarioId {UsuarioId}, hogarId {HogarId}, email {Email}, storageKey {StorageKey}",
+                "Profile image cleanup failed for usuarioId {UsuarioId}, hogarId {HogarId}, storageKey {StorageKey}",
                 usuarioId,
                 hogarId,
-                normalizedEmail,
                 uploadedStorageKey);
         }
     }
@@ -197,8 +194,4 @@ public sealed class RegisterUserHandler
         string Email,
         string PasswordHash,
         string Sexo);
-
-    private sealed record ProfileImageUploadResult(
-        string StorageKey,
-        UserProfileImageMetadata Metadata);
 }

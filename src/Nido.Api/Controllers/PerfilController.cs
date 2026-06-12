@@ -13,8 +13,8 @@ namespace Nido.Api.Controllers;
 [ApiController]
 [Route("api/perfiles")]
 public sealed class PerfilController(
-    ActualizarPerfilHandler handler, 
-    IUsuarioRepository repository, 
+    ActualizarPerfilHandler handler,
+    IUsuarioRepository repository,
     IAuthRepository authRepository,
     ICurrentUserContext currentUser,
     IOptions<ProfileImageOptions> profileImageOptions) : ControllerBase
@@ -24,8 +24,8 @@ public sealed class PerfilController(
         [FromServices] IProfileImagePublicUrlResolver urlResolver,
         CancellationToken cancellationToken)
     {
-        var userId = currentUser.UsuarioId; 
-        
+        var userId = currentUser.UsuarioId;
+
         var usuario = await repository.GetByIdAsync(userId, cancellationToken);
         var authUser = await authRepository.FindByIdAsync(userId, cancellationToken);
 
@@ -35,13 +35,13 @@ public sealed class PerfilController(
         }
 
         var fotoUrl = !string.IsNullOrWhiteSpace(usuario.FotoStorageKey)
-            ? urlResolver.Resolve(usuario.FotoStorageKey)
-            : usuario.FotoStorageKey;
+            ? urlResolver.Resolve(usuario.FotoStorageKey, usuario.FotoUpdatedAt)
+            : null;
 
         var alergias = await repository.GetRestriccionesUsuarioAsync(userId, "alergia", cancellationToken);
         var alimentacion = await repository.GetRestriccionesUsuarioAsync(userId, "restriccion_alimentaria", cancellationToken);
 
-        return Ok(new 
+        return Ok(new
         {
             nombre = usuario.Nombre,
             email = usuario.Email,
@@ -59,7 +59,7 @@ public sealed class PerfilController(
     [HttpPut]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> ActualizarPerfil(
-        [FromForm] ActualizarPerfilRequest request, 
+        [FromForm] ActualizarPerfilRequest request,
         CancellationToken cancellationToken)
     {
         RegistrationProfileImageUpload? foto = null;
@@ -95,7 +95,7 @@ public sealed class PerfilController(
 
         await handler.HandleAsync(command, cancellationToken);
 
-       
+
         return Ok(new { message = "Perfil actualizado con éxito." });
     }
 

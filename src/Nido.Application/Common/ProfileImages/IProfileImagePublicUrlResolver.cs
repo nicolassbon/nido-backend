@@ -2,5 +2,5 @@ namespace Nido.Application.Common.ProfileImages;
 
 public interface IProfileImagePublicUrlResolver
 {
-    string? Resolve(string? storageKey);
+    string? Resolve(string? storageKey, DateTimeOffset? version = null);
 }

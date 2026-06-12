@@ -46,7 +46,13 @@ services:
       - Frontend__BaseUrl=${Frontend__BaseUrl}
       - Jwt__Key=${Jwt__Key}
       - Google__ClientId=${Google__ClientId}
-      - ProfileImages__PublicBaseUrl=${ProfileImages__PublicBaseUrl}
+      - Spaces__Enabled=${Spaces__Enabled}
+      - Spaces__Bucket=${Spaces__Bucket}
+      - Spaces__PublicBaseUrl=${Spaces__PublicBaseUrl}
+      - Spaces__Endpoint=${Spaces__Endpoint}
+      - Spaces__Region=${Spaces__Region}
+      - Spaces__AccessKey=${Spaces__AccessKey}
+      - Spaces__SecretKey=${Spaces__SecretKey}
     ports:
       - "8080:8080"
     volumes:

@@ -11,13 +11,13 @@ public sealed class OnboardingSchemaTests
             .Options;
 
     [Fact]
-    public void Usuario_HasSexoAndFotoUrlColumns()
+    public void Usuario_HasSexoAndFotoStorageKeyColumns()
     {
         using var db = new NidoDbContext(CreateOptions());
         var entity = db.Model.FindEntityType("Nido.Infrastructure.Persistence.Entities.Usuario");
 
         Assert.NotNull(entity?.FindProperty("Sexo"));
-        Assert.NotNull(entity?.FindProperty("FotoUrl"));
+        Assert.NotNull(entity?.FindProperty("FotoStorageKey"));
     }
 
     [Fact]

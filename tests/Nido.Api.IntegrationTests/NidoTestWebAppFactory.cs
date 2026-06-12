@@ -11,12 +11,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 using Nido.Tests.Shared;
+using Nido.Application.Common.Storage;
 
 namespace Nido.Api.IntegrationTests;
 
-/// <summary>
-/// Replaces the app's production PostgreSQL registration with an isolated PostgreSQL test database.
-/// </summary>
 public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly Action<IServiceCollection>? _configureStorage;
@@ -101,11 +99,12 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
         });
     }
 
-    public static void ReplaceProfileImageStorage(IServiceCollection services, IProfileImageStorage storage)
+    public static void ReplaceFileStorageService(IServiceCollection services, IFileStorageService storage)
     {
-        services.RemoveAll<IProfileImageStorage>();
+        services.RemoveAll<IFileStorageService>();
         services.AddSingleton(storage);
     }
+
 
     public NidoTestWebAppFactory WithStorageOverride(Action<IServiceCollection> configureStorage)
         => new(configureStorage, _configureAfterApp, _testDatabase, ownsTestDatabase: false);

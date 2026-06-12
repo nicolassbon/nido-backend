@@ -11,8 +11,6 @@ public partial class InvitacionesHogar
 
     public Guid InvitadoPor { get; set; }
 
-    public string? Codigo { get; set; }
-
     public string? Token { get; set; }
 
     public string? EmailInvitado { get; set; }

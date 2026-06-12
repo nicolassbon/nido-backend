@@ -472,11 +472,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
-                    b.Property<string>("Codigo")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("codigo");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -1375,32 +1370,14 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
-                    b.Property<string>("FotoContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("foto_content_type");
-
-                    b.Property<int?>("FotoHeight")
-                        .HasColumnType("integer")
-                        .HasColumnName("foto_height");
-
-                    b.Property<long?>("FotoSizeBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("foto_size_bytes");
-
                     b.Property<string>("FotoStorageKey")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("foto_storage_key");
 
-                    b.Property<string>("FotoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("foto_url");
-
-                    b.Property<int?>("FotoWidth")
-                        .HasColumnType("integer")
-                        .HasColumnName("foto_width");
+                    b.Property<DateTime?>("FotoUpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("foto_updated_at");
 
                     b.Property<string>("Nombre")
                         .IsRequired()

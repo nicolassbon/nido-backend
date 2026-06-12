@@ -39,11 +39,11 @@ public sealed class AuthRepository : IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
         CancellationToken cancellationToken)
         => CreateUserInternalAsync(
             usuarioId, hogarId, nombre, email,
-            passwordHash, sexo, profileImage,
+            passwordHash, sexo, fotoStorageKey,
             null, null,
             cancellationToken);
 
@@ -54,7 +54,7 @@ public sealed class AuthRepository : IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
         string? oauthProvider,
         string? oauthId,
         CancellationToken cancellationToken)
@@ -66,12 +66,8 @@ public sealed class AuthRepository : IAuthRepository
             Email = email,
             PasswordHash = passwordHash,
             Sexo = sexo,
-            FotoUrl = null,
-            FotoStorageKey = profileImage?.StorageKey,
-            FotoContentType = profileImage?.ContentType,
-            FotoWidth = profileImage?.Width,
-            FotoHeight = profileImage?.Height,
-            FotoSizeBytes = profileImage?.Length,
+            FotoStorageKey = fotoStorageKey,
+            FotoUpdatedAt = fotoStorageKey is not null ? DateTime.UtcNow : null,
             OauthProvider = oauthProvider,
             OauthId = oauthId,
             CreatedAt = DateTime.UtcNow,
