@@ -40,9 +40,15 @@ public sealed class CreateStockHomeHandler
             command.Nombre,
             cancellationToken);
 
+        // Si el producto no existe en el catálogo global, lo creamos en el momento
+        // con la categoría que eligió el usuario. Esto permite cargar productos
+        // manualmente sin depender del seed inicial.
         if (producto is null)
         {
-            throw new ArgumentException($"No existe un producto precargado con nombre '{command.Nombre}'.");
+            producto = await _productoRepository.CreateAsync(
+                command.Nombre,
+                command.CategoriaId == Guid.Empty ? null : command.CategoriaId,
+                cancellationToken);
         }
 
         var cantidadEnvases = command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases;

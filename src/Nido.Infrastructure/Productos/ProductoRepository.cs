@@ -60,6 +60,21 @@ public sealed class ProductoRepository : IProductoRepository
         return products.FirstOrDefault(producto => NormalizeName(producto.Nombre) == normalizedName);
     }
 
+    public async Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+    {
+        var nuevo = new Nido.Infrastructure.Persistence.Entities.Producto
+        {
+            Id          = Guid.NewGuid(),
+            Nombre      = nombre.Trim(),
+            CategoriaId = categoriaId == Guid.Empty ? null : categoriaId,
+        };
+
+        _db.Productos.Add(nuevo);
+        await _db.SaveChangesAsync(ct);
+
+        return new GetProductByNameResult(nuevo.Id, nuevo.Nombre, nuevo.CategoriaId, nuevo.ImagenUrl);
+    }
+
     public async Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
     {
         var pattern = $"%{query.Trim()}%";
