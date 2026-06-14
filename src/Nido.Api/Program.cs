@@ -13,6 +13,7 @@ using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
 using Nido.Application.Estadisticas;
+using Nido.Application.Insights;
 using Nido.Application.Common.Security;
 using Nido.Api.Errors;
 using Nido.Api.Security;
@@ -53,6 +54,7 @@ builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
 builder.Services.AddUsuariosPerfilModule();
 builder.Services.AddEstadisticasModule();
+builder.Services.AddInsightsModule();
 
 
 

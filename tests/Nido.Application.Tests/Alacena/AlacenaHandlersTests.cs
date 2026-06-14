@@ -1,5 +1,6 @@
 using Nido.Application.Alacena;
 using Nido.Application.Alacena.Exceptions;
+using Nido.Application.Insights;
 
 namespace Nido.Application.Tests.Alacena;
 
@@ -54,9 +55,9 @@ public sealed class AlacenaHandlersTests
     public async Task Delete_WhenExists_ReturnsTrue()
     {
         var repo = new FakeAlacenaRepository { DeleteResult = true };
-        var handler = new DeleteStockItemHandler(repo);
+        var handler = new DeleteStockItemHandler(repo, new FakeConsumoRepository());
 
-        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result);
     }
@@ -83,5 +84,14 @@ public sealed class AlacenaHandlersTests
 
         public Task<bool> DeleteAsync(Guid id, CancellationToken ct)
             => Task.FromResult(DeleteResult);
+    }
+
+    private sealed class FakeConsumoRepository : IConsumoProductoRepository
+    {
+        public Task RegistrarAsync(RegistrarConsumoInput input, CancellationToken ct) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ConsumoPorProducto>>(Array.Empty<ConsumoPorProducto>());
     }
 }

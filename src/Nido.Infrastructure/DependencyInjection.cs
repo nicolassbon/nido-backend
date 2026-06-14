@@ -76,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<IResenaRecetaRepository, ResenaRecetaRepository>();
         services.AddScoped<IRecetaRepository, RecetaRepository>();
         services.AddScoped<IEstadisticasRepository, EstadisticasRepository>();
+        services.AddScoped<Nido.Application.Insights.IConsumoProductoRepository, Nido.Infrastructure.Insights.ConsumoProductoRepository>();
         services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
         services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
         services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
