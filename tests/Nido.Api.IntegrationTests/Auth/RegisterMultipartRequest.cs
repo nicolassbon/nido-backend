@@ -11,14 +11,16 @@ internal static class RegisterMultipartRequest
         string sexo,
         byte[]? foto = null,
         string fileName = "avatar.png",
-        string contentType = "image/png")
+        string contentType = "image/png",
+        bool aceptaTerminos = true)
     {
         var content = new MultipartFormDataContent
         {
             { new StringContent(nombre), "nombre" },
             { new StringContent(email), "email" },
             { new StringContent(password), "password" },
-            { new StringContent(sexo), "sexo" }
+            { new StringContent(sexo), "sexo" },
+            { new StringContent(aceptaTerminos ? "true" : "false"), "aceptaTerminos" }
         };
 
         if (foto is not null)
