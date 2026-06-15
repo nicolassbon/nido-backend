@@ -19,6 +19,7 @@ using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
 using Nido.Application.Finanzas;
+using Nido.Application.Tareas;
 using Nido.Infrastructure.Auth;
 using Nido.Api.OpenApi;
 using Scalar.AspNetCore;
@@ -53,6 +54,7 @@ builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
 builder.Services.AddUsuariosPerfilModule();
 builder.Services.AddFinanzasModule();
+builder.Services.AddTareasModule();
 
 
 
