@@ -153,11 +153,7 @@ public sealed class GoogleLoginHandlerTests
             return Task.FromResult((id, hid));
         }
 
-<<<<<<< HEAD
         public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, string? fotoStorageKey, bool aceptaTerminos, CancellationToken cancellationToken)
-=======
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, string? fotoStorageKey, CancellationToken cancellationToken)
->>>>>>> fd30f2e558fc3a1ca16002a6876d92ea848c6f84
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);
