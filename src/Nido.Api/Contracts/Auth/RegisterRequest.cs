@@ -17,4 +17,7 @@ public sealed class RegisterRequest
     public string Sexo { get; init; } = string.Empty;
 
     public IFormFile? Foto { get; init; }
+
+    [Required]
+    public bool AceptaTerminos { get; init; }
 }

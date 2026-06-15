@@ -33,6 +33,10 @@ public partial class Usuario
 
     public long? FotoSizeBytes { get; set; }
 
+    public bool AceptaTerminos { get; set; }
+
+    public DateTime? AceptaTerminosAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

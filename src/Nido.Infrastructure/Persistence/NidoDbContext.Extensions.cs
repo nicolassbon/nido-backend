@@ -89,5 +89,11 @@ public partial class NidoDbContext
                 .IsUnique()
                 .HasDatabaseName("uq_resenias_receta_hogar_usuario");
         });
+
+        modelBuilder.Entity<Usuario>(entity =>
+        {
+            entity.Property(e => e.AceptaTerminos).HasColumnName("acepta_terminos").HasDefaultValue(false);
+            entity.Property(e => e.AceptaTerminosAt).HasColumnName("acepta_terminos_at");
+        });
     }
 }

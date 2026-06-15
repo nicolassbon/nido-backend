@@ -30,6 +30,7 @@ public sealed class AuthRepository : IAuthRepository
             data.UsuarioId, data.HogarId, data.Nombre, data.Email,
             string.Empty, "U", null,
             data.OauthProvider, data.OauthId,
+            aceptaTerminos: false,
             cancellationToken);
 
     public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(
@@ -40,11 +41,13 @@ public sealed class AuthRepository : IAuthRepository
         string passwordHash,
         string sexo,
         UserProfileImageMetadata? profileImage,
+        bool aceptaTerminos,
         CancellationToken cancellationToken)
         => CreateUserInternalAsync(
             usuarioId, hogarId, nombre, email,
             passwordHash, sexo, profileImage,
             null, null,
+            aceptaTerminos,
             cancellationToken);
 
     private async Task<(Guid UsuarioId, Guid HogarId)> CreateUserInternalAsync(
@@ -57,8 +60,10 @@ public sealed class AuthRepository : IAuthRepository
         UserProfileImageMetadata? profileImage,
         string? oauthProvider,
         string? oauthId,
+        bool aceptaTerminos,
         CancellationToken cancellationToken)
     {
+        var ahora = DateTime.UtcNow;
         var usuario = new Usuario
         {
             Id = usuarioId,
@@ -74,8 +79,10 @@ public sealed class AuthRepository : IAuthRepository
             FotoSizeBytes = profileImage?.Length,
             OauthProvider = oauthProvider,
             OauthId = oauthId,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            AceptaTerminos = aceptaTerminos,
+            AceptaTerminosAt = aceptaTerminos ? ahora : null,
+            CreatedAt = ahora,
+            UpdatedAt = ahora
         };
 
         var hogar = new Hogare

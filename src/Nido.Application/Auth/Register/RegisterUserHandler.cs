@@ -108,7 +108,8 @@ public sealed class RegisterUserHandler
             command.Nombre.Trim(),
             normalizedEmail,
             _passwordHasher.Hash(command.Password),
-            command.Sexo.Trim());
+            command.Sexo.Trim(),
+            command.AceptaTerminos);
     }
 
     private async Task<ProfileImageUploadResult?> UploadProfileImageIfPresentAsync(
@@ -148,6 +149,7 @@ public sealed class RegisterUserHandler
             registration.PasswordHash,
             registration.Sexo,
             imageMetadata,
+            registration.AceptaTerminos,
             cancellationToken);
     }
 
@@ -196,7 +198,8 @@ public sealed class RegisterUserHandler
         string Nombre,
         string Email,
         string PasswordHash,
-        string Sexo);
+        string Sexo,
+        bool AceptaTerminos);
 
     private sealed record ProfileImageUploadResult(
         string StorageKey,
