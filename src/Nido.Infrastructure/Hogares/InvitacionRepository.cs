@@ -130,7 +130,7 @@ public sealed class InvitacionRepository : IInvitacionRepository
             .Join(_db.Usuarios,
                 m => m.UsuarioId,
                 u => u.Id,
-                (m, u) => new { u.Id, u.Nombre, u.Email, m.Rol, u.FotoStorageKey, u.FotoUrl })
+                (m, u) => new { u.Id, u.Nombre, u.Email, m.Rol, u.FotoStorageKey, u.FotoUpdatedAt })
             .ToListAsync(ct);
 
         var userIds = members.Select(x => x.Id).ToList();
@@ -154,8 +154,8 @@ public sealed class InvitacionRepository : IInvitacionRepository
                 x.Email,
                 x.Rol,
                 !string.IsNullOrWhiteSpace(x.FotoStorageKey)
-                    ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey)
-                    : x.FotoUrl,
+                ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey, x.FotoUpdatedAt)
+                : null,
                 alergiasByUser.GetValueOrDefault(x.Id, [])))
             .ToList();
     }

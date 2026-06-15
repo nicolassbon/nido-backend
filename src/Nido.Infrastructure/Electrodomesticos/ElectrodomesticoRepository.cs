@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.CatalogoElectrodomesticos.UploadCatalogImage;
+using Nido.Application.Common.Assets;
+using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Domain.Electrodomesticos;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -10,13 +13,15 @@ using PersistenceElectrodomestico = Nido.Infrastructure.Persistence.Entities.Ele
 
 namespace Nido.Infrastructure.Electrodomesticos;
 
-public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
+public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository, IElectrodomesticoImageRepository, ICatalogImageRepository
 {
     private readonly NidoDbContext _dbContext;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public ElectrodomesticoRepository(NidoDbContext dbContext)
+    public ElectrodomesticoRepository(NidoDbContext dbContext, IPublicAssetUrlResolver assetUrlResolver)
     {
         _dbContext = dbContext;
+        _assetUrlResolver = assetUrlResolver;
     }
 
     public async Task<bool> HogarExisteAsync(Guid hogarId, CancellationToken cancellationToken)
@@ -71,7 +76,7 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
         return MapToDomain(electrodomesticos, catalogo);
     }
 
-    private static IReadOnlyList<DomainElectrodomestico> MapToDomain(
+    private IReadOnlyList<DomainElectrodomestico> MapToDomain(
         List<PersistenceElectrodomestico> electrodomesticos,
         List<Persistence.Entities.ElectrodomesticoCatalogo> catalogo)
     {
@@ -89,31 +94,61 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository
                 e.Tipo,
                 e.Estado,
                 e.Marca,
-                e.ImagenUrl
+                _assetUrlResolver.Resolve(e.ImagenUrl)
                     ?? (e.CatalogoId.HasValue && catalogoById.TryGetValue(e.CatalogoId.Value, out var byId)
-                        ? byId.ImagenUrl
+                        ? _assetUrlResolver.Resolve(byId.ImagenUrl)
                         : null)
                     ?? (catalogoByNombre.TryGetValue(e.Nombre, out var byNombre)
-                        ? byNombre.ImagenUrl
+                        ? _assetUrlResolver.Resolve(byNombre.ImagenUrl)
                         : null)))
             .ToList();
     }
 
-public async Task<IReadOnlyList<DomainElectrodomesticoCatalogo>> GetCatalogoAsync(
-    CancellationToken cancellationToken)
-{
-    return await _dbContext.ElectrodomesticosCatalogo
-        .AsNoTracking()
-        .Where(x => x.Activo)
-        .OrderBy(x => x.Orden)
-        .Select(x => new DomainElectrodomesticoCatalogo(
-            x.Id,
-            x.Nombre,
-            x.Tipo,
-            x.Icono,
-            x.ImagenUrl,
-            x.Orden,
-            x.Activo))
-        .ToListAsync(cancellationToken);
-}
+    public async Task<IReadOnlyList<DomainElectrodomesticoCatalogo>> GetCatalogoAsync(
+        CancellationToken cancellationToken)
+    {
+        return await _dbContext.ElectrodomesticosCatalogo
+            .AsNoTracking()
+            .Where(x => x.Activo)
+            .OrderBy(x => x.Orden)
+            .Select(x => new DomainElectrodomesticoCatalogo(
+                x.Id,
+                x.Nombre,
+                x.Tipo,
+                x.Icono,
+                _assetUrlResolver.Resolve(x.ImagenUrl),
+                x.Orden,
+                x.Activo))
+            .ToListAsync(cancellationToken);
+    }
+
+    async Task<ElectrodomesticoImageTarget?> IElectrodomesticoImageRepository.GetImageTargetAsync(Guid electrodomesticoId, Guid hogarId, CancellationToken cancellationToken)
+        => await _dbContext.Electrodomesticos
+            .AsNoTracking()
+            .Where(x => x.Id == electrodomesticoId && x.HogarId == hogarId)
+            .Select(x => new ElectrodomesticoImageTarget(x.Id, x.ImagenUrl))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    async Task IElectrodomesticoImageRepository.UpdateImageKeyAsync(Guid electrodomesticoId, Guid hogarId, string storageKey, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Electrodomesticos.FirstOrDefaultAsync(x => x.Id == electrodomesticoId && x.HogarId == hogarId, cancellationToken)
+            ?? throw new ElectrodomesticoImageTargetNotFoundException();
+        entity.ImagenUrl = storageKey;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    async Task<CatalogImageTarget?> ICatalogImageRepository.GetImageTargetAsync(Guid catalogItemId, CancellationToken cancellationToken)
+        => await _dbContext.ElectrodomesticosCatalogo
+            .AsNoTracking()
+            .Where(x => x.Id == catalogItemId)
+            .Select(x => new CatalogImageTarget(x.Id, x.ImagenUrl))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    async Task ICatalogImageRepository.UpdateImageKeyAsync(Guid catalogItemId, string storageKey, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.ElectrodomesticosCatalogo.FirstOrDefaultAsync(x => x.Id == catalogItemId, cancellationToken)
+            ?? throw new CatalogImageTargetNotFoundException();
+        entity.ImagenUrl = storageKey;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

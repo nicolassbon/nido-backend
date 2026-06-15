@@ -11,6 +11,8 @@ public partial class Hogare
 
     public DateTime CreatedAt { get; set; }
 
+    public bool ModoAhorro { get; set; }
+
     public virtual ICollection<Electrodomestico> Electrodomesticos { get; set; } = new List<Electrodomestico>();
 
     public virtual ICollection<Gasto> Gastos { get; set; } = new List<Gasto>();

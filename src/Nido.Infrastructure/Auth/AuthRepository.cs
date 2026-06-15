@@ -5,7 +5,6 @@ using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.ResetPassword;
-using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -40,12 +39,12 @@ public sealed class AuthRepository : IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
         bool aceptaTerminos,
         CancellationToken cancellationToken)
         => CreateUserInternalAsync(
             usuarioId, hogarId, nombre, email,
-            passwordHash, sexo, profileImage,
+            passwordHash, sexo, fotoStorageKey,
             null, null,
             aceptaTerminos,
             cancellationToken);
@@ -57,7 +56,7 @@ public sealed class AuthRepository : IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
         string? oauthProvider,
         string? oauthId,
         bool aceptaTerminos,
@@ -71,12 +70,8 @@ public sealed class AuthRepository : IAuthRepository
             Email = email,
             PasswordHash = passwordHash,
             Sexo = sexo,
-            FotoUrl = null,
-            FotoStorageKey = profileImage?.StorageKey,
-            FotoContentType = profileImage?.ContentType,
-            FotoWidth = profileImage?.Width,
-            FotoHeight = profileImage?.Height,
-            FotoSizeBytes = profileImage?.Length,
+            FotoStorageKey = fotoStorageKey,
+            FotoUpdatedAt = fotoStorageKey is not null ? DateTime.UtcNow : null,
             OauthProvider = oauthProvider,
             OauthId = oauthId,
             AceptaTerminos = aceptaTerminos,

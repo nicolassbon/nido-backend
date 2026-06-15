@@ -34,7 +34,7 @@ public sealed class NotaRecetaRepository : INotaRecetaRepository
             .Where(n => n.Id == nota.Id)
             .Select(n => new NotaItem(
                 n.Id, n.RecetaId, n.HogarId, n.UsuarioId,
-                n.Usuario.Nombre, n.Usuario.FotoUrl,
+                n.Usuario.Nombre, n.Usuario.FotoStorageKey,
                 n.Texto, n.CreatedAt))
             .FirstAsync(ct);
     }
@@ -47,7 +47,7 @@ public sealed class NotaRecetaRepository : INotaRecetaRepository
             .OrderByDescending(n => n.CreatedAt)
             .Select(n => new NotaItem(
                 n.Id, n.RecetaId, n.HogarId, n.UsuarioId,
-                n.Usuario.Nombre, n.Usuario.FotoUrl,
+                n.Usuario.Nombre, n.Usuario.FotoStorageKey,
                 n.Texto, n.CreatedAt))
             .ToListAsync(ct);
     }

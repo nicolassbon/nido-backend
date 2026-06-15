@@ -239,6 +239,70 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("electrodomesticos_catalogo", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("ArchivoStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("archivo_storage_key");
+
+                    b.Property<Guid>("CreadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creado_por");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateOnly?>("FechaVencimiento")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_vencimiento");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<decimal?>("Monto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("monto");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nombre");
+
+                    b.Property<bool>("Pagada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("pagada");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("facturas_pkey");
+
+                    b.HasIndex("CreadoPor");
+
+                    b.HasIndex(new[] { "HogarId" }, "idx_facturas_hogar");
+
+                    b.ToTable("facturas", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Gasto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -321,6 +385,12 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("ModoAhorro")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("modo_ahorro");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -463,11 +533,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<string>("Codigo")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1351,7 +1416,7 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
-                    b.Property<Guid>("CompletadoPor")
+                    b.Property<Guid?>("CompletadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("completado_por");
 
@@ -1440,32 +1505,14 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
-                    b.Property<string>("FotoContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("foto_content_type");
-
-                    b.Property<int?>("FotoHeight")
-                        .HasColumnType("integer")
-                        .HasColumnName("foto_height");
-
-                    b.Property<long?>("FotoSizeBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("foto_size_bytes");
-
                     b.Property<string>("FotoStorageKey")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("foto_storage_key");
 
-                    b.Property<string>("FotoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("foto_url");
-
-                    b.Property<int?>("FotoWidth")
-                        .HasColumnType("integer")
-                        .HasColumnName("foto_width");
+                    b.Property<DateTime?>("FotoUpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("foto_updated_at");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -1569,6 +1616,25 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("electrodomesticos_hogar_id_fkey");
 
                     b.Navigation("Catalogo");
+
+                    b.Navigation("Hogar");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")
+                        .WithMany()
+                        .HasForeignKey("CreadoPor")
+                        .IsRequired()
+                        .HasConstraintName("facturas_creado_por_fkey");
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .IsRequired()
+                        .HasConstraintName("facturas_hogar_id_fkey");
+
+                    b.Navigation("CreadoPorNavigation");
 
                     b.Navigation("Hogar");
                 });
@@ -1996,7 +2062,6 @@ namespace Nido.Infrastructure.Migrations
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompletadoPorNavigation")
                         .WithMany("TareaCompletadoPorNavigations")
                         .HasForeignKey("CompletadoPor")
-                        .IsRequired()
                         .HasConstraintName("tareas_completado_por_fkey");
 
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")

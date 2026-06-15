@@ -93,5 +93,25 @@ public sealed class AlacenaHandlersTests
         public Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ConsumoPorProducto>>(Array.Empty<ConsumoPorProducto>());
+
+        public Task<IReadOnlyList<ComprasPorProducto>> GetComprasPorProductoAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ComprasPorProducto>>(Array.Empty<ComprasPorProducto>());
+
+        public Task<IReadOnlyDictionary<DayOfWeek, int>> GetCocinadasPorDiaSemanaAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyDictionary<DayOfWeek, int>>(new Dictionary<DayOfWeek, int>());
+
+        public Task<IReadOnlyList<RecetaTopItem>> GetRecetasTopAsync(
+            Guid hogarId, int diasAtras, int topN, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<RecetaTopItem>>(Array.Empty<RecetaTopItem>());
+
+        public Task<IReadOnlyList<EnvaseZombieRaw>> GetEnvasesAbiertosLargoAsync(
+            Guid hogarId, int diasMinAbierto, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<EnvaseZombieRaw>>(Array.Empty<EnvaseZombieRaw>());
+
+        public Task<IReadOnlyList<DateTime>> GetFechasComprasHogarAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<DateTime>>(Array.Empty<DateTime>());
     }
 }
