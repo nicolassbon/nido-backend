@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nido.Infrastructure.Migrations
 {
     [DbContext(typeof(NidoDbContext))]
-    partial class NidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610221125_AddFacturas")]
+    partial class AddFacturas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -471,6 +474,11 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("codigo");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1291,7 +1299,7 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
-                    b.Property<Guid?>("CompletadoPor")
+                    b.Property<Guid>("CompletadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("completado_por");
 
@@ -1370,14 +1378,32 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<string>("FotoContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("foto_content_type");
+
+                    b.Property<int?>("FotoHeight")
+                        .HasColumnType("integer")
+                        .HasColumnName("foto_height");
+
+                    b.Property<long?>("FotoSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("foto_size_bytes");
+
                     b.Property<string>("FotoStorageKey")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("foto_storage_key");
 
-                    b.Property<DateTime?>("FotoUpdatedAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("foto_updated_at");
+                    b.Property<string>("FotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("foto_url");
+
+                    b.Property<int?>("FotoWidth")
+                        .HasColumnType("integer")
+                        .HasColumnName("foto_width");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -1874,6 +1900,7 @@ namespace Nido.Infrastructure.Migrations
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompletadoPorNavigation")
                         .WithMany("TareaCompletadoPorNavigations")
                         .HasForeignKey("CompletadoPor")
+                        .IsRequired()
                         .HasConstraintName("tareas_completado_por_fkey");
 
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")

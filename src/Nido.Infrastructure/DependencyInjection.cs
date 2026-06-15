@@ -34,6 +34,8 @@ using Nido.Infrastructure.Images;
 using Nido.Infrastructure.Preferencias;
 using Nido.Infrastructure.Recetas;
 using Nido.Infrastructure.StockHogar;
+using Nido.Application.Finanzas;
+using Nido.Infrastructure.Finanzas;
 using Nido.Infrastructure.Storage;
 using Nido.Application.Productos.UploadProductImage;
 using Nido.Application.Recetas.UploadRecipeImage;
@@ -110,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogImageRepository, ElectrodomesticoRepository>();
         services.AddScoped<IRecipeImageRepository, RecetaRepository>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
+        services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
 
         return services;
