@@ -12,13 +12,13 @@ namespace Nido.Api.Controllers;
 public sealed class HogaresController : ControllerBase
 {
     [HttpPost("invitar")]
-    public async Task<IActionResult> InvitarConviviente(
-        [FromBody] InvitarConviventeRequest request,
-        [FromServices] InvitarConviventeHandler handler,
+    public async Task<IActionResult> InvitarIntegrante(
+        [FromBody] InvitarIntegranteRequest request,
+        [FromServices] InvitarIntegranteHandler handler,
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken cancellationToken)
     {
-        var token = await handler.Handle(new InvitarConviventeCommand(
+        var token = await handler.Handle(new InvitarIntegranteCommand(
             currentUser.UsuarioId,
             currentUser.HogarId,
             request.EmailInvitado), cancellationToken);

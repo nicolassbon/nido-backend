@@ -34,7 +34,7 @@ public sealed class AlreadyMemberException : NidoException
 
 public sealed class NotHouseholdOwnerException : NidoException
 {
-    public NotHouseholdOwnerException() : base("NOT_HOUSEHOLD_OWNER", "Solo el propietario puede invitar convivientes.") { }
+    public NotHouseholdOwnerException() : base("NOT_HOUSEHOLD_OWNER", "Solo el propietario puede invitar integrantes.") { }
 }
 
 public sealed class NotHouseholdMemberException : NidoException
