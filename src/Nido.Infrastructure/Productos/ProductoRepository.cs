@@ -64,6 +64,26 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
         return products.FirstOrDefault(producto => NormalizeName(producto.Nombre) == normalizedName);
     }
 
+    public async Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+    {
+        var producto = new Persistence.Entities.Producto
+        {
+            Id = Guid.NewGuid(),
+            Nombre = nombre.Trim(),
+            CategoriaId = categoriaId,
+            ImagenUrl = null
+        };
+
+        _db.Productos.Add(producto);
+        await _db.SaveChangesAsync(ct);
+
+        return new GetProductByNameResult(
+            producto.Id,
+            producto.Nombre,
+            producto.CategoriaId,
+            null);
+    }
+
     private static string NormalizeName(string value)
     {
         var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);

@@ -57,5 +57,8 @@ public sealed class GetProductByBarcodeHandlerTests
 
         public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
             => Task.FromResult<GetProductByNameResult?>(null);
+
+        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+            => throw new NotSupportedException();
     }
 }

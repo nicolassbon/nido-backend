@@ -1,4 +1,4 @@
-
+using System.Globalization;
 using Nido.Domain.StockHogar;
 using Nido.Application.Productos.Exceptions;
 
@@ -36,21 +36,33 @@ public sealed class CreateStockHomeHandler
             throw new MissingProductFieldException("ubicacion");
         }
 
-        var producto = await _productoRepository.GetByNameAsync(
-            command.Nombre,
-            cancellationToken);
-
-        if (producto is null)
+        DateOnly? fechaVencimiento = null;
+        if (!string.IsNullOrWhiteSpace(command.FechaVencimiento))
         {
-            throw new ArgumentException($"No existe un producto precargado con nombre '{command.Nombre}'.");
+            if (!DateOnly.TryParseExact(
+                    command.FechaVencimiento,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var parsedFechaVencimiento))
+            {
+                throw new ArgumentException("La fecha de vencimiento debe tener formato yyyy-MM-dd.");
+            }
+
+            fechaVencimiento = parsedFechaVencimiento;
         }
+
+        var producto = await _productoRepository.CreateAsync(
+            command.Nombre,
+            command.CategoriaId,
+            cancellationToken);
 
         var stockHogar = new StockHogar(
             command.HogarId,
             producto.Id,
             command.CantidadActual,
             command.UnidadMedida,
-            command.FechaVencimiento,
+            fechaVencimiento?.ToDateTime(TimeOnly.MinValue),
             command.UsuarioIngresoId,
             command.Ubicacion,
             false,
@@ -66,13 +78,13 @@ public sealed class CreateStockHomeHandler
             stockHogar.ProductoId,
             stockHogar.CantidadActual,
             stockHogar.UnidadMedida,
-            stockHogar.FechaVencimiento,
+            fechaVencimiento?.ToString("yyyy-MM-dd"),
             stockHogar.UsuarioIngresoId,
             stockHogar.Ubicacion,
             stockHogar.EstaAbierto,
             stockHogar.PorcentajeConsumido,
-            producto.CategoriaId ?? command.CategoriaId
-          
+            producto.CategoriaId
+           
         );
     }
 }

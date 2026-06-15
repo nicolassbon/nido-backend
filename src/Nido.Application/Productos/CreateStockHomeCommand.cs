@@ -2,11 +2,11 @@ namespace Nido.Application.Productos;
 
 public sealed record CreateStockHomeCommand(
     string Nombre,
-    Guid CategoriaId,
+    Guid? CategoriaId,
     string Ubicacion,
     decimal CantidadActual,
     string UnidadMedida,
-    DateTime? FechaVencimiento,
+    string? FechaVencimiento,
     Guid HogarId,
     Guid UsuarioIngresoId
 );
