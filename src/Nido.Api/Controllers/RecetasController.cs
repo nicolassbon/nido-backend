@@ -5,6 +5,7 @@ using Nido.Application.Common.Security;
 using Nido.Application.Recetas;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace Nido.Api.Controllers;
 
@@ -70,61 +71,104 @@ public sealed class RecetasController : ControllerBase
     }
 
     // =====================================================================
-    // 🔥 NUEVO ENDPOINT: CONEXIÓN CON EL MICROSERVICIO DE IA (PYTHON)
+    // 🔥 NUEVO ENDPOINT: CONEXIÓN DINÁMICA CON MICROSERVICIO DE IA (LISTAS)
     // =====================================================================
     [HttpPost("ia-recomendar")]
-    public async Task<IActionResult> RecomendarPorIa(
-        [FromBody] RecomendarIaRequest request,
-        [FromServices] ICurrentUserContext currentUser,
-        CancellationToken ct)
+public async Task<IActionResult> RecomendarPorIa(
+    [FromBody] RecomendarIaRequest request,
+    [FromServices] ICurrentUserContext currentUser,
+    CancellationToken ct) // Paréntesis corregido acá
+{
+    if (string.IsNullOrWhiteSpace(request.Mensaje))
+        return BadRequest("El mensaje no puede estar vacío.");
+
+    // 1. Armamos el JSON para Python
+    var payload = new { mensaje = request.Mensaje };
+    var jsonPayload = JsonSerializer.Serialize(payload);
+    var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+    var nombresSugeridos = new List<string>();
+
+    try
     {
-        if (string.IsNullOrWhiteSpace(request.Mensaje))
-            return BadRequest("El mensaje no puede estar vacío.");
+        // 2. Le pegamos al contenedor de Flask usando la red de Docker
+        var client = _httpClientFactory.CreateClient();
+        var response = await client.PostAsync("http://host.docker.internal:5000/api/ia/recomendar", httpContent, ct);
 
-        // 1. Preparamos el auto para ir al peaje: Armamos el JSON para Python
-        var payload = new { mensaje = request.Mensaje };
-        var jsonPayload = JsonSerializer.Serialize(payload);
-        var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-        string nombreRecetaSugerida = "NONE";
-
-        try
+        if (response.IsSuccessStatusCode)
         {
-            // 2. Le pegamos al peaje de Flask usando el HttpClient de .NET
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsync("http://localhost:5000/api/ia/recomendar", httpContent, ct);
-
-            if (response.IsSuccessStatusCode)
+            var responseString = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(responseString);
+            
+            // 🌟 PARSEAMOS LA LISTA: Buscamos la propiedad "recetas" que mandó Python
+            if (doc.RootElement.TryGetProperty("recetas", out var recetasElement) && recetasElement.ValueKind == JsonValueKind.Array)
             {
-                var responseString = await response.Content.ReadAsStringAsync(ct);
-                using var doc = JsonDocument.Parse(responseString);
-                nombreRecetaSugerida = doc.RootElement.GetProperty("receta").GetString() ?? "NONE";
+                foreach (var elemento in recetasElement.EnumerateArray())
+                {
+                    var nombre = elemento.GetString();
+                    if (!string.IsNullOrWhiteSpace(nombre))
+                    {
+                        nombresSugeridos.Add(nombre);
+                    }
+                }
             }
         }
-        catch (Exception ex)
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[IA-BACKEND] Error de conexión: {ex.Message}");
+        return StatusCode(500, "Error al conectar con el motor de IA.");
+    }
+
+    // Si la IA no encontró nada o la lista vino vacía
+    if (!nombresSugeridos.Any())
+        return NotFound("La IA no pudo encontrar recetas que coincidan con tu búsqueda.");
+
+    // 3. Traemos todas las recetas reales del hogar desde Postgres
+    var todasLasRecetas = await _getRecetasHandler.Handle(currentUser.HogarId, ct);
+
+    // 4. MATCHO MULTIPLE BLINDADO: Filtramos todas las recetas que coincidan con la lista de la IA
+// =====================================================================
+        // 4. FILTRADO MULTIPLE CON NORMALIZACIÓN (Paso 4 Completado)
+        // =====================================================================
+        
+        // Función interna local para limpiar strings en caliente
+        string NormalizarTexto(string texto)
         {
-            // Si Flask está apagado, logueamos el error y dejamos que fluya el "NONE"
-            Console.WriteLine($"[IA-BACKEND] Error de conexión: {ex.Message}");
+            if (string.IsNullOrWhiteSpace(texto)) return "";
+            
+            var limpio = texto.ToLower().Trim().Replace("\n", "").Replace("\r", "");
+            limpio = limpio.Replace("á", "a")
+                           .Replace("é", "e")
+                           .Replace("í", "i")
+                           .Replace("ó", "o")
+                           .Replace("ú", "u");
+            return limpio;
         }
 
-        // Si la IA no entendió o el peaje falló, devolvemos un NotFound decoroso
-        if (nombreRecetaSugerida == "NONE")
-            return NotFound("La IA no pudo encontrar una receta que coincida con tu búsqueda.");
+        // Filtramos comparando los textos normalizados de ambos lados
+        var recetasMatcheadas = todasLasRecetas.Where(r =>
+            nombresSugeridos.Any(ns => 
+                NormalizarTexto(r.Nombre).Contains(NormalizarTexto(ns)) || 
+                NormalizarTexto(ns).Contains(NormalizarTexto(r.Nombre))
+            )
+        ).ToList();
 
-        // 3. ¡EL TRUCO MASTER! Aprovechamos tus Handlers de C# para buscar el plato real
-        // Traemos todas las recetas del hogar actual
-        var todasLasRecetas = await _getRecetasHandler.Handle(currentUser.HogarId, ct);
+        // 🌟 AUDITORÍA EN CONSOLA DOCKER
+        Console.WriteLine("=============================================================");
+        Console.WriteLine($"[🔥 .NET AUDIT] Nombres que mandó la IA: {string.Join(", ", nombresSugeridos)}");
+        Console.WriteLine($"[🔥 .NET AUDIT] Recetas en BD: {todasLasRecetas.Count} | Matchearon con éxito: {recetasMatcheadas.Count}");
+        Console.WriteLine("=============================================================");
 
-        // Buscamos cuál de tus recetas de la base de datos coincide con el nombre que escupió el Mock
-        var recetaMatcheada = todasLasRecetas.FirstOrDefault(r => 
-            r.Nombre.Equals(nombreRecetaSugerida, StringComparison.OrdinalIgnoreCase));
+        // Si no hubo coincidencias después de limpiar, saltamos con 404
+        if (!recetasMatcheadas.Any())
+        {
+            return NotFound("La IA sugirió opciones, pero ninguna coincidió en el formateo de la base de datos.");
+        }
 
-        if (recetaMatcheada is null)
-            return NotFound($"La IA sugirió '{nombreRecetaSugerida}', pero no se encontró en tu base de datos.");
-
-        // 4. Devolvemos la receta completa en el formato exacto que espera tu Frontend
-        return Ok(ToResponse(recetaMatcheada));
-    }
+    // 5. Devolvemos la LISTA COMPLETA mapeada al Frontend
+    return Ok(recetasMatcheadas.Select(ToResponse));
+}
 
     private static RecetaResponse ToResponse(RecetaResult receta)
     {
