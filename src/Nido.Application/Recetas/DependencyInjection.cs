@@ -12,6 +12,9 @@ public static class DependencyInjection
         services.AddScoped<UpsertResenaHandler>();
         services.AddScoped<GetResenasByRecetaHandler>();
         services.AddScoped<DeleteResenaHandler>();
+        services.AddScoped<AddNotaRecetaHandler>();
+        services.AddScoped<DeleteNotaRecetaHandler>();
+        services.AddScoped<GetNotasByRecetaHandler>();
         return services;
     }
 }

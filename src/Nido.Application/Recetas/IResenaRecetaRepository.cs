@@ -3,6 +3,7 @@ namespace Nido.Application.Recetas;
 public sealed record ResenaItem(
     Guid     Id,
     Guid     RecetaId,
+    Guid     HogarId,
     Guid     UsuarioId,
     string   UsuarioNombre,
     string?  UsuarioFotoUrl,
@@ -16,18 +17,20 @@ public sealed record ResenaResumen(decimal Promedio, int Total);
 
 public interface IResenaRecetaRepository
 {
-    /// <summary>Crea o actualiza la reseña del usuario para una receta (upsert).</summary>
-    Task<ResenaItem> UpsertAsync(Guid recetaId, Guid usuarioId, int puntuacion, string? comentario, CancellationToken ct);
+    /// <summary>Crea o actualiza la reseña/nota del miembro para una receta dentro de su hogar.</summary>
+    Task<ResenaItem> UpsertAsync(Guid recetaId, Guid hogarId, Guid usuarioId, int puntuacion, string? comentario, CancellationToken ct);
 
-    Task<IReadOnlyList<ResenaItem>> GetByRecetaAsync(Guid recetaId, CancellationToken ct);
+    /// <summary>Notas y calificaciones VISIBLES para el hogar (estilo "diario del hogar").</summary>
+    Task<IReadOnlyList<ResenaItem>> GetByRecetaAndHogarAsync(Guid recetaId, Guid hogarId, CancellationToken ct);
 
-    Task<ResenaItem?> GetByRecetaAndUsuarioAsync(Guid recetaId, Guid usuarioId, CancellationToken ct);
+    Task<ResenaItem?> GetByRecetaHogarUsuarioAsync(Guid recetaId, Guid hogarId, Guid usuarioId, CancellationToken ct);
 
-    /// <summary>Borra la reseña del usuario para una receta. Idempotente.</summary>
-    Task DeleteAsync(Guid recetaId, Guid usuarioId, CancellationToken ct);
+    /// <summary>Borra la nota del miembro. Idempotente.</summary>
+    Task DeleteAsync(Guid recetaId, Guid hogarId, Guid usuarioId, CancellationToken ct);
 
-    Task<ResenaResumen> GetResumenAsync(Guid recetaId, CancellationToken ct);
+    /// <summary>Promedio de estrellas dentro del hogar.</summary>
+    Task<ResenaResumen> GetResumenAsync(Guid recetaId, Guid hogarId, CancellationToken ct);
 
-    /// <summary>Devuelve el resumen (promedio + total) por receta para una lista. Util para mostrar en tarjetas.</summary>
-    Task<IReadOnlyDictionary<Guid, ResenaResumen>> GetResumenesAsync(IEnumerable<Guid> recetaIds, CancellationToken ct);
+    /// <summary>Resumen por receta filtrado al hogar. Útil para tarjetas en listados.</summary>
+    Task<IReadOnlyDictionary<Guid, ResenaResumen>> GetResumenesAsync(IEnumerable<Guid> recetaIds, Guid hogarId, CancellationToken ct);
 }

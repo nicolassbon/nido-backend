@@ -17,6 +17,9 @@ public sealed class RecetasController : ControllerBase
     private readonly UpsertResenaHandler         _upsertResenaHandler;
     private readonly GetResenasByRecetaHandler   _getResenasHandler;
     private readonly DeleteResenaHandler         _deleteResenaHandler;
+    private readonly AddNotaRecetaHandler        _addNotaHandler;
+    private readonly DeleteNotaRecetaHandler     _deleteNotaHandler;
+    private readonly GetNotasByRecetaHandler     _getNotasHandler;
 
     public RecetasController(
         GetRecetasHandler getRecetasHandler,
@@ -24,7 +27,10 @@ public sealed class RecetasController : ControllerBase
         CocinarRecetaHandler cocinarRecetaHandler,
         UpsertResenaHandler upsertResenaHandler,
         GetResenasByRecetaHandler getResenasHandler,
-        DeleteResenaHandler deleteResenaHandler)
+        DeleteResenaHandler deleteResenaHandler,
+        AddNotaRecetaHandler addNotaHandler,
+        DeleteNotaRecetaHandler deleteNotaHandler,
+        GetNotasByRecetaHandler getNotasHandler)
     {
         _getRecetasHandler    = getRecetasHandler;
         _getRecetaByIdHandler = getRecetaByIdHandler;
@@ -32,6 +38,9 @@ public sealed class RecetasController : ControllerBase
         _upsertResenaHandler  = upsertResenaHandler;
         _getResenasHandler    = getResenasHandler;
         _deleteResenaHandler  = deleteResenaHandler;
+        _addNotaHandler       = addNotaHandler;
+        _deleteNotaHandler    = deleteNotaHandler;
+        _getNotasHandler      = getNotasHandler;
     }
 
     [HttpGet]
@@ -80,7 +89,7 @@ public sealed class RecetasController : ControllerBase
         CancellationToken ct)
     {
         var result = await _getResenasHandler.Handle(
-            new GetResenasByRecetaQuery(id, currentUser.UsuarioId), ct);
+            new GetResenasByRecetaQuery(id, currentUser.HogarId, currentUser.UsuarioId), ct);
 
         return Ok(new ResenasRecetaResponse(
             result.Items.Select(ToResenaResponse).ToList(),
@@ -99,7 +108,7 @@ public sealed class RecetasController : ControllerBase
         try
         {
             var resena = await _upsertResenaHandler.Handle(
-                new UpsertResenaCommand(id, currentUser.UsuarioId, request.Puntuacion, request.Comentario), ct);
+                new UpsertResenaCommand(id, currentUser.HogarId, currentUser.UsuarioId, request.Puntuacion, request.Comentario), ct);
 
             return Ok(ToResenaResponse(resena));
         }
@@ -116,9 +125,55 @@ public sealed class RecetasController : ControllerBase
         CancellationToken ct)
     {
         await _deleteResenaHandler.Handle(
-            new DeleteResenaCommand(id, currentUser.UsuarioId), ct);
+            new DeleteResenaCommand(id, currentUser.HogarId, currentUser.UsuarioId), ct);
         return NoContent();
     }
+
+    [HttpGet("{id}/notas")]
+    public async Task<IActionResult> GetNotas(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getNotasHandler.Handle(
+            new GetNotasByRecetaQuery(id, currentUser.HogarId), ct);
+        return Ok(new NotasRecetaResponse(result.Items.Select(ToNotaResponse).ToList()));
+    }
+
+    [HttpPost("{id}/notas")]
+    public async Task<IActionResult> AddNota(
+        Guid id,
+        [FromBody] AddNotaRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        try
+        {
+            var nota = await _addNotaHandler.Handle(
+                new AddNotaRecetaCommand(id, currentUser.HogarId, currentUser.UsuarioId, request.Texto), ct);
+            return Ok(ToNotaResponse(nota));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}/notas/{notaId}")]
+    public async Task<IActionResult> DeleteNota(
+        Guid id,
+        Guid notaId,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        await _deleteNotaHandler.Handle(
+            new DeleteNotaRecetaCommand(notaId, currentUser.HogarId, currentUser.UsuarioId), ct);
+        return NoContent();
+    }
+
+    private static NotaResponse ToNotaResponse(NotaItem item) =>
+        new(item.Id, item.RecetaId, item.HogarId, item.UsuarioId,
+            item.UsuarioNombre, item.UsuarioFotoUrl, item.Texto, item.CreatedAt);
 
     private static ResenaResponse ToResenaResponse(ResenaItem item) =>
         new(item.Id, item.RecetaId, item.UsuarioId, item.UsuarioNombre, item.UsuarioFotoUrl,

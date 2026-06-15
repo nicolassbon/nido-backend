@@ -1,6 +1,6 @@
 namespace Nido.Application.Recetas;
 
-public sealed record GetResenasByRecetaQuery(Guid RecetaId, Guid CallerUsuarioId);
+public sealed record GetResenasByRecetaQuery(Guid RecetaId, Guid HogarId, Guid CallerUsuarioId);
 
 public sealed record ResenasReceta(
     IReadOnlyList<ResenaItem> Items,
@@ -18,8 +18,8 @@ public sealed class GetResenasByRecetaHandler
 
     public async Task<ResenasReceta> Handle(GetResenasByRecetaQuery query, CancellationToken ct)
     {
-        var items   = await _repository.GetByRecetaAsync(query.RecetaId, ct);
-        var resumen = await _repository.GetResumenAsync(query.RecetaId, ct);
+        var items   = await _repository.GetByRecetaAndHogarAsync(query.RecetaId, query.HogarId, ct);
+        var resumen = await _repository.GetResumenAsync(query.RecetaId, query.HogarId, ct);
         var mia     = items.FirstOrDefault(r => r.UsuarioId == query.CallerUsuarioId);
 
         return new ResenasReceta(items, resumen, mia);

@@ -60,7 +60,7 @@ public sealed class RecetaRepository : IRecetaRepository
 
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
         var vecesCocinadas = await GetVecesCocinadadasAsync(hogarId, ct);
-        var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), ct);
+        var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), hogarId, ct);
 
         return recetas.Select(receta =>
             ToResult(
@@ -89,7 +89,7 @@ public sealed class RecetaRepository : IRecetaRepository
         var vecesCocinada = await _db.RecetasCocinadas
             .AsNoTracking()
             .CountAsync(rc => rc.RecetaId == id && rc.HogarId == hogarId, ct);
-        var resumen = await _resenaRepository.GetResumenAsync(id, ct);
+        var resumen = await _resenaRepository.GetResumenAsync(id, hogarId, ct);
 
         return ToResult(receta, productosEnStock, vecesCocinada, resumen);
     }

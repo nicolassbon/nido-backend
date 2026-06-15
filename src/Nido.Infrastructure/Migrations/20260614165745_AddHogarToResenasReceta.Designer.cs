@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nido.Infrastructure.Migrations
 {
     [DbContext(typeof(NidoDbContext))]
-    partial class NidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260614165745_AddHogarToResenasReceta")]
+    partial class AddHogarToResenasReceta
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -713,47 +716,6 @@ namespace Nido.Infrastructure.Migrations
                     b.HasIndex(new[] { "UsuarioId" }, "idx_miembros_hogar_usuario");
 
                     b.ToTable("miembros_hogar", (string)null);
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.NotaReceta", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("HogarId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("hogar_id");
-
-                    b.Property<Guid>("RecetaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("receta_id");
-
-                    b.Property<string>("Texto")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("texto");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("usuario_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("HogarId");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.HasIndex("RecetaId", "HogarId")
-                        .HasDatabaseName("ix_notas_receta_receta_hogar");
-
-                    b.ToTable("notas_receta", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Notificacione", b =>
@@ -1742,33 +1704,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("miembros_hogar_usuario_id_fkey");
 
                     b.Navigation("Hogar");
-
-                    b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.NotaReceta", b =>
-                {
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
-                        .WithMany()
-                        .HasForeignKey("HogarId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
-                        .WithMany()
-                        .HasForeignKey("RecetaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Hogar");
-
-                    b.Navigation("Receta");
 
                     b.Navigation("Usuario");
                 });

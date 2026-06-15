@@ -2,6 +2,7 @@ namespace Nido.Application.Recetas;
 
 public sealed record UpsertResenaCommand(
     Guid    RecetaId,
+    Guid    HogarId,
     Guid    UsuarioId,
     int     Puntuacion,
     string? Comentario);
@@ -22,6 +23,9 @@ public sealed class UpsertResenaHandler
         if (command.RecetaId == Guid.Empty)
             throw new ArgumentException("La receta es requerida.", nameof(command));
 
+        if (command.HogarId == Guid.Empty)
+            throw new ArgumentException("El hogar es requerido.", nameof(command));
+
         if (command.UsuarioId == Guid.Empty)
             throw new ArgumentException("El usuario es requerido.", nameof(command));
 
@@ -36,6 +40,7 @@ public sealed class UpsertResenaHandler
 
         return await _repository.UpsertAsync(
             command.RecetaId,
+            command.HogarId,
             command.UsuarioId,
             command.Puntuacion,
             string.IsNullOrEmpty(comentario) ? null : comentario,

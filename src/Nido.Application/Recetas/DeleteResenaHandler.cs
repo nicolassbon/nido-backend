@@ -1,6 +1,6 @@
 namespace Nido.Application.Recetas;
 
-public sealed record DeleteResenaCommand(Guid RecetaId, Guid UsuarioId);
+public sealed record DeleteResenaCommand(Guid RecetaId, Guid HogarId, Guid UsuarioId);
 
 public sealed class DeleteResenaHandler
 {
@@ -13,6 +13,6 @@ public sealed class DeleteResenaHandler
 
     public async Task Handle(DeleteResenaCommand command, CancellationToken ct)
     {
-        await _repository.DeleteAsync(command.RecetaId, command.UsuarioId, ct);
+        await _repository.DeleteAsync(command.RecetaId, command.HogarId, command.UsuarioId, ct);
     }
 }

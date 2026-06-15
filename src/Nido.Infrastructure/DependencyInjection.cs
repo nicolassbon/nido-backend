@@ -45,7 +45,8 @@ public static class DependencyInjection
         }
 
         services.AddDbContext<NidoDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                   .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
         services.AddScoped<IElectrodomesticoRepository, ElectrodomesticoRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
@@ -74,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IResenaRecetaRepository, ResenaRecetaRepository>();
+        services.AddScoped<INotaRecetaRepository, NotaRecetaRepository>();
         services.AddScoped<IRecetaRepository, RecetaRepository>();
         services.AddScoped<IEstadisticasRepository, EstadisticasRepository>();
         services.AddScoped<Nido.Application.Insights.IConsumoProductoRepository, Nido.Infrastructure.Insights.ConsumoProductoRepository>();

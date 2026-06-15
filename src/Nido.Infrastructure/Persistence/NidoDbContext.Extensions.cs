@@ -8,6 +8,7 @@ namespace Nido.Infrastructure.Persistence;
 public partial class NidoDbContext
 {
     public virtual DbSet<ConsumoProducto> ConsumosProducto { get; set; } = null!;
+    public virtual DbSet<NotaReceta> NotasReceta { get; set; } = null!;
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,24 @@ public partial class NidoDbContext
             entity.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<NotaReceta>(entity =>
+        {
+            entity.ToTable("notas_receta");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RecetaId).HasColumnName("receta_id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.Property(e => e.Texto).HasColumnName("texto").HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasIndex(e => new { e.RecetaId, e.HogarId }).HasDatabaseName("ix_notas_receta_receta_hogar");
+
+            entity.HasOne(e => e.Receta).WithMany().HasForeignKey(e => e.RecetaId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Hogar).WithMany().HasForeignKey(e => e.HogarId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Usuario).WithMany().HasForeignKey(e => e.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Nido.Infrastructure.Persistence.Entities.StockHogar>(entity =>
         {
             entity.Property(e => e.Ubicacion)
@@ -57,6 +76,18 @@ public partial class NidoDbContext
             entity.Property(e => e.ImagenUrl)
                 .HasColumnName("imagen_url")
                 .HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ReseniasRecetum>(entity =>
+        {
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.HasOne(e => e.Hogar)
+                .WithMany()
+                .HasForeignKey(e => e.HogarId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.RecetaId, e.HogarId, e.UsuarioId })
+                .IsUnique()
+                .HasDatabaseName("uq_resenias_receta_hogar_usuario");
         });
     }
 }
