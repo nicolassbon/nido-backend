@@ -15,6 +15,9 @@ public static class DependencyInjection
         services.AddScoped<GetFacturasHandler>();
         services.AddScoped<MarcarPagadaHandler>();
         services.AddScoped<DeleteFacturaHandler>();
+        services.AddScoped<GetSavingsPotencialHandler>();
+        services.AddScoped<GetInsightsHandler>();
+        services.AddScoped<GetAlacenaOportunidadesHandler>();
         return services;
     }
 }

@@ -20,6 +20,9 @@ public sealed class FinanzasController : ControllerBase
     private readonly GetFacturasHandler _getFacturasHandler;
     private readonly MarcarPagadaHandler _marcarPagadaHandler;
     private readonly DeleteFacturaHandler _deleteFacturaHandler;
+    private readonly GetSavingsPotencialHandler _getSavingsPotencialHandler;
+    private readonly GetInsightsHandler _getInsightsHandler;
+    private readonly GetAlacenaOportunidadesHandler _getAlacenaOportunidadesHandler;
 
     public FinanzasController(
         CreateGastoHandler createGastoHandler,
@@ -30,7 +33,10 @@ public sealed class FinanzasController : ControllerBase
         CreateFacturaHandler createFacturaHandler,
         GetFacturasHandler getFacturasHandler,
         MarcarPagadaHandler marcarPagadaHandler,
-        DeleteFacturaHandler deleteFacturaHandler)
+        DeleteFacturaHandler deleteFacturaHandler,
+        GetSavingsPotencialHandler getSavingsPotencialHandler,
+        GetInsightsHandler getInsightsHandler,
+        GetAlacenaOportunidadesHandler getAlacenaOportunidadesHandler)
     {
         _createGastoHandler = createGastoHandler;
         _getGastosHandler = getGastosHandler;
@@ -41,6 +47,9 @@ public sealed class FinanzasController : ControllerBase
         _getFacturasHandler = getFacturasHandler;
         _marcarPagadaHandler = marcarPagadaHandler;
         _deleteFacturaHandler = deleteFacturaHandler;
+        _getSavingsPotencialHandler = getSavingsPotencialHandler;
+        _getInsightsHandler = getInsightsHandler;
+        _getAlacenaOportunidadesHandler = getAlacenaOportunidadesHandler;
     }
 
     [HttpGet("modo-ahorro")]
@@ -83,6 +92,44 @@ public sealed class FinanzasController : ControllerBase
                 r.IngredientesEnStock,
                 r.TotalIngredientes)).ToList(),
             result.Tips));
+    }
+
+    [HttpGet("modo-ahorro/potencial")]
+    public async Task<IActionResult> GetSavingsPotencial(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getSavingsPotencialHandler.Handle(currentUser.HogarId, ct);
+        return Ok(new SavingsPotencialResponse(
+            result.TotalPotencial,
+            result.PeriodoBaseMeses,
+            result.Categorias.Select(c => new SavingsCategoriaResponse(
+                c.Nombre, c.GastoActual, c.MediaHistorica, c.PotencialAhorro, c.VariacionPct, c.Color)).ToList()));
+    }
+
+    [HttpGet("modo-ahorro/insights")]
+    public async Task<IActionResult> GetInsights(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getInsightsHandler.Handle(currentUser.HogarId, ct);
+        return Ok(new InsightsListResponse(
+            result.Insights.Select(i => new InsightResponse(
+                i.Tipo, i.Categoria, i.Titulo, i.Detalle, i.Accion, i.Emoji, i.VariacionPct, i.TendenciaMeses)).ToList()));
+    }
+
+    [HttpGet("modo-ahorro/alacena")]
+    public async Task<IActionResult> GetAlacenaOportunidades(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getAlacenaOportunidadesHandler.Handle(currentUser.HogarId, ct);
+        return Ok(new AlacenaOportunidadesResponse(
+            result.ProductosDestacados.Select(p => new ProductoDestacadoResponse(
+                p.Id, p.Nombre, p.Ubicacion, p.DiasParaVencer, p.Imagen, p.PorcentajeConsumido)).ToList(),
+            result.RecetasSugeridas.Select(r => new RecetaRecomendadaResponse(
+                r.Id, r.Nombre, r.ImagenUrl, r.IngredientesEnStock, r.TotalIngredientes)).ToList(),
+            result.TotalProductosEnCasa));
     }
 
     [HttpGet("balance")]
