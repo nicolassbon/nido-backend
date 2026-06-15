@@ -1,4 +1,4 @@
-using Nido.Application.Auth.Google.Login;
+﻿using Nido.Application.Auth.Google.Login;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.TestHost;
@@ -85,7 +85,7 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Password User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Password User", email, hasher.Hash(password), "M", null, true, CancellationToken.None);
         }
 
         var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-789"));

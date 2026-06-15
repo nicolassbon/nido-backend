@@ -40,11 +40,13 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
     private const decimal GenericMillilitersPerUnit = 100m;
 
     private readonly NidoDbContext _db;
+    private readonly IResenaRecetaRepository _resenaRepository;
     private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public RecetaRepository(NidoDbContext db, IPublicAssetUrlResolver assetUrlResolver)
+    public RecetaRepository(NidoDbContext db, IResenaRecetaRepository resenaRepository, IPublicAssetUrlResolver assetUrlResolver)
     {
         _db = db;
+        _resenaRepository = resenaRepository;
         _assetUrlResolver = assetUrlResolver;
     }
 
@@ -62,9 +64,14 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
 
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
         var vecesCocinadas = await GetVecesCocinadadasAsync(hogarId, ct);
+        var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), hogarId, ct);
 
         return recetas.Select(receta =>
-            ToResult(receta, productosEnStock, vecesCocinadas.GetValueOrDefault(receta.Id, 0))).ToList();
+            ToResult(
+                receta,
+                productosEnStock,
+                vecesCocinadas.GetValueOrDefault(receta.Id, 0),
+                resumenes.GetValueOrDefault(receta.Id, new ResenaResumen(0m, 0)))).ToList();
     }
 
     public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
@@ -86,8 +93,9 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         var vecesCocinada = await _db.RecetasCocinadas
             .AsNoTracking()
             .CountAsync(rc => rc.RecetaId == id && rc.HogarId == hogarId, ct);
+        var resumen = await _resenaRepository.GetResumenAsync(id, hogarId, ct);
 
-        return ToResult(receta, productosEnStock, vecesCocinada);
+        return ToResult(receta, productosEnStock, vecesCocinada, resumen);
     }
 
     public async Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct)
@@ -184,9 +192,25 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             }
             else
             {
-                item.CantidadActual = disponible - cantidadEnUnidadStock.Value;
-                item.UpdatedBy = usuarioId;
-                item.UpdatedAt = DateTime.UtcNow;
+                // Reducción parcial:
+                //  - bajamos CantidadActual por el consumo
+                //  - recalculamos porcentajeConsumido respecto a la cantidad
+                //    original del envase (inferida desde el estado previo)
+                //  - marcamos el envase como abierto
+                var nuevaCantidad = disponible - cantidadEnUnidadStock.Value;
+                var cantidadOriginal = item.PorcentajeConsumido < 100m
+                    ? disponible / ((100m - item.PorcentajeConsumido) / 100m)
+                    : disponible;
+
+                var nuevoPctConsumido = cantidadOriginal > 0m
+                    ? Math.Clamp(((cantidadOriginal - nuevaCantidad) / cantidadOriginal) * 100m, 0m, 99m)
+                    : item.PorcentajeConsumido;
+
+                item.CantidadActual       = nuevaCantidad;
+                item.EstaAbierto          = true;
+                item.PorcentajeConsumido  = decimal.Round(nuevoPctConsumido, 2);
+                item.UpdatedBy            = usuarioId;
+                item.UpdatedAt            = DateTime.UtcNow;
                 restante = 0;
             }
         }
@@ -265,7 +289,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             : null;
     }
 
-    private RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada)
+    private RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada, ResenaResumen resumen)
     {
         var nutricion = receta.InfoNutricionalReceta.FirstOrDefault();
 
@@ -307,7 +331,9 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                     electrodomestico.Id,
                     electrodomestico.TipoRequerido))
                 .ToList(),
-            vecesCocinada);
+            vecesCocinada,
+            resumen.Promedio,
+            resumen.Total);
     }
 
     private static IReadOnlyList<string> DetectAlergenos(IngredientesRecetum ingrediente)

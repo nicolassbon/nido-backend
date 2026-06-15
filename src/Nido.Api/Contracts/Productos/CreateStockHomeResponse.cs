@@ -10,5 +10,6 @@ public sealed record CreateStockHomeResponse(
     string Ubicacion,
     bool EstaAbierto,
     decimal PorcentajeConsumido,
-    Guid CategoriaId
+    Guid CategoriaId,
+    int CantidadEnvases
 );

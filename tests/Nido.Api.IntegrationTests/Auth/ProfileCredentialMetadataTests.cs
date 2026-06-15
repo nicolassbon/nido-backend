@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,7 +45,7 @@ public sealed class ProfileCredentialMetadataTests : IClassFixture<NidoTestWebAp
             }
             else
             {
-                (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Perfil User", email, hasher.Hash(seedPassword), "M", null, CancellationToken.None);
+                (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Perfil User", email, hasher.Hash(seedPassword), "M", null, true, CancellationToken.None);
             }
 
             token = tokenService.CreateToken(userId, hogarId, email, "Perfil User");

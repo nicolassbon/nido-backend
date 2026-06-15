@@ -1,5 +1,6 @@
 using Nido.Application.Alacena;
 using Nido.Application.Alacena.Exceptions;
+using Nido.Application.Insights;
 
 namespace Nido.Application.Tests.Alacena;
 
@@ -13,7 +14,7 @@ public sealed class AlacenaHandlersTests
         {
             Items =
             [
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, "779", null, "Alacena", 1, "unidad", null, false, 0),
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, "779", null, "Alacena", 1, "unidad", null, false, 0, 1),
             ]
         };
 
@@ -54,9 +55,9 @@ public sealed class AlacenaHandlersTests
     public async Task Delete_WhenExists_ReturnsTrue()
     {
         var repo = new FakeAlacenaRepository { DeleteResult = true };
-        var handler = new DeleteStockItemHandler(repo);
+        var handler = new DeleteStockItemHandler(repo, new FakeConsumoRepository());
 
-        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result);
     }
@@ -76,12 +77,41 @@ public sealed class AlacenaHandlersTests
 
         public Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(CreatedResult ??
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido));
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido, request.CantidadEnvases));
 
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);
 
         public Task<bool> DeleteAsync(Guid id, CancellationToken ct)
             => Task.FromResult(DeleteResult);
+    }
+
+    private sealed class FakeConsumoRepository : IConsumoProductoRepository
+    {
+        public Task RegistrarAsync(RegistrarConsumoInput input, CancellationToken ct) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ConsumoPorProducto>>(Array.Empty<ConsumoPorProducto>());
+
+        public Task<IReadOnlyList<ComprasPorProducto>> GetComprasPorProductoAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ComprasPorProducto>>(Array.Empty<ComprasPorProducto>());
+
+        public Task<IReadOnlyDictionary<DayOfWeek, int>> GetCocinadasPorDiaSemanaAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyDictionary<DayOfWeek, int>>(new Dictionary<DayOfWeek, int>());
+
+        public Task<IReadOnlyList<RecetaTopItem>> GetRecetasTopAsync(
+            Guid hogarId, int diasAtras, int topN, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<RecetaTopItem>>(Array.Empty<RecetaTopItem>());
+
+        public Task<IReadOnlyList<EnvaseZombieRaw>> GetEnvasesAbiertosLargoAsync(
+            Guid hogarId, int diasMinAbierto, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<EnvaseZombieRaw>>(Array.Empty<EnvaseZombieRaw>());
+
+        public Task<IReadOnlyList<DateTime>> GetFechasComprasHogarAsync(
+            Guid hogarId, int diasAtras, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<DateTime>>(Array.Empty<DateTime>());
     }
 }

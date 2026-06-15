@@ -43,7 +43,8 @@ public sealed class ProductRepository : IProductManualRepository
                     ? stock.FechaVencimiento.Value.ToString("yyyy-MM-dd")
                     : null,
                 stock.EstaAbierto,
-                stock.PorcentajeConsumido
+                stock.PorcentajeConsumido,
+                stock.CantidadEnvases
             ))
             .ToListAsync(cancellationToken);
     }

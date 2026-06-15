@@ -12,6 +12,8 @@ public static class DependencyInjection
         services.AddScoped<GetProductByBarcodeHandler>();
         services.AddScoped<CreateStockHomeHandler>();
         services.AddScoped<GetProductManualHandler>();
+        services.AddScoped<SearchProductosHandler>();
+        services.AddScoped<LookupExternalProductoHandler>();
         services.AddScoped<UploadProductImageHandler>();
         return services;
     }

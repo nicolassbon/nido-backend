@@ -37,4 +37,11 @@ public partial class StockHogar
     public string Ubicacion { get; set; } = null!;
     public bool EstaAbierto { get; set; }
     public decimal PorcentajeConsumido { get; set; }
+
+    /// <summary>
+    /// Cantidad de envases idénticos del producto. Default = 1.
+    /// Ej: cantidad_envases=2 + cantidad_actual=100 + unidad_medida='gr' →
+    /// "2 paquetes de 100g cada uno" (total disponible: 200g menos lo consumido del abierto).
+    /// </summary>
+    public int CantidadEnvases { get; set; } = 1;
 }

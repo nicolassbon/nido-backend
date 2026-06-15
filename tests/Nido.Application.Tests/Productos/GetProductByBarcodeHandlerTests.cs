@@ -57,5 +57,11 @@ public sealed class GetProductByBarcodeHandlerTests
 
         public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
             => Task.FromResult<GetProductByNameResult?>(null);
+
+        public Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
+            => Task.FromResult(Enumerable.Empty<SearchProductosResult>());
+
+        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+            => Task.FromResult(new GetProductByNameResult(Guid.NewGuid(), nombre, categoriaId, null));
     }
 }

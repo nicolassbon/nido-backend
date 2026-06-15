@@ -41,6 +41,8 @@ public sealed class GetRecetaByIdHandler
             result.Ingredientes,
             result.Pasos,
             result.Electrodomesticos,
-            result.VecesCocinada);
+            result.VecesCocinada,
+            result.CalificacionPromedio,
+            result.CalificacionTotal);
     }
 }
