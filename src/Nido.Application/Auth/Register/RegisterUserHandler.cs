@@ -98,6 +98,11 @@ public sealed class RegisterUserHandler
         {
             throw new WeakPasswordException();
         }
+
+        if (!command.AceptaTerminos)
+        {
+            throw new TermsNotAcceptedException();
+        }
     }
 
     private NewUserRegistrationData BuildNewRegistrationData(RegisterUserCommand command, string normalizedEmail, Guid usuarioId)
