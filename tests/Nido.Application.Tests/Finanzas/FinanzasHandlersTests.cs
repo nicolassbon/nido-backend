@@ -1,4 +1,4 @@
-using Nido.Application.Alacena;
+﻿using Nido.Application.Alacena;
 using Nido.Application.Finanzas;
 using Nido.Application.Finanzas.Exceptions;
 using Nido.Application.Recetas;
@@ -394,14 +394,14 @@ public sealed class FinanzasHandlersTests
         new([MakeGasto(monto, categoria, "2026-01-15")], monto);
 
     private static StockItemResult MakeStockItem(string nombre, decimal porcentajeConsumido, string? fechaVencimiento = null) =>
-        new(Guid.NewGuid(), Guid.NewGuid(), nombre, null, null, null, "Alacena", 1, "unidad", fechaVencimiento, false, porcentajeConsumido);
+        new(Guid.NewGuid(), Guid.NewGuid(), nombre, null, null, null, "Alacena", 1, "unidad", fechaVencimiento, false, porcentajeConsumido, 1);
 
     private static RecetaResult MakeReceta(string nombre, int enStock, int total)
     {
         var ingredientes = Enumerable.Range(0, total)
             .Select(i => new RecetaIngredienteResult(Guid.NewGuid(), null, $"Ingrediente{i}", null, 1, null, i < enStock, []))
             .ToList<RecetaIngredienteResult>();
-        return new RecetaResult(Guid.NewGuid(), nombre, null, null, null, null, null, null, null, null, null, null, ingredientes, [], [], 0);
+        return new RecetaResult(Guid.NewGuid(), nombre, null, null, null, null, null, null, null, null, null, null, ingredientes, [], [], 0, 0m, 0);
     }
 
     // ─── Fakes ───────────────────────────────────────────────────────────────
