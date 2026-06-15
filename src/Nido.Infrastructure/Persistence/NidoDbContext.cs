@@ -22,6 +22,8 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<PasoReceta> PasosReceta { get; set; }
 
+    public virtual DbSet<Factura> Facturas { get; set; }
+
     public virtual DbSet<Gasto> Gastos { get; set; }
 
     public virtual DbSet<Hogare> Hogares { get; set; }
@@ -84,31 +86,31 @@ public partial class NidoDbContext : DbContext
     {
         modelBuilder.HasPostgresExtension("uuid-ossp");
 
-modelBuilder.Entity<PasoReceta>(entity =>
-{
-    entity.HasKey(e => e.Id).HasName("pasos_receta_pkey");
+        modelBuilder.Entity<PasoReceta>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("pasos_receta_pkey");
 
-    entity.ToTable("pasos_receta");
+            entity.ToTable("pasos_receta");
 
-    entity.Property(e => e.Id)
-        .HasDefaultValueSql("uuid_generate_v4()")
-        .HasColumnName("id");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
 
-    entity.Property(e => e.RecetaId)
-        .HasColumnName("receta_id");
+            entity.Property(e => e.RecetaId)
+                .HasColumnName("receta_id");
 
-    entity.Property(e => e.Orden)
-        .HasColumnName("orden");
+            entity.Property(e => e.Orden)
+                .HasColumnName("orden");
 
-    entity.Property(e => e.Descripcion)
-        .HasColumnName("descripcion");
+            entity.Property(e => e.Descripcion)
+                .HasColumnName("descripcion");
 
-    entity.HasOne(e => e.Receta)
-        .WithMany(r => r.PasosReceta)
-        .HasForeignKey(e => e.RecetaId)
-        .OnDelete(DeleteBehavior.Cascade)
-        .HasConstraintName("pasos_receta_receta_id_fkey");
-});
+            entity.HasOne(e => e.Receta)
+                .WithMany(r => r.PasosReceta)
+                .HasForeignKey(e => e.RecetaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("pasos_receta_receta_id_fkey");
+        });
 
 
 
@@ -220,6 +222,34 @@ modelBuilder.Entity<PasoReceta>(entity =>
                 .HasColumnName("activo");
         });
 
+        modelBuilder.Entity<Factura>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("facturas_pkey");
+            entity.ToTable("facturas");
+            entity.HasIndex(e => e.HogarId, "idx_facturas_hogar");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
+            entity.Property(e => e.Nombre).HasMaxLength(255).HasColumnName("nombre");
+            entity.Property(e => e.Tipo).HasMaxLength(50).HasColumnName("tipo");
+            entity.Property(e => e.Monto).HasPrecision(10, 2).HasColumnName("monto");
+            entity.Property(e => e.FechaVencimiento).HasColumnName("fecha_vencimiento");
+            entity.Property(e => e.ArchivoStorageKey).HasMaxLength(500).HasColumnName("archivo_storage_key");
+            entity.Property(e => e.Pagada).HasDefaultValue(false).HasColumnName("pagada");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("facturas_hogar_id_fkey");
+            entity.HasOne(d => d.CreadoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadoPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("facturas_creado_por_fkey");
+        });
+
         modelBuilder.Entity<Gasto>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("gastos_pkey");
@@ -272,6 +302,9 @@ modelBuilder.Entity<PasoReceta>(entity =>
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.ModoAhorro)
+                .HasDefaultValue(false)
+                .HasColumnName("modo_ahorro");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
@@ -378,9 +411,6 @@ modelBuilder.Entity<PasoReceta>(entity =>
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
-            entity.Property(e => e.Codigo)
-                .HasMaxLength(255)
-                .HasColumnName("codigo");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
@@ -907,7 +937,7 @@ modelBuilder.Entity<PasoReceta>(entity =>
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
-            entity.Property(e => e.CompletadoPor).HasColumnName("completado_por");
+            entity.Property(e => e.CompletadoPor).HasColumnName("completado_por").IsRequired(false);
             entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
@@ -980,21 +1010,12 @@ modelBuilder.Entity<PasoReceta>(entity =>
             entity.Property(e => e.Telefono)
                 .HasMaxLength(50)
                 .HasColumnName("telefono");
-            entity.Property(e => e.FotoUrl)
-                .HasMaxLength(500)
-                .HasColumnName("foto_url");
             entity.Property(e => e.FotoStorageKey)
                 .HasMaxLength(512)
                 .HasColumnName("foto_storage_key");
-            entity.Property(e => e.FotoContentType)
-                .HasMaxLength(100)
-                .HasColumnName("foto_content_type");
-            entity.Property(e => e.FotoWidth)
-                .HasColumnName("foto_width");
-            entity.Property(e => e.FotoHeight)
-                .HasColumnName("foto_height");
-            entity.Property(e => e.FotoSizeBytes)
-                .HasColumnName("foto_size_bytes");
+            entity.Property(e => e.FotoUpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("foto_updated_at");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");

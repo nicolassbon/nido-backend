@@ -1,13 +1,15 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Common.Assets;
 using Nido.Application.Recetas;
+using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Recetas;
 
-public sealed class RecetaRepository : IRecetaRepository
+public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
 {
     private static readonly IReadOnlyDictionary<string, string[]> AllergenAliases = new Dictionary<string, string[]>
     {
@@ -39,11 +41,13 @@ public sealed class RecetaRepository : IRecetaRepository
 
     private readonly NidoDbContext _db;
     private readonly IResenaRecetaRepository _resenaRepository;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public RecetaRepository(NidoDbContext db, IResenaRecetaRepository resenaRepository)
+    public RecetaRepository(NidoDbContext db, IResenaRecetaRepository resenaRepository, IPublicAssetUrlResolver assetUrlResolver)
     {
         _db = db;
         _resenaRepository = resenaRepository;
+        _assetUrlResolver = assetUrlResolver;
     }
 
     public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct)
@@ -285,7 +289,7 @@ public sealed class RecetaRepository : IRecetaRepository
             : null;
     }
 
-    private static RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada, ResenaResumen resumen)
+    private RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada, ResenaResumen resumen)
     {
         var nutricion = receta.InfoNutricionalReceta.FirstOrDefault();
 
@@ -297,7 +301,7 @@ public sealed class RecetaRepository : IRecetaRepository
             receta.Dificultad,
             receta.Porciones,
             receta.FuenteId,
-            receta.ImagenUrl,
+            _assetUrlResolver.Resolve(receta.ImagenUrl),
             nutricion?.Calorias,
             nutricion?.Proteinas,
             nutricion?.Carbohidratos,
@@ -676,5 +680,20 @@ public sealed class RecetaRepository : IRecetaRepository
             .Where(rc => rc.HogarId == hogarId)
             .GroupBy(rc => rc.RecetaId)
             .ToDictionaryAsync(g => g.Key, g => g.Count(), ct);
+    }
+
+    public async Task<RecipeImageTarget?> GetImageTargetAsync(Guid recipeId, CancellationToken cancellationToken)
+        => await _db.Recetas
+            .AsNoTracking()
+            .Where(x => x.Id == recipeId)
+            .Select(x => new RecipeImageTarget(x.Id, x.ImagenUrl))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task UpdateImageKeyAsync(Guid recipeId, string storageKey, CancellationToken cancellationToken)
+    {
+        var receta = await _db.Recetas.FirstOrDefaultAsync(x => x.Id == recipeId, cancellationToken)
+            ?? throw new RecipeImageTargetNotFoundException();
+        receta.ImagenUrl = storageKey;
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

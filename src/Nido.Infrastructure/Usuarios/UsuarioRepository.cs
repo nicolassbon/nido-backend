@@ -26,7 +26,7 @@ public sealed class UsuarioRepository : IUsuarioRepository
         if (entity == null)
             return null;
 
-        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.FotoUrl, entity.CreatedAt);
+        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.CreatedAt, entity.FotoUpdatedAt);
     }
 
     public async Task<IReadOnlyList<string>> GetRestriccionesUsuarioAsync(Guid usuarioId, string tipo, CancellationToken cancellationToken)
@@ -47,7 +47,7 @@ public sealed class UsuarioRepository : IUsuarioRepository
         entity.Sexo = usuario.Sexo;
         entity.Telefono = usuario.Telefono;
         entity.FotoStorageKey = usuario.FotoStorageKey;
-        entity.FotoUrl = usuario.FotoUrl;
+        entity.FotoUpdatedAt = usuario.FotoUpdatedAt;
         entity.UpdatedAt = DateTime.UtcNow;
 
         _dbContext.Usuarios.Update(entity);

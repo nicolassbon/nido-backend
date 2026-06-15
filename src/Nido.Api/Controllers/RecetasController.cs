@@ -171,6 +171,16 @@ public sealed class RecetasController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/imagen")]
+    [Consumes("multipart/form-data")]
+    public IActionResult UploadImage(
+        Guid id,
+        [FromForm(Name = "imagen")] IFormFile? imagen,
+        CancellationToken cancellationToken)
+    {
+        return Forbid();
+    }
+
     private static NotaResponse ToNotaResponse(NotaItem item) =>
         new(item.Id, item.RecetaId, item.HogarId, item.UsuarioId,
             item.UsuarioNombre, item.UsuarioFotoUrl, item.Texto, item.CreatedAt);

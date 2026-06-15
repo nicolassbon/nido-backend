@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Nido.Application.Common.Security;
 using Nido.Application.Productos;
 using Nido.Api.Contracts.Productos;
+using Nido.Api.ImageUploads;
+using Nido.Application.Productos.UploadProductImage;
+using Nido.Infrastructure.Storage;
 
 namespace Nido.Api.Controllers;
 
@@ -13,13 +17,19 @@ public sealed class ProductsController : ControllerBase
 {
     private readonly CreateStockHomeHandler _createStockHomeHandler;
     private readonly GetProductManualHandler _getProductManualHandler;
+    private readonly UploadProductImageHandler _uploadProductImageHandler;
+    private readonly IOptions<SpacesOptions> _spacesOptions;
 
     public ProductsController(
         CreateStockHomeHandler createStockHomeHandler,
-        GetProductManualHandler getProductManualHandler)
+        GetProductManualHandler getProductManualHandler,
+        UploadProductImageHandler uploadProductImageHandler,
+        IOptions<SpacesOptions> spacesOptions)
     {
         _createStockHomeHandler = createStockHomeHandler;
         _getProductManualHandler = getProductManualHandler;
+        _uploadProductImageHandler = uploadProductImageHandler;
+        _spacesOptions = spacesOptions;
     }
 
 
@@ -84,5 +94,21 @@ public sealed class ProductsController : ControllerBase
             result.CategoriaId,
             result.CantidadEnvases
         ));
+    }
+
+    [HttpPost("{id:guid}/imagen")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadImage(
+        Guid id,
+        [FromForm(Name = "imagen")] IFormFile? imagen,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var upload = await ImageUploadFormReader.ReadAsync(imagen, _spacesOptions.Value.MaxUploadBytes, cancellationToken);
+        var result = await _uploadProductImageHandler.Handle(
+            new UploadProductImageCommand(id, currentUser.HogarId, upload),
+            cancellationToken);
+
+        return Ok(new { imagenUrl = result.ImagenUrl });
     }
 }

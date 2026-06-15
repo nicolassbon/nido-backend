@@ -1,3 +1,5 @@
+using Amazon.Runtime;
+using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -14,8 +16,13 @@ using Nido.Infrastructure.Onboarding;
 using Nido.Infrastructure.Hogares;
 using Nido.Infrastructure.Email;
 using Nido.Application.Alacena;
+using Nido.Application.CatalogoElectrodomesticos.UploadCatalogImage;
+using Nido.Application.Common.Assets;
+using Nido.Application.Common.Images;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Storage;
+using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
@@ -26,9 +33,18 @@ using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
 using Nido.Infrastructure.UsuariosPerfil;
 using Nido.Infrastructure.ProfileImages;
+using Nido.Infrastructure.PublicAssets;
+using Nido.Infrastructure.Images;
 using Nido.Infrastructure.Preferencias;
 using Nido.Infrastructure.Recetas;
 using Nido.Infrastructure.StockHogar;
+using Nido.Application.Finanzas;
+using Nido.Infrastructure.Finanzas;
+using Nido.Infrastructure.Storage;
+using Nido.Application.Productos.UploadProductImage;
+using Nido.Application.Recetas.UploadRecipeImage;
+using Nido.Application.Tareas;
+using Nido.Infrastructure.Tareas;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -81,9 +97,33 @@ public static class DependencyInjection
         services.AddScoped<Nido.Application.Insights.IConsumoProductoRepository, Nido.Infrastructure.Insights.ConsumoProductoRepository>();
         services.AddOptions<ProfileImageOptions>().Bind(configuration.GetSection(ProfileImageOptions.SectionName));
         services.AddScoped<IProfileImageProcessor, ImageSharpProfileImageProcessor>();
-        services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
         services.AddScoped<IProfileImagePublicUrlResolver, ConfigurableProfileImagePublicUrlResolver>();
+        services.AddOptions<SpacesOptions>()
+            .Bind(configuration.GetSection(SpacesOptions.SectionName))
+            .Validate(options => !options.Enabled || options.HasUploadConfiguration(), "Spaces upload configuration is incomplete.")
+            .ValidateOnStart();
+        services.AddScoped<IAmazonS3>(sp =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SpacesOptions>>().Value;
+            var config = new AmazonS3Config
+            {
+                ServiceURL = options.Endpoint,
+                ForcePathStyle = false
+            };
+
+            return new AmazonS3Client(new BasicAWSCredentials(options.AccessKey, options.SecretKey), config);
+        });
+        services.AddScoped<IFileStorageService, SpacesS3Storage>();
+        services.AddScoped<StorageKeyFactory>();
+        services.AddScoped<IImageProcessingService, ImageSharpImageProcessingService>();
+        services.AddScoped<IPublicAssetUrlResolver, SpacesPublicAssetUrlResolver>();
+        services.AddScoped<IProductImageRepository, ProductoRepository>();
+        services.AddScoped<IElectrodomesticoImageRepository, ElectrodomesticoRepository>();
+        services.AddScoped<ICatalogImageRepository, ElectrodomesticoRepository>();
+        services.AddScoped<IRecipeImageRepository, RecetaRepository>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
+        services.AddScoped<IFinanzasRepository, FinanzasRepository>();
+        services.AddScoped<ITareaRepository, TareaRepository>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:
