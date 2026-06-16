@@ -55,7 +55,7 @@ public sealed class GetAlacenaOportunidadesHandler
             })
             .ToList();
 
-        var todasLasRecetas = await _recetaRepository.GetAllAsync(hogarId, ct);
+        var todasLasRecetas = await _recetaRepository.GetAllAsync(hogarId, Guid.Empty, ct);
         var recetas = todasLasRecetas
             .Where(r => r.Ingredientes.Count > 0)
             .Select(r => new

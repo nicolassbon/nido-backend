@@ -401,7 +401,7 @@ public sealed class FinanzasHandlersTests
         var ingredientes = Enumerable.Range(0, total)
             .Select(i => new RecetaIngredienteResult(Guid.NewGuid(), null, $"Ingrediente{i}", null, 1, null, i < enStock, []))
             .ToList<RecetaIngredienteResult>();
-        return new RecetaResult(Guid.NewGuid(), nombre, null, null, null, null, null, null, null, null, null, null, ingredientes, [], [], 0, 0m, 0);
+        return new RecetaResult(Guid.NewGuid(), nombre, null, null, null, null, null, null, null, null, null, null, ingredientes, [], [], 0, 0m, 0, false, null, null, []);
     }
 
     // ─── Fakes ───────────────────────────────────────────────────────────────
@@ -464,10 +464,10 @@ public sealed class FinanzasHandlersTests
     {
         public IReadOnlyList<RecetaResult> Recetas { get; set; } = [];
 
-        public Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct) =>
+        public Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, Guid usuarioId, CancellationToken ct) =>
             Task.FromResult(Recetas);
 
-        public Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct) =>
+        public Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, Guid usuarioId, CancellationToken ct) =>
             Task.FromResult<RecetaResult?>(null);
 
         public Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct) =>

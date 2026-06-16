@@ -50,7 +50,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         _assetUrlResolver = assetUrlResolver;
     }
 
-    public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct)
+    public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
     {
         var recetas = await _db.Recetas
             .AsNoTracking()
@@ -62,7 +62,10 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             .OrderBy(receta => receta.Nombre)
             .ToListAsync(ct);
 
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var diasAlerta = await GetDiasAlertaAsync(usuarioId, ct);
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
+        var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
         var vecesCocinadas = await GetVecesCocinadadasAsync(hogarId, ct);
         var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), hogarId, ct);
 
@@ -70,11 +73,13 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             ToResult(
                 receta,
                 productosEnStock,
+                productosPorVencer,
+                hoy,
                 vecesCocinadas.GetValueOrDefault(receta.Id, 0),
                 resumenes.GetValueOrDefault(receta.Id, new ResenaResumen(0m, 0)))).ToList();
     }
 
-    public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+    public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, Guid usuarioId, CancellationToken ct)
     {
         var receta = await _db.Recetas
             .AsNoTracking()
@@ -89,13 +94,16 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         if (receta is null)
             return null;
 
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var diasAlerta = await GetDiasAlertaAsync(usuarioId, ct);
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
+        var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
         var vecesCocinada = await _db.RecetasCocinadas
             .AsNoTracking()
             .CountAsync(rc => rc.RecetaId == id && rc.HogarId == hogarId, ct);
         var resumen = await _resenaRepository.GetResumenAsync(id, hogarId, ct);
 
-        return ToResult(receta, productosEnStock, vecesCocinada, resumen);
+        return ToResult(receta, productosEnStock, productosPorVencer, hoy, vecesCocinada, resumen);
     }
 
     public async Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct)
@@ -289,9 +297,16 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             : null;
     }
 
-    private RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada, ResenaResumen resumen)
+    private RecetaResult ToResult(
+        Receta receta,
+        IReadOnlySet<Guid> productosEnStock,
+        IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar> productosPorVencer,
+        DateOnly hoy,
+        int vecesCocinada,
+        ResenaResumen resumen)
     {
         var nutricion = receta.InfoNutricionalReceta.FirstOrDefault();
+        var urgencia = CalculateUrgencia(receta, productosPorVencer, hoy);
 
         return new RecetaResult(
             receta.Id,
@@ -333,7 +348,50 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 .ToList(),
             vecesCocinada,
             resumen.Promedio,
-            resumen.Total);
+            resumen.Total,
+            urgencia.TieneProductosPorVencer,
+            urgencia.FechaVencimientoMasProxima?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            urgencia.DiasHastaVencimiento,
+            urgencia.ProductosPorVencer.Select(producto => new RecetaProductoPorVencerResult(
+                producto.ProductoId,
+                producto.Nombre,
+                producto.FechaVencimiento.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                producto.FechaVencimiento.DayNumber - hoy.DayNumber)).ToList());
+    }
+
+    private static UrgenciaReceta CalculateUrgencia(
+        Receta receta,
+        IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar> productosPorVencer,
+        DateOnly hoy)
+    {
+        var productosUrgentes = receta.IngredientesReceta
+            .SelectMany(ingrediente =>
+            {
+                var ingredientName = BuildIngredientLookupName(ingrediente);
+                return productosPorVencer
+                    .Where(stock => GetStockMatchScore(stock, ingrediente.ProductoId, ingredientName) > 0)
+                    .Select(stock => new ProductoPorVencerReceta(
+                        stock.ProductoId,
+                        stock.Producto?.Nombre ?? ingredientName,
+                        stock.FechaVencimiento!.Value));
+            })
+            .Where(producto => !string.IsNullOrWhiteSpace(producto.Nombre))
+            .GroupBy(producto => producto.ProductoId)
+            .Select(grupo => grupo
+                .OrderBy(producto => producto.FechaVencimiento)
+                .ThenBy(producto => producto.Nombre)
+                .First())
+            .OrderBy(producto => producto.FechaVencimiento)
+            .ThenBy(producto => producto.Nombre)
+            .ToList();
+
+        var fechaMasProxima = productosUrgentes
+            .Select(producto => (DateOnly?)producto.FechaVencimiento)
+            .FirstOrDefault();
+
+        return fechaMasProxima.HasValue
+            ? new UrgenciaReceta(true, fechaMasProxima.Value, fechaMasProxima.Value.DayNumber - hoy.DayNumber, productosUrgentes)
+            : new UrgenciaReceta(false, null, null, []);
     }
 
     private static IReadOnlyList<string> DetectAlergenos(IngredientesRecetum ingrediente)
@@ -654,6 +712,57 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
     private readonly record struct IngredientConsumption(decimal Cantidad, string? Unidad);
 
     private readonly record struct UnitInfo(string Family, decimal Factor);
+
+    private readonly record struct UrgenciaReceta(
+        bool TieneProductosPorVencer,
+        DateOnly? FechaVencimientoMasProxima,
+        int? DiasHastaVencimiento,
+        IReadOnlyList<ProductoPorVencerReceta> ProductosPorVencer);
+
+    private readonly record struct ProductoPorVencerReceta(
+        Guid ProductoId,
+        string Nombre,
+        DateOnly FechaVencimiento);
+
+    private async Task<int> GetDiasAlertaAsync(Guid usuarioId, CancellationToken ct)
+    {
+        const int defaultDiasAlerta = 7;
+
+        if (usuarioId == Guid.Empty)
+            return defaultDiasAlerta;
+
+        var diasAlerta = await _db.Usuarios
+            .AsNoTracking()
+            .Where(usuario => usuario.Id == usuarioId)
+            .Select(usuario => (int?)usuario.AlertaVencimientoDias)
+            .FirstOrDefaultAsync(ct);
+
+        return diasAlerta.HasValue
+            ? Math.Clamp(diasAlerta.Value, 1, 365)
+            : defaultDiasAlerta;
+    }
+
+    private async Task<IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar>> GetProductosPorVencerAsync(
+        Guid hogarId,
+        DateOnly hoy,
+        int diasAlerta,
+        CancellationToken ct)
+    {
+        if (hogarId == Guid.Empty)
+            return [];
+
+        var hasta = hoy.AddDays(diasAlerta);
+
+        return await _db.StockHogars
+            .AsNoTracking()
+            .Include(stock => stock.Producto)
+            .Where(stock => stock.HogarId == hogarId
+                         && (stock.CantidadActual == null || stock.CantidadActual > 0)
+                         && stock.FechaVencimiento.HasValue
+                         && stock.FechaVencimiento.Value >= hoy
+                         && stock.FechaVencimiento.Value <= hasta)
+            .ToListAsync(ct);
+    }
 
     private async Task<IReadOnlySet<Guid>> GetProductosEnStockAsync(Guid hogarId, CancellationToken ct)
     {

@@ -48,7 +48,7 @@ public sealed class RecetasController : ControllerBase
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
-        var result = await _getRecetasHandler.Handle(currentUser.HogarId, ct);
+        var result = await _getRecetasHandler.Handle(currentUser.HogarId, currentUser.UsuarioId, ct);
         return Ok(result.Select(ToResponse));
     }
 
@@ -59,7 +59,7 @@ public sealed class RecetasController : ControllerBase
         CancellationToken ct)
     {
         var result = await _getRecetaByIdHandler.Handle(
-            new GetRecetaByIdCommand(id, currentUser.HogarId), ct);
+            new GetRecetaByIdCommand(id, currentUser.HogarId, currentUser.UsuarioId), ct);
 
         if (result is null)
             return NotFound();
@@ -222,7 +222,15 @@ public sealed class RecetasController : ControllerBase
                 electrodomestico.TipoRequerido)).ToList(),
             receta.VecesCocinada,
             receta.CalificacionPromedio,
-            receta.CalificacionTotal);
+            receta.CalificacionTotal,
+            receta.TieneProductosPorVencer,
+            receta.FechaVencimientoMasProxima,
+            receta.DiasHastaVencimiento,
+            receta.ProductosPorVencer.Select(producto => new RecetaProductoPorVencerResponse(
+                producto.ProductoId,
+                producto.Nombre,
+                producto.FechaVencimiento,
+                producto.DiasHastaVencimiento)).ToList());
     }
 
     private static RecetaResponse ToResponseFromById(GetRecetaByIdResult receta)
@@ -258,6 +266,14 @@ public sealed class RecetasController : ControllerBase
                 electrodomestico.TipoRequerido)).ToList(),
             receta.VecesCocinada,
             receta.CalificacionPromedio,
-            receta.CalificacionTotal);
+            receta.CalificacionTotal,
+            receta.TieneProductosPorVencer,
+            receta.FechaVencimientoMasProxima,
+            receta.DiasHastaVencimiento,
+            receta.ProductosPorVencer.Select(producto => new RecetaProductoPorVencerResponse(
+                producto.ProductoId,
+                producto.Nombre,
+                producto.FechaVencimiento,
+                producto.DiasHastaVencimiento)).ToList());
     }
 }
