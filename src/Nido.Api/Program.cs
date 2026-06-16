@@ -21,6 +21,8 @@ using Nido.Application.UsuariosPerfil;
 using Nido.Infrastructure.Auth;
 using Nido.Api.OpenApi;
 using Scalar.AspNetCore;
+using Nido.Application.Tickets;
+
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -50,6 +52,7 @@ builder.Services.AddAlacenaModule();
 builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
+builder.Services.AddTicketsModule();
 builder.Services.AddUsuariosPerfilModule();
 
 

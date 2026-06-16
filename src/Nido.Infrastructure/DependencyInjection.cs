@@ -38,6 +38,8 @@ using Nido.Infrastructure.Storage;
 using Nido.Application.Productos.UploadProductImage;
 using Nido.Application.Recetas.UploadRecipeImage;
 using Resend;
+using Nido.Application.Tickets;
+using Nido.Infrastructure.Tickets;
 
 namespace Nido.Infrastructure;
 
@@ -108,7 +110,11 @@ public static class DependencyInjection
         services.AddScoped<ICatalogImageRepository, ElectrodomesticoRepository>();
         services.AddScoped<IRecipeImageRepository, RecetaRepository>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
+        //google document ai
+        services.AddOptions<GoogleDocumentAiOptions>()
+    .Bind(configuration.GetSection(GoogleDocumentAiOptions.SectionName));
 
+        services.AddScoped<IReceiptParser, GoogleDocumentAiReceiptParser>();
         return services;
     }
 }

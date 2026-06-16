@@ -53,10 +53,20 @@ services:
       - Spaces__Region=${Spaces__Region}
       - Spaces__AccessKey=${Spaces__AccessKey}
       - Spaces__SecretKey=${Spaces__SecretKey}
+      - GoogleDocumentAi__ProjectId=${GoogleDocumentAi__ProjectId}
+      - GoogleDocumentAi__Location=${GoogleDocumentAi__Location}
+      - GoogleDocumentAi__ProcessorId=${GoogleDocumentAi__ProcessorId}
+      - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/nido-document-ai.json
+
     ports:
       - "8080:8080"
     volumes:
       - ./src/Nido.Api/wwwroot/uploads:/app/wwwroot/uploads
+
+      - C:/secrets/nido-tickets-120537056965.json:/run/secrets/nido-document-ai.json:ro
+
+
+      
     depends_on:
       postgres:
         condition: service_healthy
