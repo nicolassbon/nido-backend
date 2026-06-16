@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<CreateStockItemHandler>();
         services.AddScoped<UpdateStockItemHandler>();
         services.AddScoped<DeleteStockItemHandler>();
+        services.AddScoped<GetStockMovementsHandler>();
         return services;
     }
 }

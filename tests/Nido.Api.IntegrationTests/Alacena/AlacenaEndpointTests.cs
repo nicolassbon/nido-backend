@@ -426,8 +426,127 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         Assert.Equal(3m, consumo.Cantidad);
         Assert.Equal("paquetes", consumo.UnidadMedida);
-        Assert.Equal("Terminado", consumo.Motivo);
+        Assert.Equal("Consumido", consumo.Motivo);
         Assert.Equal(user.UsuarioId, consumo.UsuarioId);
+    }
+
+    [Theory]
+    [InlineData("consumido", "Consumido")]
+    [InlineData("descartado", "Descartado")]
+    [InlineData("vencido", "Vencido")]
+    [InlineData("terminado", "Consumido")]
+    public async Task DeleteProducto_WhenMotivoIsProvided_RegistersMappedConsumoMotivo(string motivo, string expected)
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, $"alacena-delete-{motivo}");
+        var stockId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto { Id = productId, Nombre = $"Producto {motivo}" });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = user.HogarId,
+                ProductoId = productId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CantidadActual = 2m,
+                UnidadMedida = "unidad",
+                Ubicacion = "Alacena",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m,
+                FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10))
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.DeleteAsync($"/api/alacena/productos/{stockId}?motivo={motivo}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var consumo = await verifyDb.ConsumosProducto.SingleAsync(x =>
+            x.HogarId == user.HogarId &&
+            x.ProductoId == productId);
+
+        Assert.Equal(expected, consumo.Motivo);
+    }
+
+    [Fact]
+    public async Task DeleteProducto_WhenMotivoIsInvalid_ReturnsBadRequest()
+    {
+        await RegisterAndAuthenticateAsync(_client, "alacena-delete-invalid-motivo");
+
+        var response = await _client.DeleteAsync($"/api/alacena/productos/{Guid.NewGuid()}?motivo=invalido");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMovimientos_ReturnsHouseholdMovementsWithFilters()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-movimientos");
+        var otherHogarId = Guid.NewGuid();
+        var arrozId = Guid.NewGuid();
+        var lecheId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.ConsumosProducto.AddRange(
+                new ConsumoProducto
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = user.HogarId,
+                    ProductoId = arrozId,
+                    ProductoNombre = "Arroz",
+                    Cantidad = 1m,
+                    UnidadMedida = "kg",
+                    Motivo = "Consumido",
+                    FechaConsumo = DateTime.UtcNow.AddDays(-1),
+                    UsuarioId = user.UsuarioId
+                },
+                new ConsumoProducto
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = user.HogarId,
+                    ProductoId = lecheId,
+                    ProductoNombre = "Leche",
+                    Cantidad = 2m,
+                    UnidadMedida = "lt",
+                    Motivo = "Descartado",
+                    FechaConsumo = DateTime.UtcNow.AddDays(-2),
+                    UsuarioId = user.UsuarioId
+                },
+                new ConsumoProducto
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = otherHogarId,
+                    ProductoId = Guid.NewGuid(),
+                    ProductoNombre = "Otro hogar",
+                    Cantidad = 1m,
+                    UnidadMedida = "unidad",
+                    Motivo = "Consumido",
+                    FechaConsumo = DateTime.UtcNow,
+                    UsuarioId = null
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/alacena/movimientos?motivo=descartado&q=lech&limit=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var movimientos = await response.Content.ReadFromJsonAsync<List<StockMovementBody>>();
+        var movimiento = Assert.Single(movimientos!);
+        Assert.Equal(lecheId, movimiento.ProductoId);
+        Assert.Equal("Leche", movimiento.ProductoNombre);
+        Assert.Equal(2m, movimiento.Cantidad);
+        Assert.Equal("lt", movimiento.UnidadMedida);
+        Assert.Equal("Descartado", movimiento.Motivo);
+        Assert.Equal(user.UsuarioId, movimiento.UsuarioId);
     }
 
     private async Task<AuthenticatedUser> RegisterAndAuthenticateAsync(HttpClient client, string prefix)
@@ -447,4 +566,5 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record AuthenticatedUser(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
+    private sealed record StockMovementBody(Guid Id, Guid? ProductoId, string ProductoNombre, decimal Cantidad, string? UnidadMedida, string Motivo, DateTime FechaConsumo, Guid? UsuarioId);
 }

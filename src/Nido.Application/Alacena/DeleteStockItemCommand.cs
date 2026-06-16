@@ -1,3 +1,3 @@
 namespace Nido.Application.Alacena;
 
-public sealed record DeleteStockItemCommand(Guid Id, Guid HogarId, Guid UsuarioId);
+public sealed record DeleteStockItemCommand(Guid Id, Guid HogarId, Guid UsuarioId, string? Motivo = null);

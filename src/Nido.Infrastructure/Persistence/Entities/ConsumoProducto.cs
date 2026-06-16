@@ -26,7 +26,7 @@ public class ConsumoProducto
 
     public DateTime FechaConsumo { get; set; }
 
-    /// <summary>Cocinado | Terminado | Vencido | Ajuste</summary>
+    /// <summary>Consumido | Descartado | Cocinado | Vencido | Ajuste</summary>
     public string Motivo { get; set; } = null!;
 
     public Guid? UsuarioId { get; set; }

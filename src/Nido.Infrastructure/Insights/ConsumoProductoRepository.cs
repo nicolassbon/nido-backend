@@ -54,6 +54,54 @@ public sealed class ConsumoProductoRepository : IConsumoProductoRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<ConsumoMovimiento>> GetMovimientosAsync(
+        Guid hogarId, ConsumoMovimientosFiltro filtro, CancellationToken ct)
+    {
+        var limit = Math.Clamp(filtro.Limit, 1, 200);
+        var query = _db.ConsumosProducto
+            .AsNoTracking()
+            .Where(c => c.HogarId == hogarId);
+
+        if (!string.IsNullOrWhiteSpace(filtro.Motivo))
+        {
+            query = filtro.Motivo == ConsumoMotivos.Consumido
+                ? query.Where(c => c.Motivo == ConsumoMotivos.Consumido || c.Motivo == ConsumoMotivos.Terminado)
+                : query.Where(c => c.Motivo == filtro.Motivo);
+        }
+
+        if (filtro.Desde.HasValue)
+        {
+            var desde = filtro.Desde.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            query = query.Where(c => c.FechaConsumo >= desde);
+        }
+
+        if (filtro.Hasta.HasValue)
+        {
+            var hasta = filtro.Hasta.Value.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            query = query.Where(c => c.FechaConsumo < hasta);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Q))
+        {
+            var q = filtro.Q.Trim().ToLower();
+            query = query.Where(c => c.ProductoNombre.ToLower().Contains(q));
+        }
+
+        return await query
+            .OrderByDescending(c => c.FechaConsumo)
+            .Take(limit)
+            .Select(c => new ConsumoMovimiento(
+                c.Id,
+                c.ProductoId,
+                c.ProductoNombre,
+                c.Cantidad,
+                c.UnidadMedida,
+                c.Motivo,
+                c.FechaConsumo,
+                c.UsuarioId))
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<ComprasPorProducto>> GetComprasPorProductoAsync(
         Guid hogarId, int diasAtras, CancellationToken ct)
     {
