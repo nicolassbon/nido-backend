@@ -12,12 +12,17 @@ using Nido.Application.Alacena;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
+using Nido.Application.Estadisticas;
+using Nido.Application.Insights;
 using Nido.Application.Common.Security;
 using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
+using Nido.Application.Finanzas;
+using Nido.Application.Tareas;
+using Nido.Application.Notificaciones;
 using Nido.Infrastructure.Auth;
 using Nido.Api.OpenApi;
 using Scalar.AspNetCore;
@@ -51,6 +56,11 @@ builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
 builder.Services.AddUsuariosPerfilModule();
+builder.Services.AddEstadisticasModule();
+builder.Services.AddInsightsModule();
+builder.Services.AddFinanzasModule();
+builder.Services.AddTareasModule();
+builder.Services.AddNotificacionesModule();
 
 
 

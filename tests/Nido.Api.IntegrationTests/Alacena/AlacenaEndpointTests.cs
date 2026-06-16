@@ -49,20 +49,29 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
             cantidad = 1,
             fechaVencimiento = "2026-12-01",
             estaAbierto = false,
-            porcentajeConsumido = 0
+            porcentajeConsumido = 0,
+            cantidadEnvases = 3
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(created);
+        Assert.Equal(3, created!.CantidadEnvases);
+
+        var getResponse = await _client.GetAsync($"/api/alacena/productos/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<StockItemBody>();
+        Assert.NotNull(fetched);
+        Assert.Equal(3, fetched!.CantidadEnvases);
 
         var listResponse = await _client.GetAsync("/api/alacena/productos");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var list = await listResponse.Content.ReadFromJsonAsync<List<StockItemBody>>();
         Assert.NotNull(list);
-        Assert.NotEmpty(list!);
+        var listed = Assert.Single(list!, item => item.Id == created.Id);
+        Assert.Equal(3, listed.CantidadEnvases);
 
-        var patchResponse = await _client.PatchAsJsonAsync($"/api/alacena/productos/{created!.Id}", new
+        var patchResponse = await _client.PatchAsJsonAsync($"/api/alacena/productos/{created.Id}", new
         {
             nombre = "Yerba editada",
             cantidad = 2,
@@ -70,13 +79,22 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
             unidadMedida = "kg",
             fechaVencimiento = "2026-12-02",
             estaAbierto = true,
-            porcentajeConsumido = 25
+            porcentajeConsumido = 25,
+            cantidadEnvases = 4
         });
         Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
         var patched = await patchResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(patched);
         Assert.Equal("Yerba editada", patched!.Nombre);
         Assert.Equal("kg", patched.UnidadMedida);
+        Assert.Equal(4, patched.CantidadEnvases);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var persisted = await db.StockHogars.SingleAsync(item => item.Id == created.Id);
+            Assert.Equal(4, persisted.CantidadEnvases);
+        }
 
         var deleteResponse = await _client.DeleteAsync($"/api/alacena/productos/{created.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
@@ -124,6 +142,55 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
         Assert.Equal("https://img.test/yerba.png", product.ImagenUrl);
+    }
+
+    [Fact]
+    public async Task GetProductos_WhenProductStoresSpacesKey_ReturnsResolvedPublicImageUrl()
+    {
+        var email = $"alacena-image-{Guid.NewGuid():N}@test.com";
+        using var registerContent = RegisterMultipartRequest.Create("Image User", email, "Password123!", "U");
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
+        var regBody = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", regBody!.AccessToken);
+
+        var productId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+        const string imageKey = "products/test-image.webp";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productId,
+                Nombre = "Yerba con foto",
+                ImagenUrl = imageKey
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = regBody.HogarId,
+                ProductoId = productId,
+                CargadoPor = regBody.UsuarioId,
+                UpdatedBy = regBody.UsuarioId,
+                CreatedAt = DateTime.UtcNow,
+                Ubicacion = "Alacena",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var listResponse = await _client.GetAsync("/api/alacena/productos");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+
+        var list = await listResponse.Content.ReadFromJsonAsync<List<StockItemBody>>();
+        var item = Assert.Single(list!, x => x.Id == stockId);
+        Assert.NotNull(item.Imagen);
+        Assert.StartsWith("https://", item.Imagen, StringComparison.Ordinal);
+        Assert.EndsWith(imageKey, item.Imagen, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -316,6 +383,53 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.True(await verifyDb.StockHogars.AnyAsync(x => x.Id == stockId && x.HogarId == owner.HogarId));
     }
 
+    [Fact]
+    public async Task DeleteProducto_WhenOwnStockDeleted_RegistersConsumoWithExpectedPayload()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-delete-consumo");
+        var stockId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto { Id = productId, Nombre = "Fideos" });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = user.HogarId,
+                ProductoId = productId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CantidadActual = 3m,
+                UnidadMedida = "paquetes",
+                Ubicacion = "Alacena",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m,
+                FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2))
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.DeleteAsync($"/api/alacena/productos/{stockId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        Assert.False(await verifyDb.StockHogars.AnyAsync(x => x.Id == stockId && x.HogarId == user.HogarId));
+
+        var consumo = await verifyDb.ConsumosProducto.SingleAsync(x =>
+            x.HogarId == user.HogarId &&
+            x.ProductoId == productId &&
+            x.ProductoNombre == "Fideos");
+
+        Assert.Equal(3m, consumo.Cantidad);
+        Assert.Equal("paquetes", consumo.UnidadMedida);
+        Assert.Equal("Terminado", consumo.Motivo);
+        Assert.Equal(user.UsuarioId, consumo.UsuarioId);
+    }
+
     private async Task<AuthenticatedUser> RegisterAndAuthenticateAsync(HttpClient client, string prefix)
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
@@ -332,5 +446,5 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record AuthenticatedUser(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
-    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido);
+    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
 }

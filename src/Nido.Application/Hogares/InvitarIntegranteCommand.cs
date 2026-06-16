@@ -1,6 +1,6 @@
 namespace Nido.Application.Hogares;
 
-public sealed record InvitarConviventeCommand(
+public sealed record InvitarIntegranteCommand(
     Guid UsuarioId,
     Guid HogarId,
     string EmailInvitado);

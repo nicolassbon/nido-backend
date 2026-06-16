@@ -79,6 +79,68 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("categorias_producto", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ConsumoProducto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<Guid?>("CategoriaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("categoria_id");
+
+                    b.Property<DateTime>("FechaConsumo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_consumo");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid?>("ProductoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_id");
+
+                    b.Property<string>("ProductoNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("producto_nombre");
+
+                    b.Property<string>("UnidadMedida")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_medida");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("HogarId", "FechaConsumo")
+                        .HasDatabaseName("ix_consumos_producto_hogar_fecha");
+
+                    b.HasIndex("HogarId", "ProductoId", "FechaConsumo")
+                        .HasDatabaseName("ix_consumos_producto_hogar_producto_fecha");
+
+                    b.ToTable("consumos_producto", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Electrodomestico", b =>
                 {
                     b.Property<Guid>("Id")
@@ -177,6 +239,70 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("electrodomesticos_catalogo", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("ArchivoStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("archivo_storage_key");
+
+                    b.Property<Guid>("CreadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creado_por");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateOnly?>("FechaVencimiento")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_vencimiento");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<decimal?>("Monto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("monto");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nombre");
+
+                    b.Property<bool>("Pagada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("pagada");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("facturas_pkey");
+
+                    b.HasIndex("CreadoPor");
+
+                    b.HasIndex(new[] { "HogarId" }, "idx_facturas_hogar");
+
+                    b.ToTable("facturas", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Gasto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -259,6 +385,12 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("ModoAhorro")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("modo_ahorro");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -646,6 +778,47 @@ namespace Nido.Infrastructure.Migrations
                     b.HasIndex(new[] { "UsuarioId" }, "idx_miembros_hogar_usuario");
 
                     b.ToTable("miembros_hogar", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.NotaReceta", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<Guid>("RecetaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receta_id");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("texto");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HogarId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("RecetaId", "HogarId")
+                        .HasDatabaseName("ix_notas_receta_receta_hogar");
+
+                    b.ToTable("notas_receta", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Notificacione", b =>
@@ -1064,6 +1237,10 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
                     b.Property<int?>("Puntuacion")
                         .HasColumnType("integer")
                         .HasColumnName("puntuacion");
@@ -1072,6 +1249,10 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("receta_id");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
                     b.Property<Guid>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
@@ -1079,9 +1260,17 @@ namespace Nido.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("resenias_receta_pkey");
 
-                    b.HasIndex("RecetaId");
+                    b.HasIndex("HogarId");
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("RecetaId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("resenias_receta_receta_id_usuario_id_key");
+
+                    b.HasIndex("RecetaId", "HogarId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_resenias_receta_hogar_usuario");
 
                     b.ToTable("resenias_receta", (string)null);
                 });
@@ -1142,6 +1331,12 @@ namespace Nido.Infrastructure.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("cantidad_actual");
+
+                    b.Property<int>("CantidadEnvases")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("cantidad_envases");
 
                     b.Property<Guid>("CargadoPor")
                         .HasColumnType("uuid")
@@ -1221,7 +1416,7 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
-                    b.Property<Guid>("CompletadoPor")
+                    b.Property<Guid?>("CompletadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("completado_por");
 
@@ -1281,6 +1476,16 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<bool>("AceptaTerminos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("acepta_terminos");
+
+                    b.Property<DateTime?>("AceptaTerminosAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acepta_terminos_at");
 
                     b.Property<int>("AlertaVencimientoDias")
                         .ValueGeneratedOnAdd()
@@ -1379,6 +1584,24 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ConsumoProducto", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Producto");
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Electrodomestico", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.ElectrodomesticoCatalogo", "Catalogo")
@@ -1393,6 +1616,25 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("electrodomesticos_hogar_id_fkey");
 
                     b.Navigation("Catalogo");
+
+                    b.Navigation("Hogar");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")
+                        .WithMany()
+                        .HasForeignKey("CreadoPor")
+                        .IsRequired()
+                        .HasConstraintName("facturas_creado_por_fkey");
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .IsRequired()
+                        .HasConstraintName("facturas_hogar_id_fkey");
+
+                    b.Navigation("CreadoPorNavigation");
 
                     b.Navigation("Hogar");
                 });
@@ -1580,6 +1822,33 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.NotaReceta", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
+                        .WithMany()
+                        .HasForeignKey("RecetaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Receta");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Notificacione", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
@@ -1707,6 +1976,12 @@ namespace Nido.Infrastructure.Migrations
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ReseniasRecetum", b =>
                 {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
                         .WithMany("ReseniasReceta")
                         .HasForeignKey("RecetaId")
@@ -1718,6 +1993,8 @@ namespace Nido.Infrastructure.Migrations
                         .HasForeignKey("UsuarioId")
                         .IsRequired()
                         .HasConstraintName("resenias_receta_usuario_id_fkey");
+
+                    b.Navigation("Hogar");
 
                     b.Navigation("Receta");
 
@@ -1785,7 +2062,6 @@ namespace Nido.Infrastructure.Migrations
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompletadoPorNavigation")
                         .WithMany("TareaCompletadoPorNavigations")
                         .HasForeignKey("CompletadoPor")
-                        .IsRequired()
                         .HasConstraintName("tareas_completado_por_fkey");
 
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")

@@ -31,7 +31,8 @@ public sealed class CreateStockItemHandler
             command.UnidadMedida,
             command.FechaVencimiento,
             command.EstaAbierto,
-            command.PorcentajeConsumido);
+            command.PorcentajeConsumido,
+            command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases);
 
         return await _repository.CreateAsync(request, ct);
     }

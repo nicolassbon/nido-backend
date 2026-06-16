@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Nido.Application.Auth;
 using Nido.Infrastructure.Auth;
 using Nido.Infrastructure.Persistence;
@@ -23,6 +24,7 @@ public sealed class AuthRepositoryTests : IAsyncLifetime
 
         var options = new DbContextOptionsBuilder<NidoDbContext>()
             .UseNpgsql(_testDatabase.ConnectionString)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
             .Options;
 
         _dbContext = new NidoDbContext(options);

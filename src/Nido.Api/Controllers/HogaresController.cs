@@ -12,13 +12,13 @@ namespace Nido.Api.Controllers;
 public sealed class HogaresController : ControllerBase
 {
     [HttpPost("invitar")]
-    public async Task<IActionResult> InvitarConviviente(
-        [FromBody] InvitarConviventeRequest request,
-        [FromServices] InvitarConviventeHandler handler,
+    public async Task<IActionResult> InvitarIntegrante(
+        [FromBody] InvitarIntegranteRequest request,
+        [FromServices] InvitarIntegranteHandler handler,
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken cancellationToken)
     {
-        var token = await handler.Handle(new InvitarConviventeCommand(
+        var token = await handler.Handle(new InvitarIntegranteCommand(
             currentUser.UsuarioId,
             currentUser.HogarId,
             request.EmailInvitado), cancellationToken);
@@ -69,6 +69,40 @@ public sealed class HogaresController : ControllerBase
             m.FotoUrl,
             m.Alergias));
         return Ok(response);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetHogar(
+        [FromServices] GetHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var hogar = await handler.Handle(
+            new GetHogarQuery(currentUser.UsuarioId, currentUser.HogarId),
+            cancellationToken);
+
+        return Ok(new HogarResponse(hogar.Id, hogar.Nombre));
+    }
+
+    [HttpPatch]
+    public async Task<IActionResult> UpdateHogar(
+        [FromBody] UpdateHogarRequest request,
+        [FromServices] UpdateHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await handler.Handle(
+                new UpdateHogarCommand(currentUser.UsuarioId, currentUser.HogarId, request.Nombre),
+                cancellationToken);
+
+            return Ok(new HogarResponse(updated.Id, updated.Nombre));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("miembros/{usuarioId:guid}")]

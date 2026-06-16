@@ -54,6 +54,48 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetMiembros_NormalizaRolConvivienteComoIntegrante()
+    {
+        var registered = await RegisterAndAuthenticateAsync(_client, "hogar-integrante");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+            var invitedUser = new Usuario
+            {
+                Id = Guid.NewGuid(),
+                Nombre = "Invitado",
+                Email = $"integrante-{Guid.NewGuid():N}@test.com",
+                Sexo = "U",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            db.Usuarios.Add(invitedUser);
+            db.MiembrosHogars.Add(new MiembrosHogar
+            {
+                Id = Guid.NewGuid(),
+                UsuarioId = invitedUser.Id,
+                HogarId = registered.HogarId,
+                Rol = "conviviente",
+                Puntos = 0
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/hogares/miembros");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var miembros = await response.Content.ReadFromJsonAsync<List<MiembroBody>>();
+        Assert.NotNull(miembros);
+
+        var integrante = miembros!.Single(x => x.UsuarioId != registered.UsuarioId);
+        Assert.Equal("integrante", integrante.Rol);
+    }
+
+    [Fact]
     public async Task GetInvitacionPreview_CuandoInvitacionPendiente_NoRequiereAuthYDevuelveDatos()
     {
         var owner = await RegisterAndAuthenticateAsync(_client, "hogar-preview-owner", "Preview Owner");
@@ -243,7 +285,6 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal("Hogar de Owner Accept", body.HogarNombre);
         Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
 
-        // Prove the new token works and reflects the new household
         var newClient = _factory.CreateClient();
         newClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.AccessToken);
         var miembrosResponse = await newClient.GetAsync("/api/hogares/miembros");
@@ -253,12 +294,11 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Contains(miembros!, m => m.UsuarioId == owner.UsuarioId);
         Assert.Contains(miembros!, m => m.UsuarioId == invitee.UsuarioId);
 
-        // Prove the database reflects the move
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
         var membership = await db.MiembrosHogars.SingleAsync(x => x.UsuarioId == invitee.UsuarioId);
         Assert.Equal(owner.HogarId, membership.HogarId);
-        Assert.Equal("conviviente", membership.Rol);
+        Assert.Equal("integrante", membership.Rol);
     }
 
     [Fact]
@@ -329,6 +369,6 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record AuthenticatedUser(Guid UsuarioId, Guid HogarId, string AccessToken, string Email, string Nombre);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed record InvitacionPreviewBody(string HogarNombre, string? EmailInvitado, DateTime? ExpiraEn);
-    private sealed record MiembroBody(Guid UsuarioId, string Nombre, List<string> Alergias);
+    private sealed record MiembroBody(Guid UsuarioId, string Nombre, string? Rol, List<string> Alergias);
     private sealed record AceptarInvitacionBody(Guid HogarId, string HogarNombre, string AccessToken);
 }

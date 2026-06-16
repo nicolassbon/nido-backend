@@ -9,5 +9,7 @@ public sealed record CreateStockItemRequest(
     string? UnidadMedida,
     string? FechaVencimiento,
     bool EstaAbierto,
-    decimal PorcentajeConsumido
+    decimal PorcentajeConsumido,
+    // Cantidad de envases idénticos. Default 1.
+    int? CantidadEnvases = 1
 );

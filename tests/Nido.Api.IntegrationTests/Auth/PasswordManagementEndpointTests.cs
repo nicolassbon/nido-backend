@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Net.Http.Json;
@@ -37,7 +37,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Pwd", passwordEmail, hasher.Hash("Password123!"), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Pwd", passwordEmail, hasher.Hash("Password123!"), "M", null, true, CancellationToken.None);
             await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google", googleEmail, "google", "google-id"), CancellationToken.None);
         }
 
@@ -85,7 +85,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Reset User", email, hasher.Hash(oldPassword), "M", null, CancellationToken.None);
+            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Reset User", email, hasher.Hash(oldPassword), "M", null, true, CancellationToken.None);
             rawToken = tokenService.GenerateRefreshToken();
             await repo.SavePasswordResetTokenAsync(userId, tokenService.HashRefreshToken(rawToken), DateTime.UtcNow.AddMinutes(30), CancellationToken.None);
         }
@@ -156,7 +156,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Expired User", email, hasher.Hash(oldPassword), "M", null, CancellationToken.None);
+            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Expired User", email, hasher.Hash(oldPassword), "M", null, true, CancellationToken.None);
             expiredRawToken = tokenService.GenerateRefreshToken();
             await repo.SavePasswordResetTokenAsync(userId, tokenService.HashRefreshToken(expiredRawToken), DateTime.UtcNow.AddMinutes(-1), CancellationToken.None);
         }
@@ -190,7 +190,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Weak Reset", email, hasher.Hash(oldPassword), "M", null, CancellationToken.None);
+            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Weak Reset", email, hasher.Hash(oldPassword), "M", null, true, CancellationToken.None);
             rawToken = tokenService.GenerateRefreshToken();
             await repo.SavePasswordResetTokenAsync(userId, tokenService.HashRefreshToken(rawToken), DateTime.UtcNow.AddMinutes(30), CancellationToken.None);
         }
@@ -212,7 +212,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Weak Change", passwordEmail, hasher.Hash(oldPassword), "M", null, CancellationToken.None);
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Weak Change", passwordEmail, hasher.Hash(oldPassword), "M", null, true, CancellationToken.None);
             passwordUserToken = tokenService.CreateToken(userId, hogarId, passwordEmail, "Weak Change");
         }
 
@@ -260,7 +260,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, CancellationToken.None);
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
             passwordUserToken = tokenService.CreateToken(userId, hogarId, email, "Change User");
         }
 
@@ -309,7 +309,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, CancellationToken.None);
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
             token = tokenService.CreateToken(userId, hogarId, email, "Change User");
         }
 
@@ -377,7 +377,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, CancellationToken.None);
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
             token = tokenService.CreateToken(userId, hogarId, email, "Change User");
         }
 
@@ -456,7 +456,7 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Existing Password User", email, hasher.Hash(currentPassword), "M", null, CancellationToken.None);
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Existing Password User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
             token = tokenService.CreateToken(userId, hogarId, email, "Existing Password User");
         }
 

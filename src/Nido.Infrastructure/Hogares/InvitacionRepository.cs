@@ -96,7 +96,7 @@ public sealed class InvitacionRepository : IInvitacionRepository
             Id = Guid.NewGuid(),
             UsuarioId = usuarioId,
             HogarId = toHogarId,
-            Rol = "conviviente",
+            Rol = "integrante",
             Puntos = 0
         });
 
@@ -152,7 +152,7 @@ public sealed class InvitacionRepository : IInvitacionRepository
                 x.Id,
                 x.Nombre,
                 x.Email,
-                x.Rol,
+                x.Rol == "conviviente" ? "integrante" : x.Rol,
                 !string.IsNullOrWhiteSpace(x.FotoStorageKey)
                 ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey, x.FotoUpdatedAt)
                 : null,
