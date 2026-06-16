@@ -39,7 +39,7 @@ public sealed class GetRecomendacionesHandler
 
         var tipsPersonalizados = GenerarTipsPersonalizados(gastosActual, gastosAnterior);
 
-        var todasLasRecetas = await _recetaRepository.GetAllAsync(hogarId, ct);
+        var todasLasRecetas = await _recetaRepository.GetAllAsync(hogarId, Guid.Empty, ct);
         var recetasRecomendadas = todasLasRecetas
             .Where(r => r.Ingredientes.Count > 0)
             .Select(r => new
