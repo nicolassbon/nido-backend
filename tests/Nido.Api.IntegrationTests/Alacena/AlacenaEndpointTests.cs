@@ -496,6 +496,24 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Hogares.Add(new Hogare
+            {
+                Id = otherHogarId,
+                Nombre = "Otro hogar",
+                CreatedAt = DateTime.UtcNow,
+                ModoAhorro = false
+            });
+            db.Productos.AddRange(
+                new Producto
+                {
+                    Id = arrozId,
+                    Nombre = "Arroz"
+                },
+                new Producto
+                {
+                    Id = lecheId,
+                    Nombre = "Leche"
+                });
             db.ConsumosProducto.AddRange(
                 new ConsumoProducto
                 {
@@ -525,7 +543,7 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
                 {
                     Id = Guid.NewGuid(),
                     HogarId = otherHogarId,
-                    ProductoId = Guid.NewGuid(),
+                    ProductoId = null,
                     ProductoNombre = "Otro hogar",
                     Cantidad = 1m,
                     UnidadMedida = "unidad",
