@@ -66,6 +66,152 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
     }
 
     [Fact]
+    public async Task GetManual_WhenAnonymous_Returns401()
+    {
+        using var anonymousClient = _factory.CreateClient();
+
+        var response = await anonymousClient.GetAsync("/api/productos/manual");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetManual_WhenOtherHouseholdHasStock_OnlyReturnsCurrentHouseholdItems()
+    {
+        var currentUser = await RegisterAndAuthenticateAsync(_client, "manual-current");
+        using var otherClient = _factory.CreateClient();
+        var otherUser = await RegisterAndAuthenticateAsync(otherClient, "manual-other");
+
+        var currentProductId = Guid.NewGuid();
+        var otherProductId = Guid.NewGuid();
+        var currentStockId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.AddRange(
+                new Producto { Id = currentProductId, Nombre = "Arroz", CodigoBarras = "779-current" },
+                new Producto { Id = otherProductId, Nombre = "Cafe", CodigoBarras = "779-other" });
+            db.StockHogars.AddRange(
+                new StockHogar
+                {
+                    Id = currentStockId,
+                    HogarId = currentUser.HogarId,
+                    ProductoId = currentProductId,
+                    CargadoPor = currentUser.UsuarioId,
+                    UpdatedBy = currentUser.UsuarioId,
+                    CantidadActual = 2m,
+                    UnidadMedida = "kg",
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = otherUser.HogarId,
+                    ProductoId = otherProductId,
+                    CargadoPor = otherUser.UsuarioId,
+                    UpdatedBy = otherUser.UsuarioId,
+                    CantidadActual = 1m,
+                    UnidadMedida = "unidad",
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/productos/manual");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<GetProductManualBody>>();
+        var item = Assert.Single(body!);
+        Assert.Equal(currentStockId, item.StockHogarId);
+        Assert.Equal("Arroz", item.Nombre);
+    }
+
+    [Fact]
+    public async Task Create_WhenCatalogNameMatchesExistingProduct_CreatesDedicatedStockForCurrentHouseholdAndAppearsInManualList()
+    {
+        var currentUser = await RegisterAndAuthenticateAsync(_client, "catalog-create");
+        var categoryId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.CategoriasProductos.Add(new CategoriasProducto { Id = categoryId, Nombre = "Despensa", TtlDias = 30 });
+            db.Productos.Add(new Producto
+            {
+                Id = productId,
+                Nombre = "Tomate Triturado",
+                CategoriaId = categoryId,
+                ImagenUrl = "products/tomate.webp"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var createResponse = await _client.PostAsJsonAsync("/api/productos", new
+        {
+            nombre = "Tomate triturado",
+            categoriaId = categoryId,
+            ubicacion = "Alacena",
+            cantidad = 2m,
+            unidadMedida = "unidad",
+            fechaVencimiento = "2026-12-31"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        var createdBody = await createResponse.Content.ReadFromJsonAsync<CreateProductoBody>();
+        Assert.NotNull(createdBody);
+        Assert.NotEqual(productId, createdBody!.ProductoId);
+
+        using (var verifyScope = _factory.Services.CreateScope())
+        {
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var stock = await verifyDb.StockHogars.SingleAsync(x => x.HogarId == currentUser.HogarId && x.ProductoId == createdBody.ProductoId);
+            Assert.Equal(2m, stock.CantidadActual);
+            Assert.Equal("Alacena", stock.Ubicacion);
+        }
+
+        var manualResponse = await _client.GetAsync("/api/productos/manual");
+
+        Assert.Equal(HttpStatusCode.OK, manualResponse.StatusCode);
+        var manualItems = await manualResponse.Content.ReadFromJsonAsync<List<GetProductManualBody>>();
+        var created = manualItems!.Single(item => item.ProductoId == createdBody.ProductoId);
+        Assert.Equal("Tomate triturado", created.Nombre);
+        Assert.Equal("Alacena", created.Ubicacion);
+        Assert.Equal(2m, created.Cantidad);
+    }
+
+    [Fact]
+    public async Task Create_WhenCategoryIsOmitted_CreatesManualProductWithoutCategory()
+    {
+        await RegisterAndAuthenticateAsync(_client, "catalog-missing");
+
+        var response = await _client.PostAsJsonAsync("/api/productos", new
+        {
+            nombre = $"Producto sin categoria {Guid.NewGuid():N}",
+            ubicacion = "Alacena",
+            cantidad = 1m,
+            unidadMedida = "unidad"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<CreateProductoBody>();
+        Assert.NotNull(body);
+        Assert.Null(body!.CategoriaId);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var producto = await db.Productos.SingleAsync(x => x.Id == body.ProductoId);
+        Assert.Null(producto.CategoriaId);
+    }
+
+    [Fact]
     public async Task Create_WhenProductDoesNotExist_CreatesProductoPreservesCategoryAndDateOnly()
     {
         await AuthenticateAsync();
@@ -203,6 +349,7 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
         using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
         var register = await client.PostAsync("/api/auth/register", registerContent);
         var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        Assert.NotNull(body);
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", body!.AccessToken);
         return body;

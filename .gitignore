@@ -8,14 +8,5 @@ openspec/
 .claude/
 context.md
 
-# Visual Studio local cache
-.vs/
-
-# Logs locales
-*.log
-
-# Artefactos de skills (no son del proyecto)
-docs/superpowers/
-
 # Ignore uploaded files in development
 src/Nido.Api/wwwroot/uploads/*

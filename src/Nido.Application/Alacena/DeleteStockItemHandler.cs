@@ -22,7 +22,7 @@ public sealed class DeleteStockItemHandler
             ? await _repository.GetByIdAsync(command.Id, command.HogarId, ct)
             : null;
 
-        var deleted = await _repository.DeleteAsync(command.Id, ct);
+        var deleted = await _repository.DeleteAsync(command.Id, command.HogarId, ct);
         if (!deleted) return false;
 
         if (item is not null)

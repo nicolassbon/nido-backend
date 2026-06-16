@@ -92,6 +92,7 @@ public sealed class AlacenaController : ControllerBase
             new UpdateStockItemCommand(
                 id,
                 currentUser.UsuarioId,
+                currentUser.HogarId,
                 request.Nombre,
                 request.Cantidad,
                 request.Ubicacion,

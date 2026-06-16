@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -59,7 +60,19 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
     }
 
     [Fact]
-    public async Task ResetPassword_ValidToken_UpdatesPasswordAndConsumesToken()
+    public async Task ForgotPassword_WithMalformedJson_ReturnsBadRequest()
+    {
+        var client = _factory.CreateClient();
+
+        using var content = new StringContent("{ \"email\": ", Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/auth/forgot-password", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithValidToken_ReturnsOkAndAllowsLoginWithNewPassword()
     {
         var client = _factory.CreateClient();
         var email = $"reset-{Guid.NewGuid()}@test.com";
@@ -86,6 +99,9 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
+        var oldPasswordLoginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, password = oldPassword });
+        Assert.Equal(HttpStatusCode.Unauthorized, oldPasswordLoginResponse.StatusCode);
+
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, password = newPassword });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
@@ -95,11 +111,18 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             newPassword = "AnotherPassword123!",
             newPasswordConfirmation = "AnotherPassword123!"
         });
+
         Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
+
+        var secondProblem = await secondResponse.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(secondProblem);
+        Assert.Equal(400, secondProblem!.Status);
+        Assert.Equal("INVALID_RESET_TOKEN", secondProblem.Title);
+        Assert.Equal("Reset token is invalid or expired.", secondProblem.Detail);
     }
 
     [Fact]
-    public async Task ResetPassword_MissingOrExpiredToken_ReturnsBadRequest()
+    public async Task ResetPassword_WithBlankToken_ReturnsBadRequestProblemDetails()
     {
         var client = _factory.CreateClient();
 
@@ -111,6 +134,18 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, missingTokenResponse.StatusCode);
+
+        var problem = await missingTokenResponse.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(400, problem!.Status);
+        Assert.Equal("INVALID_RESET_TOKEN", problem.Title);
+        Assert.Equal("Reset token is invalid or expired.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithExpiredToken_ReturnsBadRequestProblemDetails()
+    {
+        var client = _factory.CreateClient();
 
         var email = $"reset-expired-{Guid.NewGuid()}@test.com";
         const string oldPassword = "Password123!";
@@ -134,6 +169,12 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, expiredTokenResponse.StatusCode);
+
+        var problem = await expiredTokenResponse.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(400, problem!.Status);
+        Assert.Equal("INVALID_RESET_TOKEN", problem.Title);
+        Assert.Equal("Reset token is invalid or expired.", problem.Detail);
     }
 
     [Fact]
@@ -206,11 +247,12 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
     }
 
     [Fact]
-    public async Task ChangePassword_RequiresCurrentPassword_And_AddPassword_ForGoogleOnly()
+    public async Task ChangePassword_WhenAuthenticated_ReturnsOkAndPersistsNewPassword()
     {
         var client = _factory.CreateClient();
-        var registerEmail = $"change-{Guid.NewGuid()}@test.com";
+        var email = $"change-{Guid.NewGuid()}@test.com";
         const string currentPassword = "Password123!";
+        const string newPassword = "NewPassword123!";
         string passwordUserToken;
 
         using (var scope = _factory.Services.CreateScope())
@@ -218,68 +260,228 @@ public sealed class PasswordManagementEndpointTests : IClassFixture<NidoTestWebA
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", registerEmail, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
-            passwordUserToken = tokenService.CreateToken(userId, hogarId, registerEmail, "Change User");
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
+            passwordUserToken = tokenService.CreateToken(userId, hogarId, email, "Change User");
         }
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", passwordUserToken);
 
-        var wrongCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
+        var response = await client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            currentPassword,
+            newPassword,
+            newPasswordConfirmation = newPassword
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var oldPasswordLoginResponse = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = currentPassword });
+        Assert.Equal(HttpStatusCode.Unauthorized, oldPasswordLoginResponse.StatusCode);
+
+        var newPasswordLoginResponse = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = newPassword });
+        Assert.Equal(HttpStatusCode.OK, newPasswordLoginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_WhenUnauthenticated_ReturnsUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            currentPassword = "Password123!",
+            newPassword = "NewPassword123!",
+            newPasswordConfirmation = "NewPassword123!"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithWrongCurrentPassword_ReturnsUnauthorizedProblemDetails()
+    {
+        var client = _factory.CreateClient();
+        var email = $"change-wrong-{Guid.NewGuid()}@test.com";
+        const string currentPassword = "Password123!";
+        string token;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
+            token = tokenService.CreateToken(userId, hogarId, email, "Change User");
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.PostAsJsonAsync("/api/auth/change-password", new
         {
             currentPassword = "Wrong123!",
             newPassword = "NewPassword123!",
             newPasswordConfirmation = "NewPassword123!"
         });
-        Assert.Equal(HttpStatusCode.Unauthorized, wrongCurrent.StatusCode);
 
-        var sameAsCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
-        {
-            currentPassword,
-            newPassword = currentPassword,
-            newPasswordConfirmation = currentPassword
-        });
-        Assert.Equal(HttpStatusCode.BadRequest, sameAsCurrent.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
-        var okCurrent = await client.PostAsJsonAsync("/api/auth/change-password", new
-        {
-            currentPassword,
-            newPassword = "NewPassword123!",
-            newPasswordConfirmation = "NewPassword123!"
-        });
-        Assert.Equal(HttpStatusCode.OK, okCurrent.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(401, problem!.Status);
+        Assert.Equal("INVALID_CREDENTIALS", problem.Title);
+        Assert.Equal("Invalid email or password", problem.Detail);
+    }
 
-        var googleClient = _factory.CreateClient();
-        string googleToken;
-        var googleEmail = $"google-only-{Guid.NewGuid()}@test.com";
+    [Fact]
+    public async Task ChangePassword_WithoutExistingPassword_ReturnsPasswordNotSetProblemDetails()
+    {
+        var client = _factory.CreateClient();
+        var email = $"google-only-{Guid.NewGuid()}@test.com";
+        string token;
 
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, hogarId) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google Only", googleEmail, "google", Guid.NewGuid().ToString("N")), CancellationToken.None);
-            googleToken = tokenService.CreateToken(userId, hogarId, googleEmail, "Google Only");
+            var (userId, hogarId) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google Only", email, "google", Guid.NewGuid().ToString("N")), CancellationToken.None);
+            token = tokenService.CreateToken(userId, hogarId, email, "Google Only");
         }
 
-        googleClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", googleToken);
-        var addPassword = await googleClient.PostAsJsonAsync("/api/auth/add-password", new
-        {
-            newPassword = "GooglePassword123!",
-            newPasswordConfirmation = "GooglePassword123!"
-        });
-        Assert.Equal(HttpStatusCode.OK, addPassword.StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var addAgain = await googleClient.PostAsJsonAsync("/api/auth/add-password", new
+        var response = await client.PostAsJsonAsync("/api/auth/change-password", new
         {
-            newPassword = "AnotherPassword123!",
-            newPasswordConfirmation = "AnotherPassword123!"
+            currentPassword = "DoesNotMatter123!",
+            newPassword = "NewPassword123!",
+            newPasswordConfirmation = "NewPassword123!"
         });
-        Assert.Equal(HttpStatusCode.Conflict, addAgain.StatusCode);
 
-        var loginWithAddedPassword = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email = googleEmail, password = "GooglePassword123!" });
-        Assert.Equal(HttpStatusCode.OK, loginWithAddedPassword.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(400, problem!.Status);
+        Assert.Equal("PASSWORD_NOT_SET", problem.Title);
+        Assert.Equal("This account does not have a password yet.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithSamePassword_ReturnsPasswordSameAsCurrentProblemDetails()
+    {
+        var client = _factory.CreateClient();
+        var email = $"change-same-{Guid.NewGuid()}@test.com";
+        const string currentPassword = "Password123!";
+        string token;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Change User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
+            token = tokenService.CreateToken(userId, hogarId, email, "Change User");
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            currentPassword,
+            newPassword = currentPassword,
+            newPasswordConfirmation = currentPassword
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(400, problem!.Status);
+        Assert.Equal("PASSWORD_SAME_AS_CURRENT", problem.Title);
+        Assert.Equal("New password must be different from the current password.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task AddPassword_WhenAuthenticatedWithoutPassword_ReturnsOkAndStoresPassword()
+    {
+        var client = _factory.CreateClient();
+        var email = $"add-password-{Guid.NewGuid()}@test.com";
+        const string newPassword = "NewPassword123!";
+        string token;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+            var (userId, hogarId) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Add Password User", email, "google", Guid.NewGuid().ToString("N")), CancellationToken.None);
+            token = tokenService.CreateToken(userId, hogarId, email, "Add Password User");
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.PostAsJsonAsync("/api/auth/add-password", new
+        {
+            newPassword,
+            newPasswordConfirmation = newPassword
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var loginResponse = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = newPassword });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddPassword_WhenUnauthenticated_ReturnsUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/add-password", new
+        {
+            newPassword = "NewPassword123!",
+            newPasswordConfirmation = "NewPassword123!"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddPassword_WhenPasswordAlreadyExists_ReturnsConflictProblemDetails()
+    {
+        var client = _factory.CreateClient();
+        var email = $"add-password-existing-{Guid.NewGuid()}@test.com";
+        const string currentPassword = "Password123!";
+        string token;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+            var (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Existing Password User", email, hasher.Hash(currentPassword), "M", null, true, CancellationToken.None);
+            token = tokenService.CreateToken(userId, hogarId, email, "Existing Password User");
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.PostAsJsonAsync("/api/auth/add-password", new
+        {
+            newPassword = "NewPassword123!",
+            newPasswordConfirmation = "NewPassword123!"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(409, problem!.Status);
+        Assert.Equal("PASSWORD_ALREADY_SET", problem.Title);
+        Assert.Equal("This account already has a password.", problem.Detail);
+
+        var loginResponse = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password = currentPassword });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
     }
 
     private sealed record MessageBody(string Message);
+    private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed class SpyEmailService : IEmailService
     {
         public List<string> InvitationEmails { get; } = [];

@@ -133,7 +133,7 @@ public sealed class CocinarRecetaHandlerTests
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => throw new NotImplementedException();
 
-        public Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+        public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct)
             => Task.FromResult(true);
     }
 

@@ -59,5 +59,54 @@ public sealed class OnboardingEquipmentTests : IClassFixture<NidoTestWebAppFacto
         Assert.Equal("Licuadora", householdBEquipment[0].Nombre);
     }
 
+    [Fact]
+    public async Task SaveEquipment_WhenSubmittedAgain_ReplacesPreviousHouseholdChoices()
+    {
+        using var registerContent = RegisterMultipartRequest.Create("Equip Retry", "equip-retry@test.com", "Password123!", "F");
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
+        var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        Assert.NotNull(body);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
+
+        var firstResponse = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new
+        {
+            skip = false,
+            equipments = new[]
+            {
+                new { nombre = "Heladera", tipo = "Fridge", estado = "new" }
+            }
+        });
+
+        var secondResponse = await _client.PatchAsJsonAsync("/api/onboarding/step-3", new
+        {
+            skip = false,
+            equipments = new[]
+            {
+                new { nombre = "Horno", tipo = "Oven", estado = "used" },
+                new { nombre = "Tostadora", tipo = "Toaster", estado = "new" }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.NoContent, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, secondResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var equipments = await db.Electrodomesticos
+            .Where(x => x.HogarId == body.HogarId)
+            .OrderBy(x => x.Nombre)
+            .ToListAsync();
+
+        Assert.Equal(2, equipments.Count);
+        Assert.DoesNotContain(equipments, item => item.Nombre == "Heladera");
+        Assert.Equal(["Horno", "Tostadora"], equipments.Select(x => x.Nombre).ToArray());
+
+        var state = await db.OnboardingStates.SingleAsync(x => x.UsuarioId == body.UsuarioId && x.HogarId == body.HogarId);
+        Assert.False(state.Step3Skipped);
+        Assert.NotNull(state.Step3CompletedAt);
+    }
+
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
 }

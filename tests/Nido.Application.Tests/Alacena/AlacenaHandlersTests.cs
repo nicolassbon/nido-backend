@@ -45,7 +45,7 @@ public sealed class AlacenaHandlersTests
         var handler = new UpdateStockItemHandler(repo);
 
         var result = await handler.Handle(
-            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), null, null, null, null, null, null, null),
+            new UpdateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, null, null, null, null, null, null),
             CancellationToken.None);
 
         Assert.Null(result);
@@ -54,12 +54,62 @@ public sealed class AlacenaHandlersTests
     [Fact]
     public async Task Delete_WhenExists_ReturnsTrue()
     {
-        var repo = new FakeAlacenaRepository { DeleteResult = true };
-        var handler = new DeleteStockItemHandler(repo, new FakeConsumoRepository());
+        var hogarId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var repo = new FakeAlacenaRepository
+        {
+            DeleteResult = true,
+            Items =
+            [
+                new StockItemResult(stockId, productoId, "Arroz", null, "779", null, "Alacena", 2.5m, "kg", null, false, 0, 1),
+            ]
+        };
+        var consumos = new FakeConsumoRepository();
+        var handler = new DeleteStockItemHandler(repo, consumos);
 
-        var result = await handler.Handle(new DeleteStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.Handle(new DeleteStockItemCommand(stockId, hogarId, usuarioId), CancellationToken.None);
 
         Assert.True(result);
+        Assert.Equal(stockId, repo.LastGetByIdId);
+        Assert.Equal(hogarId, repo.LastGetByIdHogarId);
+        Assert.Equal(stockId, repo.LastDeleteId);
+        Assert.Equal(hogarId, repo.LastDeleteHogarId);
+
+        var consumo = Assert.Single(consumos.Registros);
+        Assert.Equal(hogarId, consumo.HogarId);
+        Assert.Equal(productoId, consumo.ProductoId);
+        Assert.Equal("Arroz", consumo.ProductoNombre);
+        Assert.Equal(2.5m, consumo.Cantidad);
+        Assert.Equal("kg", consumo.UnidadMedida);
+        Assert.Equal(ConsumoMotivos.Terminado, consumo.Motivo);
+        Assert.Equal(usuarioId, consumo.UsuarioId);
+    }
+
+    [Fact]
+    public async Task Delete_WhenExpiredItem_RegistersVencidoConsumo()
+    {
+        var hogarId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var repo = new FakeAlacenaRepository
+        {
+            DeleteResult = true,
+            Items =
+            [
+                new StockItemResult(stockId, productoId, "Leche", null, null, null, "Heladera", 1m, "lt", DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)).ToString("yyyy-MM-dd"), false, 0, 1),
+            ]
+        };
+        var consumos = new FakeConsumoRepository();
+        var handler = new DeleteStockItemHandler(repo, consumos);
+
+        var result = await handler.Handle(new DeleteStockItemCommand(stockId, hogarId, usuarioId), CancellationToken.None);
+
+        Assert.True(result);
+        var consumo = Assert.Single(consumos.Registros);
+        Assert.Equal(ConsumoMotivos.Vencido, consumo.Motivo);
     }
 
     private sealed class FakeAlacenaRepository : IAlacenaRepository
@@ -68,12 +118,20 @@ public sealed class AlacenaHandlersTests
         public StockItemResult? CreatedResult { get; set; }
         public StockItemResult? UpdatedResult { get; set; }
         public bool DeleteResult { get; set; }
+        public Guid LastGetByIdId { get; private set; }
+        public Guid LastGetByIdHogarId { get; private set; }
+        public Guid LastDeleteId { get; private set; }
+        public Guid LastDeleteHogarId { get; private set; }
 
         public Task<IReadOnlyList<StockItemResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult(Items);
 
         public Task<StockItemResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
-            => Task.FromResult(Items.FirstOrDefault(item => item.Id == id));
+        {
+            LastGetByIdId = id;
+            LastGetByIdHogarId = hogarId;
+            return Task.FromResult(Items.FirstOrDefault(item => item.Id == id));
+        }
 
         public Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(CreatedResult ??
@@ -82,13 +140,23 @@ public sealed class AlacenaHandlersTests
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);
 
-        public Task<bool> DeleteAsync(Guid id, CancellationToken ct)
-            => Task.FromResult(DeleteResult);
+        public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct)
+        {
+            LastDeleteId = id;
+            LastDeleteHogarId = hogarId;
+            return Task.FromResult(DeleteResult);
+        }
     }
 
     private sealed class FakeConsumoRepository : IConsumoProductoRepository
     {
-        public Task RegistrarAsync(RegistrarConsumoInput input, CancellationToken ct) => Task.CompletedTask;
+        public List<RegistrarConsumoInput> Registros { get; } = [];
+
+        public Task RegistrarAsync(RegistrarConsumoInput input, CancellationToken ct)
+        {
+            Registros.Add(input);
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)

@@ -100,7 +100,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
         var item = await _db.StockHogars
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
-            .FirstOrDefaultAsync(stock => stock.Id == request.Id, ct);
+            .FirstOrDefaultAsync(stock => stock.Id == request.Id && stock.HogarId == request.HogarId, ct);
 
         if (item is null)
         {
@@ -132,9 +132,11 @@ public sealed class AlacenaRepository : IAlacenaRepository
         return ToResult(item, item.Producto);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    public async Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct)
     {
-        var item = await _db.StockHogars.FindAsync([id], ct);
+        var item = await _db.StockHogars
+            .FirstOrDefaultAsync(stock => stock.Id == id && stock.HogarId == hogarId, ct);
+
         if (item is null)
         {
             return false;
