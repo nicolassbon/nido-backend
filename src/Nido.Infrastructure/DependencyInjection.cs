@@ -45,6 +45,8 @@ using Nido.Application.Productos.UploadProductImage;
 using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Application.Tareas;
 using Nido.Infrastructure.Tareas;
+using Nido.Application.Notificaciones;
+using Nido.Infrastructure.Notificaciones;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -124,6 +126,7 @@ public static class DependencyInjection
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
+        services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:

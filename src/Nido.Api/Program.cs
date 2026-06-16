@@ -22,6 +22,7 @@ using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
 using Nido.Application.Finanzas;
 using Nido.Application.Tareas;
+using Nido.Application.Notificaciones;
 using Nido.Infrastructure.Auth;
 using Nido.Api.OpenApi;
 using Scalar.AspNetCore;
@@ -59,6 +60,7 @@ builder.Services.AddEstadisticasModule();
 builder.Services.AddInsightsModule();
 builder.Services.AddFinanzasModule();
 builder.Services.AddTareasModule();
+builder.Services.AddNotificacionesModule();
 
 
 

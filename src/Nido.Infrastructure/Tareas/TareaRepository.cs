@@ -74,13 +74,17 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
                 UsuarioId = asignadoA.Value,
                 FechaAsignacion = DateTime.UtcNow,
             });
+
+            var creador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == creadoPor, ct);
+            var creadorNombre = creador?.Nombre ?? "Alguien";
+
             db.Notificaciones.Add(new Notificacione
             {
                 UsuarioId = asignadoA.Value,
                 Tipo = "asignacion_tarea",
                 ReferenciaTipo = "tarea",
                 ReferenciaId = tarea.Id,
-                Mensaje = "Te asignaron la tarea: " + titulo,
+                Mensaje = $"{creadorNombre} te asignó la tarea \"{titulo}\"",
                 Leida = false,
                 CreatedAt = DateTime.UtcNow,
             });
@@ -140,13 +144,16 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
             });
             if (usuarioId.Value != asignadoPor)
             {
+                var asignador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == asignadoPor, ct);
+                var asignadorNombre = asignador?.Nombre ?? "Alguien";
+
                 db.Notificaciones.Add(new Notificacione
                 {
                     UsuarioId = usuarioId.Value,
                     Tipo = "asignacion_tarea",
                     ReferenciaTipo = "tarea",
                     ReferenciaId = tarea.Id,
-                    Mensaje = "Te asignaron la tarea: " + tarea.Titulo,
+                    Mensaje = $"{asignadorNombre} te asignó la tarea \"{tarea.Titulo}\"",
                     Leida = false,
                     CreatedAt = DateTime.UtcNow,
                 });
