@@ -27,7 +27,8 @@ public sealed class UpdateStockItemHandler
             command.UnidadMedida,
             command.FechaVencimiento,
             command.EstaAbierto,
-            command.PorcentajeConsumido);
+            command.PorcentajeConsumido,
+            command.CantidadEnvases);
 
         return await _repository.UpdateAsync(request, ct);
     }

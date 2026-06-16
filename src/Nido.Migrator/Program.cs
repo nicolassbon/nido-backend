@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.Electrodomesticos;
 
@@ -15,6 +16,7 @@ Console.WriteLine("Nido.Migrator — starting database migration");
 
 var options = new DbContextOptionsBuilder<NidoDbContext>()
     .UseNpgsql(connectionString)
+    .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
     .Options;
 
 try

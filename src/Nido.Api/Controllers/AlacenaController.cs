@@ -74,7 +74,8 @@ public sealed class AlacenaController : ControllerBase
                 request.UnidadMedida,
                 request.FechaVencimiento,
                 request.EstaAbierto,
-                request.PorcentajeConsumido),
+                request.PorcentajeConsumido,
+                CantidadEnvases: request.CantidadEnvases ?? 1),
             ct);
 
         return CreatedAtAction(nameof(GetProductos), ToResponse(created));
@@ -97,7 +98,8 @@ public sealed class AlacenaController : ControllerBase
                 request.UnidadMedida,
                 request.FechaVencimiento,
                 request.EstaAbierto,
-                request.PorcentajeConsumido),
+                request.PorcentajeConsumido,
+                CantidadEnvases: request.CantidadEnvases),
             ct);
 
         if (updated is null) return NotFound();
@@ -108,10 +110,11 @@ public sealed class AlacenaController : ControllerBase
     [HttpDelete("productos/{id:guid}")]
     public async Task<IActionResult> DeleteProducto(
         Guid id,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         var deleted = await _deleteStockItemHandler.Handle(
-            new DeleteStockItemCommand(id), ct);
+            new DeleteStockItemCommand(id, currentUser.HogarId, currentUser.UsuarioId), ct);
 
         if (!deleted) return NotFound();
 
@@ -131,6 +134,7 @@ public sealed class AlacenaController : ControllerBase
             item.UnidadMedida,
             item.FechaVencimiento,
             item.EstaAbierto,
-            item.PorcentajeConsumido
+            item.PorcentajeConsumido,
+            item.CantidadEnvases
         );
 }

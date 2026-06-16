@@ -1,6 +1,6 @@
 using System.Globalization;
-using Nido.Domain.StockHogar;
 using Nido.Application.Productos.Exceptions;
+using Nido.Domain.StockHogar;
 
 namespace Nido.Application.Productos;
 
@@ -26,7 +26,7 @@ public sealed class CreateStockHomeHandler
             throw new MissingProductFieldException("nombre");
         }
 
-        if (command.CantidadActual  <= 0)
+        if (command.CantidadActual <= 0)
         {
             throw new MissingProductFieldException("cantidad");
         }
@@ -54,8 +54,12 @@ public sealed class CreateStockHomeHandler
 
         var producto = await _productoRepository.CreateAsync(
             command.Nombre,
-            command.CategoriaId,
+            command.CategoriaId is null || command.CategoriaId == Guid.Empty
+                ? null
+                : command.CategoriaId,
             cancellationToken);
+
+        var cantidadEnvases = command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases;
 
         var stockHogar = new StockHogar(
             command.HogarId,
@@ -66,7 +70,8 @@ public sealed class CreateStockHomeHandler
             command.UsuarioIngresoId,
             command.Ubicacion,
             false,
-            0
+            0,
+            cantidadEnvases
         );
 
         await _stockHogarRepository.SaveAsync(
@@ -83,8 +88,8 @@ public sealed class CreateStockHomeHandler
             stockHogar.Ubicacion,
             stockHogar.EstaAbierto,
             stockHogar.PorcentajeConsumido,
-            producto.CategoriaId
-           
+            producto.CategoriaId,
+            stockHogar.CantidadEnvases
         );
     }
 }

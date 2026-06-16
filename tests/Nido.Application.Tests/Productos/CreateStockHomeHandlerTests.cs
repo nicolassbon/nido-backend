@@ -29,8 +29,10 @@ public sealed class CreateStockHomeHandlerTests
             CancellationToken.None);
 
         Assert.Equal("2026-12-01", result.FechaVencimiento);
+        Assert.Equal(1, result.CantidadEnvases);
         Assert.NotNull(stockRepository.SavedStock);
         Assert.Equal(new DateTime(2026, 12, 1), stockRepository.SavedStock!.FechaVencimiento);
+        Assert.Equal(1, stockRepository.SavedStock.CantidadEnvases);
     }
 
     [Theory]
@@ -89,6 +91,31 @@ public sealed class CreateStockHomeHandlerTests
         Assert.Equal(createdProduct.Id, result.ProductoId);
     }
 
+    [Fact]
+    public async Task Handle_WithCantidadEnvasesMenorAUno_UsaUno()
+    {
+        var productoRepository = new FakeProductoRepository();
+        var stockRepository = new FakeStockHogarRepository();
+        var handler = new CreateStockHomeHandler(stockRepository, productoRepository);
+
+        var result = await handler.Handle(
+            new CreateStockHomeCommand(
+                "Yerba",
+                null,
+                "Alacena",
+                1,
+                "kg",
+                null,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                0),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.CantidadEnvases);
+        Assert.NotNull(stockRepository.SavedStock);
+        Assert.Equal(1, stockRepository.SavedStock!.CantidadEnvases);
+    }
+
     private sealed class FakeStockHogarRepository : IStockHogarRepository
     {
         public StockHogar? SavedStock { get; private set; }
@@ -111,6 +138,9 @@ public sealed class CreateStockHomeHandlerTests
 
         public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
             => Task.FromResult(ExistingProduct);
+
+        public Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
+            => Task.FromResult(Enumerable.Empty<SearchProductosResult>());
 
         public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
         {

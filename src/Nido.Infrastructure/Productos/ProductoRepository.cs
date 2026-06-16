@@ -66,22 +66,37 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
 
     public async Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
     {
-        var producto = new Persistence.Entities.Producto
+        var nuevo = new Nido.Infrastructure.Persistence.Entities.Producto
         {
             Id = Guid.NewGuid(),
             Nombre = nombre.Trim(),
-            CategoriaId = categoriaId,
-            ImagenUrl = null
+            CategoriaId = categoriaId == Guid.Empty ? null : categoriaId,
+            ImagenUrl = null,
         };
 
-        _db.Productos.Add(producto);
+        _db.Productos.Add(nuevo);
         await _db.SaveChangesAsync(ct);
 
-        return new GetProductByNameResult(
-            producto.Id,
-            producto.Nombre,
-            producto.CategoriaId,
-            null);
+        return new GetProductByNameResult(nuevo.Id, nuevo.Nombre, nuevo.CategoriaId, nuevo.ImagenUrl);
+    }
+
+    public async Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
+    {
+        var pattern = $"%{query.Trim()}%";
+
+        return await _db.Productos
+            .AsNoTracking()
+            .Where(p => EF.Functions.ILike(p.Nombre, pattern))
+            .OrderBy(p => p.Nombre)
+            .Take(10)
+            .Select(p => new SearchProductosResult(
+                p.Nombre,
+                p.Categoria != null ? p.Categoria.Nombre : null,
+                p.CategoriaId,
+                p.StockHogars.OrderByDescending(s => s.CreatedAt).Select(s => s.UnidadMedida).FirstOrDefault(),
+                p.StockHogars.OrderByDescending(s => s.CreatedAt).Select(s => s.Ubicacion).FirstOrDefault()
+            ))
+            .ToListAsync(ct);
     }
 
     private static string NormalizeName(string value)

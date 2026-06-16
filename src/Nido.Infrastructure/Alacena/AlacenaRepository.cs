@@ -85,7 +85,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             FechaVencimiento = fechaVencimiento,
             Ubicacion = request.Ubicacion,
             EstaAbierto = request.EstaAbierto,
-            PorcentajeConsumido = request.PorcentajeConsumido
+            PorcentajeConsumido = request.PorcentajeConsumido,
+            CantidadEnvases = request.CantidadEnvases < 1 ? 1 : request.CantidadEnvases
         };
 
         _db.StockHogars.Add(stock);
@@ -118,6 +119,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             item.EstaAbierto = request.EstaAbierto.Value;
         if (request.PorcentajeConsumido.HasValue)
             item.PorcentajeConsumido = request.PorcentajeConsumido.Value;
+        if (request.CantidadEnvases.HasValue)
+            item.CantidadEnvases = request.CantidadEnvases.Value < 1 ? 1 : request.CantidadEnvases.Value;
         if (request.FechaVencimiento is not null)
             item.FechaVencimiento = DateOnly.TryParse(request.FechaVencimiento, out var parsed) ? parsed : null;
 
@@ -155,7 +158,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.UnidadMedida,
             stock.FechaVencimiento?.ToString("yyyy-MM-dd"),
             stock.EstaAbierto,
-            stock.PorcentajeConsumido);
+            stock.PorcentajeConsumido,
+            stock.CantidadEnvases);
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();

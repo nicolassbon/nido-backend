@@ -95,7 +95,7 @@ public sealed class AuthController : ControllerBase
         }
 
         var result = await _registerUserHandler.Handle(
-            new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, foto),
+            new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, foto, request.AceptaTerminos),
             cancellationToken);
 
         if (result.IsSilentSuccess)

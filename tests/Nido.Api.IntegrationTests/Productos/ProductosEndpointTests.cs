@@ -93,7 +93,8 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
             ubicacion = "Alacena",
             cantidad = 2,
             unidadMedida = "unidad",
-            fechaVencimiento = "2026-12-01"
+            fechaVencimiento = "2026-12-01",
+            cantidadEnvases = 3
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -102,6 +103,7 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
         Assert.NotNull(body);
         Assert.Equal("2026-12-01", body!.FechaVencimiento);
         Assert.Equal(categoriaId, body.CategoriaId);
+        Assert.Equal(3, body.CantidadEnvases);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -113,7 +115,19 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
             Assert.Null(producto.ImagenUrl);
             Assert.Equal(categoriaId, producto.CategoriaId);
             Assert.Equal(new DateOnly(2026, 12, 1), stock.FechaVencimiento);
+            Assert.Equal(3, stock.CantidadEnvases);
         }
+
+        var manualResponse = await _client.GetAsync("/api/productos/manual");
+
+        Assert.Equal(HttpStatusCode.OK, manualResponse.StatusCode);
+
+        var manualBody = await manualResponse.Content.ReadFromJsonAsync<List<GetProductManualBody>>();
+
+        Assert.NotNull(manualBody);
+
+        var createdManualProduct = Assert.Single(manualBody!, x => x.StockHogarId == body.StockHogarId);
+        Assert.Equal(3, createdManualProduct.CantidadEnvases);
     }
 
     [Fact]
@@ -196,5 +210,6 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ProductoBody(Guid Id, string Nombre, string? CodigoBarras, string? Imagen, string? CategoriaNombre, int? TtlDias);
-    private sealed record CreateProductoBody(Guid StockHogarId, Guid ProductoId, decimal CantidadActual, string UnidadMedida, string? FechaVencimiento, Guid UsuarioIngresoId, string Ubicacion, bool EstaAbierto, decimal PorcentajeConsumido, Guid? CategoriaId);
+    private sealed record CreateProductoBody(Guid StockHogarId, Guid ProductoId, decimal CantidadActual, string UnidadMedida, string? FechaVencimiento, Guid UsuarioIngresoId, string Ubicacion, bool EstaAbierto, decimal PorcentajeConsumido, Guid? CategoriaId, int CantidadEnvases);
+    private sealed record GetProductManualBody(Guid StockHogarId, Guid ProductoId, string Nombre, Guid? CategoriaId, string? CategoriaNombre, string? CodigoBarras, string? ImagenUrl, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
 }

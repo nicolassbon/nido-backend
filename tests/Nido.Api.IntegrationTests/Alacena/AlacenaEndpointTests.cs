@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
@@ -38,18 +39,27 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
             cantidad = 1,
             fechaVencimiento = "2026-12-01",
             estaAbierto = false,
-            porcentajeConsumido = 0
+            porcentajeConsumido = 0,
+            cantidadEnvases = 3
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(created);
+        Assert.Equal(3, created!.CantidadEnvases);
+
+        var getResponse = await _client.GetAsync($"/api/alacena/productos/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<StockItemBody>();
+        Assert.NotNull(fetched);
+        Assert.Equal(3, fetched!.CantidadEnvases);
 
         var listResponse = await _client.GetAsync("/api/alacena/productos");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var list = await listResponse.Content.ReadFromJsonAsync<List<StockItemBody>>();
         Assert.NotNull(list);
-        Assert.NotEmpty(list!);
+        var listed = Assert.Single(list!, item => item.Id == created.Id);
+        Assert.Equal(3, listed.CantidadEnvases);
 
         var patchResponse = await _client.PatchAsJsonAsync($"/api/alacena/productos/{created!.Id}", new
         {
@@ -59,13 +69,22 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
             unidadMedida = "kg",
             fechaVencimiento = "2026-12-02",
             estaAbierto = true,
-            porcentajeConsumido = 25
+            porcentajeConsumido = 25,
+            cantidadEnvases = 4
         });
         Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
         var patched = await patchResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(patched);
         Assert.Equal("Yerba editada", patched!.Nombre);
         Assert.Equal("kg", patched.UnidadMedida);
+        Assert.Equal(4, patched.CantidadEnvases);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var persisted = await db.StockHogars.SingleAsync(item => item.Id == created.Id);
+            Assert.Equal(4, persisted.CantidadEnvases);
+        }
 
         var deleteResponse = await _client.DeleteAsync($"/api/alacena/productos/{created.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
@@ -121,5 +140,5 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
-    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido);
+    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
 }

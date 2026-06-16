@@ -38,7 +38,8 @@ public sealed class StockHogarRepository : IStockHogarRepository
 
             Ubicacion = stockHogar.Ubicacion,
             EstaAbierto = false,
-            PorcentajeConsumido = 0
+            PorcentajeConsumido = 0,
+            CantidadEnvases = stockHogar.CantidadEnvases
         };
 
         await _db.Set<StockEntity>()

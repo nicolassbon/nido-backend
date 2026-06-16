@@ -7,5 +7,7 @@ public sealed record UpdateStockItemRequest(
     string? UnidadMedida,
     string? FechaVencimiento,
     bool? EstaAbierto,
-    decimal? PorcentajeConsumido
+    decimal? PorcentajeConsumido,
+    // Cantidad de envases idénticos. Null = no actualizar.
+    int? CantidadEnvases = null
 );

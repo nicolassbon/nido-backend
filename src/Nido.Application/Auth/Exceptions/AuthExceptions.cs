@@ -74,3 +74,8 @@ public sealed class PasswordAlreadySetException : NidoException
 {
     public PasswordAlreadySetException() : base("PASSWORD_ALREADY_SET", "This account already has a password.") { }
 }
+
+public sealed class TermsNotAcceptedException : NidoException
+{
+    public TermsNotAcceptedException() : base("TERMS_NOT_ACCEPTED", "Debe aceptar los términos y condiciones para registrarse.") { }
+}

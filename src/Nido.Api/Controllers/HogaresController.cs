@@ -71,6 +71,40 @@ public sealed class HogaresController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetHogar(
+        [FromServices] GetHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var hogar = await handler.Handle(
+            new GetHogarQuery(currentUser.UsuarioId, currentUser.HogarId),
+            cancellationToken);
+
+        return Ok(new HogarResponse(hogar.Id, hogar.Nombre));
+    }
+
+    [HttpPatch]
+    public async Task<IActionResult> UpdateHogar(
+        [FromBody] UpdateHogarRequest request,
+        [FromServices] UpdateHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await handler.Handle(
+                new UpdateHogarCommand(currentUser.UsuarioId, currentUser.HogarId, request.Nombre),
+                cancellationToken);
+
+            return Ok(new HogarResponse(updated.Id, updated.Nombre));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpDelete("miembros/{usuarioId:guid}")]
     public async Task<IActionResult> RemoveMiembro(
         [FromRoute] Guid usuarioId,
