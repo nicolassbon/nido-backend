@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text;
 using Nido.Application.Alacena;
+using Nido.Application.Common.Assets;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -10,21 +11,24 @@ namespace Nido.Infrastructure.Alacena;
 public sealed class AlacenaRepository : IAlacenaRepository
 {
     private readonly NidoDbContext _db;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public AlacenaRepository(NidoDbContext db)
+    public AlacenaRepository(NidoDbContext db, IPublicAssetUrlResolver assetUrlResolver)
     {
         _db = db;
+        _assetUrlResolver = assetUrlResolver;
     }
 
     public async Task<IReadOnlyList<StockItemResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
     {
-        return await _db.StockHogars
+        var items = await _db.StockHogars
             .AsNoTracking()
             .Where(stock => stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
-            .Select(stock => ToResult(stock, stock.Producto))
             .ToListAsync(ct);
+
+        return items.Select(stock => ToResult(stock, stock.Producto)).ToList();
     }
 
     public async Task<StockItemResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
@@ -141,12 +145,12 @@ public sealed class AlacenaRepository : IAlacenaRepository
         return true;
     }
 
-    private static StockItemResult ToResult(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Producto producto)
+    private StockItemResult ToResult(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Producto producto)
         => new(
             stock.Id,
             stock.ProductoId,
             producto.Nombre,
-            producto.ImagenUrl,
+            _assetUrlResolver.Resolve(producto.ImagenUrl),
             producto.CodigoBarras,
             producto.Categoria?.Nombre,
             stock.Ubicacion,

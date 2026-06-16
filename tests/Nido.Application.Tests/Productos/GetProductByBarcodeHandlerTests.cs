@@ -62,6 +62,6 @@ public sealed class GetProductByBarcodeHandlerTests
             => Task.FromResult(Enumerable.Empty<SearchProductosResult>());
 
         public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
-            => Task.FromResult(new GetProductByNameResult(Guid.NewGuid(), nombre, categoriaId, null));
+            => throw new NotSupportedException("CreateAsync should not be called by GetProductByBarcodeHandler tests.");
     }
 }

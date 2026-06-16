@@ -1,6 +1,6 @@
-
-using Nido.Domain.StockHogar;
+using System.Globalization;
 using Nido.Application.Productos.Exceptions;
+using Nido.Domain.StockHogar;
 
 namespace Nido.Application.Productos;
 
@@ -26,7 +26,7 @@ public sealed class CreateStockHomeHandler
             throw new MissingProductFieldException("nombre");
         }
 
-        if (command.CantidadActual  <= 0)
+        if (command.CantidadActual <= 0)
         {
             throw new MissingProductFieldException("cantidad");
         }
@@ -36,20 +36,28 @@ public sealed class CreateStockHomeHandler
             throw new MissingProductFieldException("ubicacion");
         }
 
-        var producto = await _productoRepository.GetByNameAsync(
-            command.Nombre,
-            cancellationToken);
-
-        // Si el producto no existe en el catálogo global, lo creamos en el momento
-        // con la categoría que eligió el usuario. Esto permite cargar productos
-        // manualmente sin depender del seed inicial.
-        if (producto is null)
+        DateOnly? fechaVencimiento = null;
+        if (!string.IsNullOrWhiteSpace(command.FechaVencimiento))
         {
-            producto = await _productoRepository.CreateAsync(
-                command.Nombre,
-                command.CategoriaId == Guid.Empty ? null : command.CategoriaId,
-                cancellationToken);
+            if (!DateOnly.TryParseExact(
+                    command.FechaVencimiento,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var parsedFechaVencimiento))
+            {
+                throw new ArgumentException("La fecha de vencimiento debe tener formato yyyy-MM-dd.");
+            }
+
+            fechaVencimiento = parsedFechaVencimiento;
         }
+
+        var producto = await _productoRepository.CreateAsync(
+            command.Nombre,
+            command.CategoriaId is null || command.CategoriaId == Guid.Empty
+                ? null
+                : command.CategoriaId,
+            cancellationToken);
 
         var cantidadEnvases = command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases;
 
@@ -58,7 +66,7 @@ public sealed class CreateStockHomeHandler
             producto.Id,
             command.CantidadActual,
             command.UnidadMedida,
-            command.FechaVencimiento,
+            fechaVencimiento?.ToDateTime(TimeOnly.MinValue),
             command.UsuarioIngresoId,
             command.Ubicacion,
             false,
@@ -75,12 +83,12 @@ public sealed class CreateStockHomeHandler
             stockHogar.ProductoId,
             stockHogar.CantidadActual,
             stockHogar.UnidadMedida,
-            stockHogar.FechaVencimiento,
+            fechaVencimiento?.ToString("yyyy-MM-dd"),
             stockHogar.UsuarioIngresoId,
             stockHogar.Ubicacion,
             stockHogar.EstaAbierto,
             stockHogar.PorcentajeConsumido,
-            producto.CategoriaId ?? command.CategoriaId,
+            producto.CategoriaId,
             stockHogar.CantidadEnvases
         );
     }

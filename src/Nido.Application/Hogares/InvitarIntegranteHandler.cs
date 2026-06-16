@@ -3,19 +3,19 @@ using Nido.Application.Hogares.Exceptions;
 
 namespace Nido.Application.Hogares;
 
-public sealed class InvitarConviventeHandler
+public sealed class InvitarIntegranteHandler
 {
     private const int MaxMiembros = 6;
     private readonly IInvitacionRepository _repository;
     private readonly IEmailService _emailService;
 
-    public InvitarConviventeHandler(IInvitacionRepository repository, IEmailService emailService)
+    public InvitarIntegranteHandler(IInvitacionRepository repository, IEmailService emailService)
     {
         _repository = repository;
         _emailService = emailService;
     }
 
-    public async Task<string> Handle(InvitarConviventeCommand command, CancellationToken ct)
+    public async Task<string> Handle(InvitarIntegranteCommand command, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(command.EmailInvitado))
             throw new MissingInvitationTokenException();

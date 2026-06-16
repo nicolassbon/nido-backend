@@ -5,11 +5,11 @@ public sealed record CreateStockHomeResponse(
     Guid ProductoId,
     decimal CantidadActual,
     string UnidadMedida,
-    DateTime? FechaVencimiento,
+    string? FechaVencimiento,
     Guid UsuarioIngresoId,
     string Ubicacion,
     bool EstaAbierto,
     decimal PorcentajeConsumido,
-    Guid CategoriaId,
+    Guid? CategoriaId,
     int CantidadEnvases
 );

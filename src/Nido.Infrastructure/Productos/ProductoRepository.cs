@@ -68,9 +68,10 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
     {
         var nuevo = new Nido.Infrastructure.Persistence.Entities.Producto
         {
-            Id          = Guid.NewGuid(),
-            Nombre      = nombre.Trim(),
+            Id = Guid.NewGuid(),
+            Nombre = nombre.Trim(),
             CategoriaId = categoriaId == Guid.Empty ? null : categoriaId,
+            ImagenUrl = null,
         };
 
         _db.Productos.Add(nuevo);
