@@ -46,6 +46,7 @@ using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Application.Tareas;
 using Nido.Infrastructure.Tareas;
 using Nido.Application.Notificaciones;
+using Nido.Application.Telegram.Client;
 using Nido.Infrastructure.Notificaciones;
 using Resend;
 
@@ -127,6 +128,19 @@ public static class DependencyInjection
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
+
+        services.AddHttpClient<ITelegramClient, Telegram.TelegramClient>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>().Value;
+            if (string.IsNullOrWhiteSpace(opts.BotToken))
+            {
+                throw new InvalidOperationException(
+                    "Telegram BotToken is not configured. Set Telegram:BotToken in configuration.");
+            }
+
+            client.BaseAddress = new Uri($"https://api.telegram.org/bot{opts.BotToken}/");
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+        });
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:

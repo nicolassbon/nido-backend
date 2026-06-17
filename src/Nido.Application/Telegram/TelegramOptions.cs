@@ -36,5 +36,8 @@ public sealed class TelegramOptions
     [Range(1, 1440, ErrorMessage = "ConversationStateTtlMinutes must be between 1 and 1440.")]
     public int ConversationStateTtlMinutes { get; init; } = 30;
 
+    [Range(1, 300, ErrorMessage = "TimeoutSeconds must be between 1 and 300.")]
+    public int TimeoutSeconds { get; init; } = 30;
+
     public bool DailySummaryEnabled { get; init; } = true;
 }
