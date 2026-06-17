@@ -21,7 +21,23 @@ public partial class ListaCompra
 
     public bool? AgregadoAlInventario { get; set; }
 
+    public string GrupoNombre { get; set; } = null!;
+
+    public int Orden { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? CompradoEn { get; set; }
+
+    public Guid? CompradoPor { get; set; }
+
+    public DateTime? RemovidoDeListaAt { get; set; }
+
+    public string ProductoNombreSnapshot { get; set; } = null!;
+
     public virtual Usuario AgregadoPorNavigation { get; set; } = null!;
+
+    public virtual Usuario? CompradoPorNavigation { get; set; }
 
     public virtual Hogare Hogar { get; set; } = null!;
 

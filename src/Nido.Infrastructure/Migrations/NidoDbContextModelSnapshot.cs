@@ -606,13 +606,53 @@ namespace Nido.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("comprado");
 
+                    b.Property<DateTime?>("CompradoEn")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("comprado_en");
+
+                    b.Property<Guid?>("CompradoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprado_por");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("now()")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("GrupoNombre")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("Productos agregados")
+                        .HasColumnName("grupo_nombre");
+
                     b.Property<Guid>("HogarId")
                         .HasColumnType("uuid")
                         .HasColumnName("hogar_id");
 
+                    b.Property<int>("Orden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("orden");
+
                     b.Property<Guid>("ProductoId")
                         .HasColumnType("uuid")
                         .HasColumnName("producto_id");
+
+                    b.Property<string>("ProductoNombreSnapshot")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("")
+                        .HasColumnName("producto_nombre_snapshot");
+
+                    b.Property<DateTime?>("RemovidoDeListaAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("removido_de_lista_at");
 
                     b.Property<string>("Unidad")
                         .HasMaxLength(100)
@@ -623,6 +663,8 @@ namespace Nido.Infrastructure.Migrations
                         .HasName("lista_compras_pkey");
 
                     b.HasIndex("AgregadoPor");
+
+                    b.HasIndex("CompradoPor");
 
                     b.HasIndex("ProductoId");
 
@@ -1746,6 +1788,11 @@ namespace Nido.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("lista_compras_agregado_por_fkey");
 
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompradoPorNavigation")
+                        .WithMany()
+                        .HasForeignKey("CompradoPor")
+                        .HasConstraintName("lista_compras_comprado_por_fkey");
+
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
                         .WithMany("ListaCompras")
                         .HasForeignKey("HogarId")
@@ -1759,6 +1806,8 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("lista_compras_producto_id_fkey");
 
                     b.Navigation("AgregadoPorNavigation");
+
+                    b.Navigation("CompradoPorNavigation");
 
                     b.Navigation("Hogar");
 
