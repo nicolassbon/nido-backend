@@ -213,9 +213,17 @@ CREATE TABLE lista_compras (
     unidad                  VARCHAR(100),
     comprado                BOOLEAN DEFAULT FALSE,
     agregado_al_inventario  BOOLEAN DEFAULT FALSE,
+    grupo_nombre            VARCHAR(255) NOT NULL DEFAULT 'Productos agregados',
+    orden                   INTEGER NOT NULL DEFAULT 0,
+    created_at              TIMESTAMP DEFAULT now(),
+    comprado_en             TIMESTAMP,
+    comprado_por            UUID,
+    removido_de_lista_at    TIMESTAMP,
+    producto_nombre_snapshot VARCHAR(255) NOT NULL DEFAULT '',
     FOREIGN KEY (hogar_id)      REFERENCES hogares(id),
     FOREIGN KEY (producto_id)   REFERENCES productos(id),
-    FOREIGN KEY (agregado_por)  REFERENCES usuarios(id)
+    FOREIGN KEY (agregado_por)  REFERENCES usuarios(id),
+    FOREIGN KEY (comprado_por)  REFERENCES usuarios(id)
 );
 
 CREATE TABLE tareas (
@@ -276,6 +284,7 @@ CREATE INDEX idx_miembros_hogar_hogar     ON miembros_hogar(hogar_id);
 CREATE INDEX idx_miembros_hogar_usuario   ON miembros_hogar(usuario_id);
 CREATE INDEX idx_stock_hogar_hogar        ON stock_hogar(hogar_id);
 CREATE INDEX idx_lista_compras_hogar      ON lista_compras(hogar_id);
+CREATE INDEX idx_lista_compras_comprado_por ON lista_compras(comprado_por);
 CREATE INDEX idx_tareas_hogar             ON tareas(hogar_id);
 CREATE INDEX idx_gastos_hogar             ON gastos(hogar_id);
 CREATE INDEX idx_notificaciones_usuario   ON notificaciones(usuario_id);

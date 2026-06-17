@@ -27,8 +27,10 @@ using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
 using Nido.Application.Estadisticas;
+using Nido.Application.ListaCompras;
 using Nido.Infrastructure.Estadisticas;
 using Nido.Infrastructure.Alacena;
+using Nido.Infrastructure.ListaCompras;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
 using Nido.Infrastructure.UsuariosPerfil;
@@ -90,6 +92,7 @@ public static class DependencyInjection
         services.AddTransient<IResend, ResendClient>();
         services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
+        services.AddScoped<IListaComprasRepository, ListaComprasRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IResenaRecetaRepository, ResenaRecetaRepository>();

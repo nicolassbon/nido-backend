@@ -462,8 +462,30 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Comprado)
                 .HasDefaultValue(false)
                 .HasColumnName("comprado");
+            entity.Property(e => e.CompradoEn)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("comprado_en");
+            entity.Property(e => e.CompradoPor).HasColumnName("comprado_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.GrupoNombre)
+                .HasMaxLength(255)
+                .HasDefaultValue("Productos agregados")
+                .HasColumnName("grupo_nombre");
             entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Orden)
+                .HasDefaultValue(0)
+                .HasColumnName("orden");
             entity.Property(e => e.ProductoId).HasColumnName("producto_id");
+            entity.Property(e => e.ProductoNombreSnapshot)
+                .HasMaxLength(255)
+                .HasDefaultValue("")
+                .HasColumnName("producto_nombre_snapshot");
+            entity.Property(e => e.RemovidoDeListaAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("removido_de_lista_at");
             entity.Property(e => e.Unidad)
                 .HasMaxLength(100)
                 .HasColumnName("unidad");
@@ -472,6 +494,10 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.AgregadoPor)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("lista_compras_agregado_por_fkey");
+
+            entity.HasOne(d => d.CompradoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CompradoPor)
+                .HasConstraintName("lista_compras_comprado_por_fkey");
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.ListaCompras)
                 .HasForeignKey(d => d.HogarId)
