@@ -13,7 +13,6 @@ public sealed class TelegramOptions
     [Required]
     public string DefaultParseMode { get; init; } = "MarkdownV2";
 
-    [Required]
     public string FrontEndBaseUrl { get; init; } = string.Empty;
 
     [Range(0, 23, ErrorMessage = "DailySummaryHourUtc must be between 0 and 23.")]
@@ -27,4 +26,15 @@ public sealed class TelegramOptions
 
     [Range(1, 100, ErrorMessage = "MaxAttempts must be between 1 and 100.")]
     public int MaxAttempts { get; init; } = 5;
+
+    [Range(1, 240, ErrorMessage = "GroupingWindowMinutes must be between 1 and 240.")]
+    public int GroupingWindowMinutes { get; init; } = 15;
+
+    [Range(1, 100, ErrorMessage = "GroupingEarlySendThreshold must be between 1 and 100.")]
+    public int GroupingEarlySendThreshold { get; init; } = 5;
+
+    [Range(1, 1440, ErrorMessage = "ConversationStateTtlMinutes must be between 1 and 1440.")]
+    public int ConversationStateTtlMinutes { get; init; } = 30;
+
+    public bool DailySummaryEnabled { get; init; } = true;
 }

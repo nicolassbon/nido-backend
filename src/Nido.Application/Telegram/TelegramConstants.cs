@@ -14,3 +14,9 @@ public static class TelegramConstants
 
     public const int PairingCodeDefaultTtlMinutes = 15;
 }
+
+public enum TelegramCriticalEventType
+{
+    ExpirationWithinUserWindow = 1
+}
+
