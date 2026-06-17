@@ -7,6 +7,9 @@ public interface IConsumoProductoRepository
     Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
         Guid hogarId, int diasAtras, CancellationToken ct);
 
+    Task<IReadOnlyList<ConsumoMovimiento>> GetMovimientosAsync(
+        Guid hogarId, ConsumoMovimientosFiltro filtro, CancellationToken ct);
+
     /// <summary>
     /// Devuelve, para cada producto, las fechas (UTC) en las que se cargó stock
     /// dentro del hogar. Sirve para calcular frecuencia mediana de reposición.
@@ -66,9 +69,28 @@ public sealed record ComprasPorProducto(
     string ProductoNombre,
     IReadOnlyList<DateTime> FechasCompra);
 
+public sealed record ConsumoMovimiento(
+    Guid Id,
+    Guid? ProductoId,
+    string ProductoNombre,
+    decimal Cantidad,
+    string? UnidadMedida,
+    string Motivo,
+    DateTime FechaConsumo,
+    Guid? UsuarioId);
+
+public sealed record ConsumoMovimientosFiltro(
+    string? Motivo,
+    DateOnly? Desde,
+    DateOnly? Hasta,
+    string? Q,
+    int Limit);
+
 public static class ConsumoMotivos
 {
     public const string Cocinado = "Cocinado";
+    public const string Consumido = "Consumido";
+    public const string Descartado = "Descartado";
     public const string Terminado = "Terminado";
     public const string Vencido = "Vencido";
     public const string Ajuste = "Ajuste";

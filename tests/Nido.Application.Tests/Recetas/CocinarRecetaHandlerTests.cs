@@ -145,6 +145,10 @@ public sealed class CocinarRecetaHandlerTests
             Guid hogarId, int diasAtras, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ConsumoPorProducto>>(Array.Empty<ConsumoPorProducto>());
 
+        public Task<IReadOnlyList<ConsumoMovimiento>> GetMovimientosAsync(
+            Guid hogarId, ConsumoMovimientosFiltro filtro, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ConsumoMovimiento>>(Array.Empty<ConsumoMovimiento>());
+
         public Task<IReadOnlyList<ComprasPorProducto>> GetComprasPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ComprasPorProducto>>(Array.Empty<ComprasPorProducto>());
