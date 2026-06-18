@@ -11,4 +11,8 @@ public interface IFinanzasRepository
     Task<IReadOnlyList<FacturaResult>> GetFacturasAsync(GetFacturasQuery query, CancellationToken ct);
     Task<FacturaResult?> MarcarPagadaAsync(Guid facturaId, Guid hogarId, CancellationToken ct);
     Task<string?> DeleteFacturaAsync(Guid facturaId, Guid hogarId, CancellationToken ct);
+    Task<GastoResult?> UpdateGastoAsync(UpdateGastoCommand command, CancellationToken ct);
+    Task<DeleteGastoResult?> DeleteGastoAsync(Guid gastoId, Guid hogarId, CancellationToken ct);
+    Task<decimal?> GetPresupuestoAsync(Guid hogarId, int anio, int mes, CancellationToken ct);
+    Task<decimal> UpsertPresupuestoAsync(Guid hogarId, int anio, int mes, decimal monto, CancellationToken ct);
 }

@@ -26,7 +26,8 @@ public sealed class MarcarPagadaHandler
                 Monto:       factura.Monto.Value,
                 Descripcion: factura.Nombre,
                 Categoria:   "Servicios",
-                Fecha:       DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"));
+                Fecha:       DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"),
+                FacturaId:   facturaId);
 
             gastoCreado = await _repository.CreateGastoAsync(command, ct);
         }

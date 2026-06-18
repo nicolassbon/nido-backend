@@ -29,7 +29,8 @@ public sealed class FinanzasRepository : IFinanzasRepository
             Monto = command.Monto,
             Descripcion = command.Descripcion,
             Categoria = command.Categoria,
-            Fecha = fecha
+            Fecha = fecha,
+            FacturaId = command.FacturaId,
         };
 
         _db.Gastos.Add(gasto);
@@ -211,6 +212,83 @@ public sealed class FinanzasRepository : IFinanzasRepository
         return storageKey ?? string.Empty;
     }
 
+    public async Task<GastoResult?> UpdateGastoAsync(UpdateGastoCommand command, CancellationToken ct)
+    {
+        var gasto = await _db.Gastos
+            .Include(g => g.PagadoPorNavigation)
+            .FirstOrDefaultAsync(g => g.Id == command.Id && g.HogarId == command.HogarId, ct);
+
+        if (gasto is null) return null;
+
+        gasto.Monto = command.Monto;
+        gasto.Descripcion = command.Descripcion;
+        gasto.Categoria = command.Categoria;
+        gasto.Fecha = DateOnly.Parse(command.Fecha);
+        gasto.PagadoPor = command.PagadoPorId;
+
+        await _db.SaveChangesAsync(ct);
+        await _db.Entry(gasto).Reference(g => g.PagadoPorNavigation).LoadAsync(ct);
+
+        return ToGastoResult(gasto);
+    }
+
+    public async Task<DeleteGastoResult?> DeleteGastoAsync(Guid gastoId, Guid hogarId, CancellationToken ct)
+    {
+        var gasto = await _db.Gastos
+            .FirstOrDefaultAsync(g => g.Id == gastoId && g.HogarId == hogarId, ct);
+
+        if (gasto is null) return null;
+
+        var facturaId = gasto.FacturaId;
+
+        if (facturaId.HasValue)
+        {
+            var factura = await _db.Facturas.FindAsync([facturaId.Value], ct);
+            if (factura is not null)
+                factura.Pagada = false;
+        }
+
+        _db.Gastos.Remove(gasto);
+        await _db.SaveChangesAsync(ct);
+
+        return new DeleteGastoResult(facturaId.HasValue, facturaId);
+    }
+
+    public async Task<decimal?> GetPresupuestoAsync(Guid hogarId, int anio, int mes, CancellationToken ct)
+    {
+        var p = await _db.PresupuestosMensuales
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.HogarId == hogarId && x.Anio == anio && x.Mes == mes, ct);
+        return p?.Monto;
+    }
+
+    public async Task<decimal> UpsertPresupuestoAsync(Guid hogarId, int anio, int mes, decimal monto, CancellationToken ct)
+    {
+        var existing = await _db.PresupuestosMensuales
+            .FirstOrDefaultAsync(x => x.HogarId == hogarId && x.Anio == anio && x.Mes == mes, ct);
+
+        if (existing is null)
+        {
+            existing = new PresupuestoMensual
+            {
+                Id = Guid.NewGuid(),
+                HogarId = hogarId,
+                Anio = anio,
+                Mes = mes,
+                Monto = monto,
+            };
+            _db.PresupuestosMensuales.Add(existing);
+        }
+        else
+        {
+            existing.Monto = monto;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return existing.Monto;
+    }
+
     private FacturaResult ToFacturaResult(Factura factura)
     {
         int? diasParaVencer = factura.FechaVencimiento.HasValue
@@ -240,6 +318,7 @@ public sealed class FinanzasRepository : IFinanzasRepository
         gasto.Fecha.ToString("yyyy-MM-dd"),
         gasto.PagadoPor,
         gasto.PagadoPorNavigation?.Nombre ?? string.Empty,
-        gasto.CreatedAt
+        gasto.CreatedAt,
+        gasto.FacturaId
     );
 }

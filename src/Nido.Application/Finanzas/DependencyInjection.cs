@@ -18,6 +18,10 @@ public static class DependencyInjection
         services.AddScoped<GetSavingsPotencialHandler>();
         services.AddScoped<GetInsightsHandler>();
         services.AddScoped<GetAlacenaOportunidadesHandler>();
+        services.AddScoped<GetPresupuestoHandler>();
+        services.AddScoped<SetPresupuestoHandler>();
+        services.AddScoped<UpdateGastoHandler>();
+        services.AddScoped<DeleteGastoHandler>();
         return services;
     }
 }

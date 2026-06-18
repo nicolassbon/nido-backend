@@ -35,3 +35,9 @@ public sealed class FacturaNotFoundException : NidoException
     public FacturaNotFoundException()
         : base("FACTURA_NOT_FOUND", "La factura no fue encontrada.") { }
 }
+
+public sealed class GastoNotFoundException : NidoException
+{
+    public GastoNotFoundException()
+        : base("GASTO_NOT_FOUND", "El gasto no fue encontrado.") { }
+}
