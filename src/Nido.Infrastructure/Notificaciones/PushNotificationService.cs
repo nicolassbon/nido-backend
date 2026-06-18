@@ -54,9 +54,16 @@ public sealed class PushNotificationService : IPushNotificationService
 
         var payloadObj = new
         {
-            titulo,
-            mensaje,
-            url = urlRedirect ?? "/"
+            notification = new
+            {
+                title = titulo,
+                body = mensaje,
+                icon = "/icon-192.png",
+                data = new
+                {
+                    url = urlRedirect ?? "/"
+                }
+            }
         };
         var payloadJson = JsonSerializer.Serialize(payloadObj);
 
