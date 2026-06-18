@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Persistence;
@@ -26,43 +27,45 @@ public partial class NidoDbContext : DbContext
 
         if (addedNotifications.Count > 0 && _serviceProvider != null)
         {
-            var pushService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                .GetService<Nido.Application.Common.Notifications.IPushNotificationService>(_serviceProvider);
-
-            if (pushService != null)
+            foreach (var notif in addedNotifications)
             {
-                foreach (var notif in addedNotifications)
+                var title = notif.Tipo switch
                 {
-                    var title = notif.Tipo switch
-                    {
-                        "tarea_vencida" => "Tarea Vencida",
-                        "producto_vencido" => "Producto Vencido",
-                        "producto_por_vencer" => "Producto por Vencer",
-                        "stock_bajo" => "Stock Bajo",
-                        "asignacion_tarea" => "Aviso de tareas asignadas",
-                        _ => "Nueva Notificación"
-                    };
+                    "tarea_vencida" => "Tarea Vencida",
+                    "producto_vencido" => "Producto Vencido",
+                    "producto_por_vencer" => "Producto por Vencer",
+                    "stock_bajo" => "Stock Bajo",
+                    "asignacion_tarea" => "Aviso de tareas asignadas",
+                    _ => "Nueva Notificación"
+                };
 
-                    var redirectUrl = notif.ReferenciaTipo switch
-                    {
-                        "tarea" => "/tareas",
-                        "alacena" => "/alacena",
-                        _ => "/"
-                    };
+                var redirectUrl = notif.ReferenciaTipo switch
+                {
+                    "tarea" => "/tareas",
+                    "alacena" => "/alacena",
+                    _ => "/"
+                };
 
-                    // Send push notification in background
-                    _ = Task.Run(async () =>
+                // Capture required values before starting the background thread
+                var targetUsuarioId = notif.UsuarioId;
+                var targetMensaje = notif.Mensaje ?? string.Empty;
+
+                // Send push notification in background using an isolated DI scope
+                _ = Task.Run(async () =>
+                {
+                    try
                     {
-                        try
+                        using (var scope = _serviceProvider.CreateScope())
                         {
-                            await pushService.SendNotificationAsync(notif.UsuarioId, title, notif.Mensaje ?? string.Empty, redirectUrl, CancellationToken.None);
+                            var pushService = scope.ServiceProvider.GetRequiredService<Nido.Application.Common.Notifications.IPushNotificationService>();
+                            await pushService.SendNotificationAsync(targetUsuarioId, title, targetMensaje, redirectUrl, CancellationToken.None);
                         }
-                        catch
-                        {
-                            // Ignore background send errors
-                        }
-                    }, CancellationToken.None);
-                }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error sending background push notification: {ex.Message}");
+                    }
+                }, CancellationToken.None);
             }
         }
 
