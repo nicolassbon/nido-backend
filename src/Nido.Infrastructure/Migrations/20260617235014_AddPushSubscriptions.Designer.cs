@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Nido.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nido.Infrastructure.Migrations
 {
     [DbContext(typeof(NidoDbContext))]
-    partial class NidoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260617235014_AddPushSubscriptions")]
+    partial class AddPushSubscriptions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -327,10 +330,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("descripcion");
 
-                    b.Property<Guid?>("FacturaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("factura_id");
-
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date")
                         .HasColumnName("fecha");
@@ -610,53 +609,13 @@ namespace Nido.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("comprado");
 
-                    b.Property<DateTime?>("CompradoEn")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("comprado_en");
-
-                    b.Property<Guid?>("CompradoPor")
-                        .HasColumnType("uuid")
-                        .HasColumnName("comprado_por");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasDefaultValueSql("now()")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("GrupoNombre")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasDefaultValue("Productos agregados")
-                        .HasColumnName("grupo_nombre");
-
                     b.Property<Guid>("HogarId")
                         .HasColumnType("uuid")
                         .HasColumnName("hogar_id");
 
-                    b.Property<int>("Orden")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("orden");
-
                     b.Property<Guid>("ProductoId")
                         .HasColumnType("uuid")
                         .HasColumnName("producto_id");
-
-                    b.Property<string>("ProductoNombreSnapshot")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasDefaultValue("")
-                        .HasColumnName("producto_nombre_snapshot");
-
-                    b.Property<DateTime?>("RemovidoDeListaAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("removido_de_lista_at");
 
                     b.Property<string>("Unidad")
                         .HasMaxLength(100)
@@ -667,8 +626,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasName("lista_compras_pkey");
 
                     b.HasIndex("AgregadoPor");
-
-                    b.HasIndex("CompradoPor");
 
                     b.HasIndex("ProductoId");
 
@@ -1075,52 +1032,6 @@ namespace Nido.Infrastructure.Migrations
                     b.HasIndex(new[] { "UsuarioId" }, "idx_password_reset_tokens_usuario");
 
                     b.ToTable("password_reset_tokens", (string)null);
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PresupuestoMensual", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("uuid_generate_v4()");
-
-                    b.Property<int>("Anio")
-                        .HasColumnType("integer")
-                        .HasColumnName("anio");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("HogarId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("hogar_id");
-
-                    b.Property<int>("Mes")
-                        .HasColumnType("integer")
-                        .HasColumnName("mes");
-
-                    b.Property<decimal>("Monto")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)")
-                        .HasColumnName("monto");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id")
-                        .HasName("presupuestos_mensuales_pkey");
-
-                    b.HasIndex(new[] { "HogarId", "Anio", "Mes" }, "ux_presupuestos_hogar_anio_mes")
-                        .IsUnique();
-
-                    b.ToTable("presupuestos_mensuales", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Producto", b =>
@@ -1879,11 +1790,6 @@ namespace Nido.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("lista_compras_agregado_por_fkey");
 
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompradoPorNavigation")
-                        .WithMany()
-                        .HasForeignKey("CompradoPor")
-                        .HasConstraintName("lista_compras_comprado_por_fkey");
-
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
                         .WithMany("ListaCompras")
                         .HasForeignKey("HogarId")
@@ -1897,8 +1803,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("lista_compras_producto_id_fkey");
 
                     b.Navigation("AgregadoPorNavigation");
-
-                    b.Navigation("CompradoPorNavigation");
 
                     b.Navigation("Hogar");
 
@@ -2052,17 +1956,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("password_reset_tokens_usuario_id_fkey");
 
                     b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PresupuestoMensual", b =>
-                {
-                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
-                        .WithMany()
-                        .HasForeignKey("HogarId")
-                        .IsRequired()
-                        .HasConstraintName("presupuestos_mensuales_hogar_id_fkey");
-
-                    b.Navigation("Hogar");
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Producto", b =>

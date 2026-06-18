@@ -134,5 +134,10 @@ public sealed class NotificacionesHandlersTests
             Notifications.Remove(notif);
             return Task.FromResult(true);
         }
+
+        public Task SubscribePushAsync(Guid usuarioId, string endpoint, string p256dh, string auth, CancellationToken ct)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

@@ -130,6 +130,7 @@ public static class DependencyInjection
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
+        services.AddScoped<IPushNotificationService, PushNotificationService>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:
