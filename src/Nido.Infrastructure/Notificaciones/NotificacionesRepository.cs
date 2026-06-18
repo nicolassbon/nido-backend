@@ -205,4 +205,30 @@ public sealed class NotificacionesRepository(NidoDbContext db) : INotificaciones
             n.ReferenciaTipo,
             n.CreatedAt);
     }
+
+    public async Task SubscribePushAsync(Guid usuarioId, string endpoint, string p256dh, string auth, CancellationToken ct)
+    {
+        var existing = await db.SuscripcionesPush
+            .FirstOrDefaultAsync(s => s.UsuarioId == usuarioId && s.Endpoint == endpoint, ct);
+
+        if (existing is null)
+        {
+            db.SuscripcionesPush.Add(new SuscripcionPush
+            {
+                Id = Guid.NewGuid(),
+                UsuarioId = usuarioId,
+                Endpoint = endpoint,
+                P256dh = p256dh,
+                Auth = auth,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            existing.P256dh = p256dh;
+            existing.Auth = auth;
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
 }

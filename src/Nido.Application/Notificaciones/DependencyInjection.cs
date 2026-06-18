@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddScoped<MarkNotificationAsReadHandler>();
         services.AddScoped<MarkAllNotificationsAsReadHandler>();
         services.AddScoped<DeleteNotificationHandler>();
+        services.AddScoped<SubscribePushHandler>();
         return services;
     }
 }

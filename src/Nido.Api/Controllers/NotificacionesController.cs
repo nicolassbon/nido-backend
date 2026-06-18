@@ -61,6 +61,28 @@ public sealed class NotificacionesController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("suscripciones")]
+    public async Task<IActionResult> SubscribePush(
+        [FromBody] SubscribePushRequest request,
+        [FromServices] SubscribePushHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Endpoint) || string.IsNullOrWhiteSpace(request.P256dh) || string.IsNullOrWhiteSpace(request.Auth))
+        {
+            return BadRequest("Endpoint, p256dh y auth son requeridos.");
+        }
+
+        await handler.Handle(new SubscribePushCommand(
+            currentUser.UsuarioId,
+            request.Endpoint,
+            request.P256dh,
+            request.Auth
+        ), ct);
+
+        return NoContent();
+    }
+
     private static NotificacionResponse ToResponse(NotificacionResult n)
     {
         return new NotificacionResponse(

@@ -11,4 +11,5 @@ public interface INotificacionesRepository
     Task<bool> MarkAsReadAsync(Guid id, Guid usuarioId, CancellationToken ct);
     Task MarkAllAsReadAsync(Guid usuarioId, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, Guid usuarioId, CancellationToken ct);
+    Task SubscribePushAsync(Guid usuarioId, string endpoint, string p256dh, string auth, CancellationToken ct);
 }
