@@ -310,6 +310,123 @@ public sealed class FinanzasHandlersTests
         Assert.True(result.Insights.Count <= 3);
     }
 
+    // ─── GetPresupuestoHandler ───────────────────────────────────────────────
+
+    [Fact(DisplayName = "GetPresupuesto: sin presupuesto configurado devuelve Monto y Restante null")]
+    public async Task GetPresupuesto_WithNoPresupuesto_ReturnsNullMontoAndRestante()
+    {
+        var repo = new FakeFinanzasRepository();
+        repo.EnqueueGastos(new GetGastosResult([], 0));
+        repo.PresupuestoMonto = null;
+        var handler = new GetPresupuestoHandler(repo);
+
+        var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Null(result.Monto);
+        Assert.Null(result.Restante);
+        Assert.Equal(0, result.GastoActual);
+    }
+
+    [Fact(DisplayName = "GetPresupuesto: con presupuesto y gastos calcula el restante correctamente")]
+    public async Task GetPresupuesto_WithPresupuestoAndGastos_CalculatesRestante()
+    {
+        var repo = new FakeFinanzasRepository();
+        repo.EnqueueGastos(new GetGastosResult([MakeGasto(300, "Comida", "2026-06-10")], 300));
+        repo.PresupuestoMonto = 1000;
+        var handler = new GetPresupuestoHandler(repo);
+
+        var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(1000, result.Monto);
+        Assert.Equal(300, result.GastoActual);
+        Assert.Equal(700, result.Restante);
+    }
+
+    // ─── SetPresupuestoHandler ───────────────────────────────────────────────
+
+    [Fact(DisplayName = "SetPresupuesto: guarda el monto y devuelve el restante calculado")]
+    public async Task SetPresupuesto_SavesMontoAndReturnsRestante()
+    {
+        var repo = new FakeFinanzasRepository();
+        repo.UpsertedPresupuesto = 2000;
+        repo.EnqueueGastos(new GetGastosResult([MakeGasto(500, "Otros", "2026-06-01")], 500));
+        var handler = new SetPresupuestoHandler(repo);
+
+        var result = await handler.Handle(
+            new SetPresupuestoCommand(Guid.NewGuid(), 2000, 2026, 6),
+            CancellationToken.None);
+
+        Assert.Equal(2000, result.Monto);
+        Assert.Equal(500, result.GastoActual);
+        Assert.Equal(1500, result.Restante);
+    }
+
+    // ─── UpdateGastoHandler ──────────────────────────────────────────────────
+
+    [Fact(DisplayName = "UpdateGasto: gasto existente devuelve el gasto actualizado")]
+    public async Task UpdateGasto_ExistingGasto_ReturnsUpdatedGasto()
+    {
+        var updated = MakeGasto(800, "Transporte", "2026-06-15");
+        var repo = new FakeFinanzasRepository { GastoToUpdate = updated };
+        var handler = new UpdateGastoHandler(repo);
+
+        var result = await handler.Handle(
+            new UpdateGastoCommand(Guid.NewGuid(), Guid.NewGuid(), 800, null, "Transporte", "2026-06-15", Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.Equal(800, result.Monto);
+        Assert.Equal("Transporte", result.Categoria);
+    }
+
+    [Fact(DisplayName = "UpdateGasto: gasto no encontrado lanza GastoNotFoundException")]
+    public async Task UpdateGasto_NotFound_ThrowsGastoNotFoundException()
+    {
+        var repo = new FakeFinanzasRepository { GastoToUpdate = null };
+        var handler = new UpdateGastoHandler(repo);
+
+        await Assert.ThrowsAsync<GastoNotFoundException>(() =>
+            handler.Handle(
+                new UpdateGastoCommand(Guid.NewGuid(), Guid.NewGuid(), 100, null, null, "2026-06-01", Guid.NewGuid()),
+                CancellationToken.None));
+    }
+
+    // ─── DeleteGastoHandler ──────────────────────────────────────────────────
+
+    [Fact(DisplayName = "DeleteGasto: gasto sin factura devuelve FacturaRevertida false")]
+    public async Task DeleteGasto_WithoutFactura_ReturnsFacturaRevertidaFalse()
+    {
+        var repo = new FakeFinanzasRepository { DeleteGastoResultValue = new DeleteGastoResult(false, null) };
+        var handler = new DeleteGastoHandler(repo);
+
+        var result = await handler.Handle(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.FacturaRevertida);
+        Assert.Null(result.FacturaId);
+    }
+
+    [Fact(DisplayName = "DeleteGasto: gasto originado en una factura revierte la factura")]
+    public async Task DeleteGasto_FromFactura_ReturnsFacturaRevertidaTrue()
+    {
+        var facturaId = Guid.NewGuid();
+        var repo = new FakeFinanzasRepository { DeleteGastoResultValue = new DeleteGastoResult(true, facturaId) };
+        var handler = new DeleteGastoHandler(repo);
+
+        var result = await handler.Handle(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.True(result.FacturaRevertida);
+        Assert.Equal(facturaId, result.FacturaId);
+    }
+
+    [Fact(DisplayName = "DeleteGasto: gasto no encontrado lanza GastoNotFoundException")]
+    public async Task DeleteGasto_NotFound_ThrowsGastoNotFoundException()
+    {
+        var repo = new FakeFinanzasRepository { DeleteGastoResultValue = null };
+        var handler = new DeleteGastoHandler(repo);
+
+        await Assert.ThrowsAsync<GastoNotFoundException>(() =>
+            handler.Handle(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
+    }
+
     // ─── GetAlacenaOportunidadesHandler ──────────────────────────────────────
 
     [Fact(DisplayName = "GetAlacenaOportunidades: excluye productos con consumo del 90% o más")]
@@ -388,7 +505,7 @@ public sealed class FinanzasHandlersTests
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private static GastoResult MakeGasto(decimal monto, string categoria, string fecha) =>
-        new(Guid.NewGuid(), monto, null, categoria, fecha, Guid.NewGuid(), "Usuario", DateTime.UtcNow);
+        new(Guid.NewGuid(), monto, null, categoria, fecha, Guid.NewGuid(), "Usuario", DateTime.UtcNow, null);
 
     private static GetGastosResult GastosParaMes(decimal monto, string categoria) =>
         new([MakeGasto(monto, categoria, "2026-01-15")], monto);
@@ -415,8 +532,13 @@ public sealed class FinanzasHandlersTests
         public Task<GetGastosResult> GetGastosAsync(GetGastosQuery query, CancellationToken ct) =>
             Task.FromResult(_gastosQueue.Count > 0 ? _gastosQueue.Dequeue() : new GetGastosResult([], 0));
 
+        public decimal? PresupuestoMonto { get; set; }
+        public decimal UpsertedPresupuesto { get; set; }
+        public GastoResult? GastoToUpdate { get; set; }
+        public DeleteGastoResult? DeleteGastoResultValue { get; set; }
+
         public Task<GastoResult> CreateGastoAsync(CreateGastoCommand command, CancellationToken ct) =>
-            Task.FromResult(new GastoResult(Guid.NewGuid(), command.Monto, command.Descripcion, command.Categoria, command.Fecha, command.PagadoPorId, "Usuario", DateTime.UtcNow));
+            Task.FromResult(new GastoResult(Guid.NewGuid(), command.Monto, command.Descripcion, command.Categoria, command.Fecha, command.PagadoPorId, "Usuario", DateTime.UtcNow, null));
 
         public Task<GetBalanceResult> GetBalanceAsync(GetBalanceQuery query, CancellationToken ct) =>
             Task.FromResult(new GetBalanceResult([], 0));
@@ -438,6 +560,18 @@ public sealed class FinanzasHandlersTests
 
         public Task<string?> DeleteFacturaAsync(Guid facturaId, Guid hogarId, CancellationToken ct) =>
             Task.FromResult<string?>(null);
+
+        public Task<GastoResult?> UpdateGastoAsync(UpdateGastoCommand command, CancellationToken ct) =>
+            Task.FromResult(GastoToUpdate);
+
+        public Task<DeleteGastoResult?> DeleteGastoAsync(Guid gastoId, Guid hogarId, CancellationToken ct) =>
+            Task.FromResult(DeleteGastoResultValue);
+
+        public Task<decimal?> GetPresupuestoAsync(Guid hogarId, int anio, int mes, CancellationToken ct) =>
+            Task.FromResult(PresupuestoMonto);
+
+        public Task<decimal> UpsertPresupuestoAsync(Guid hogarId, int anio, int mes, decimal monto, CancellationToken ct) =>
+            Task.FromResult(UpsertedPresupuesto);
     }
 
     private sealed class FakeAlacenaRepository : IAlacenaRepository

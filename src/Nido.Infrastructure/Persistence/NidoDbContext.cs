@@ -78,6 +78,8 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<Tarea> Tareas { get; set; }
 
+    public virtual DbSet<PresupuestoMensual> PresupuestosMensuales { get; set; }
+
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
 
@@ -277,6 +279,7 @@ public partial class NidoDbContext : DbContext
                 .HasPrecision(10, 2)
                 .HasColumnName("monto");
             entity.Property(e => e.PagadoPor).HasColumnName("pagado_por");
+            entity.Property(e => e.FacturaId).HasColumnName("factura_id").IsRequired(false);
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.Gastos)
                 .HasForeignKey(d => d.HogarId)
@@ -913,6 +916,30 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.UpdatedBy)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("stock_hogar_updated_by_fkey");
+        });
+
+        modelBuilder.Entity<PresupuestoMensual>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("presupuestos_mensuales_pkey");
+            entity.ToTable("presupuestos_mensuales");
+            entity.HasIndex(e => new { e.HogarId, e.Anio, e.Mes }, "ux_presupuestos_hogar_anio_mes").IsUnique();
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Anio).HasColumnName("anio");
+            entity.Property(e => e.Mes).HasColumnName("mes");
+            entity.Property(e => e.Monto).HasPrecision(12, 2).HasColumnName("monto");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("presupuestos_mensuales_hogar_id_fkey");
         });
 
         modelBuilder.Entity<Tarea>(entity =>

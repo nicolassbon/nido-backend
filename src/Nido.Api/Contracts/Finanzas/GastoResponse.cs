@@ -8,5 +8,6 @@ public sealed record GastoResponse(
     string Fecha,
     Guid PagadoPorId,
     string PagadoPorNombre,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    Guid? FacturaId
 );
