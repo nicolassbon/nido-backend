@@ -40,4 +40,13 @@ public sealed class TelegramOptions
     public int TimeoutSeconds { get; init; } = 30;
 
     public bool DailySummaryEnabled { get; init; } = true;
+
+    [Range(1, 10_485_760, ErrorMessage = "WebhookMaxPayloadBytes must be between 1 and 10485760.")]
+    public int WebhookMaxPayloadBytes { get; init; } = 102_400;
+
+    [Range(1, 100_000, ErrorMessage = "WebhookRateLimitPermitPerWindow must be between 1 and 100000.")]
+    public int WebhookRateLimitPermitPerWindow { get; init; } = 100;
+
+    [Range(1, 3_600, ErrorMessage = "WebhookRateLimitWindowSeconds must be between 1 and 3600.")]
+    public int WebhookRateLimitWindowSeconds { get; init; } = 60;
 }
