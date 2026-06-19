@@ -21,6 +21,7 @@ using Nido.Application.Common.Assets;
 using Nido.Application.Common.Images;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Security;
 using Nido.Application.Common.Storage;
 using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Productos;
@@ -85,6 +86,7 @@ public static class DependencyInjection
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
         services.AddScoped<IHogarRepository, HogarRepository>();
+        services.AddScoped<IHogarMembershipRepository, HogarMembershipRepository>();
         services.AddOptions();
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>

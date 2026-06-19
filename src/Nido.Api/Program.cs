@@ -51,6 +51,7 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
+builder.Services.AddCommonSecurityModule();
 
 builder.Services.AddAuthModule();
 builder.Services.AddOnboardingModule();
