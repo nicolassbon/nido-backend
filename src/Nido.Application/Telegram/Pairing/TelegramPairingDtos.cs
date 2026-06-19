@@ -26,3 +26,29 @@ public sealed record TelegramPairingCodeResult(
 public sealed record ValidatePairingCodeRequest(
     long ChatId,
     string SubmittedCode);
+
+public sealed record StartTelegramPairingCommand(
+    Guid UsuarioId,
+    Guid HogarId);
+
+public sealed record StartTelegramPairingResult(
+    string DeepLinkUrl,
+    DateTime ExpiresAt);
+
+public sealed record CompleteTelegramPairingCommand(
+    long ChatId,
+    string Token);
+
+public sealed record CompleteTelegramPairingResult(
+    long ChatId,
+    Guid HogarId,
+    Guid UsuarioId,
+    DateTime PairedAt);
+
+public sealed record UnlinkTelegramChatCommand(long ChatId);
+
+public sealed record UnlinkTelegramChatResult(
+    long ChatId,
+    Guid HogarId,
+    Guid UsuarioId,
+    DateTime UnpairedAt);

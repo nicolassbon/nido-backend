@@ -1,9 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Exceptions;
+using Nido.Application.Telegram.Webhook;
 
 namespace Nido.Application.Telegram;
 
@@ -16,20 +19,65 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddSingleton<TelegramHogarAccess>();
+        services.AddScoped(sp => sp.GetRequiredService<IOptions<TelegramOptions>>().Value);
+        services.AddScoped<StartTelegramPairingHandler>();
+        services.AddScoped<CompleteTelegramPairingHandler>();
+        services.AddScoped<UnlinkTelegramChatHandler>();
+        services.AddScoped<TelegramUpdateDispatcher>();
+
+        services.TryAddScoped<ITelegramHogarAccess, MissingTelegramHogarAccess>();
+        services.TryAddScoped<ITelegramPairingRepository, MissingTelegramPairingRepository>();
+        services.TryAddScoped<ITelegramPairingTokenHasher, MissingTelegramPairingTokenHasher>();
+        services.TryAddScoped<ITelegramPairingRateLimiter, MissingTelegramPairingRateLimiter>();
         return services;
     }
 
     public static IServiceCollection AddTelegramWebhook(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<TelegramOptions>()
-            .Bind(configuration.GetSection(TelegramOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddTelegramModule(configuration);
 
         services.AddHostedService<TelegramWebhookStartupValidator>();
         return services;
     }
+}
+
+internal sealed class MissingTelegramHogarAccess : ITelegramHogarAccess
+{
+    public Task<TelegramChatLinkSnapshot?> GetActiveLinkAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramHogarAccess requires infrastructure registration.");
+
+    public Task<bool> IsUserCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramHogarAccess requires infrastructure registration.");
+
+    public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramHogarAccess requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramPairingRepository : ITelegramPairingRepository
+{
+    public Task<TelegramPairingTokenResult> CreatePairingTokenAsync(Guid hogarId, Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
+    public Task<CompleteTelegramPairingResult> CompletePairingAsync(string tokenHash, long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
+    public Task<UnlinkTelegramChatResult> UnlinkChatAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramPairingTokenHasher : ITelegramPairingTokenHasher
+{
+    public string Hash(string token)
+        => throw new InvalidOperationException("ITelegramPairingTokenHasher requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramPairingRateLimiter : ITelegramPairingRateLimiter
+{
+    public Task<bool> TryAcquireGenerateAsync(Guid usuarioId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
+
+    public Task<bool> TryAcquireConsumeAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
 }
 
 internal sealed class TelegramWebhookStartupValidator : IHostedService

@@ -49,9 +49,13 @@ using Nido.Infrastructure.Tareas;
 using Nido.Application.Notificaciones;
 using Nido.Application.Telegram.Client;
 using Nido.Application.Telegram.Idempotency;
+using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Webhook;
 using Nido.Infrastructure.Notificaciones;
 using Nido.Infrastructure.Telegram.Idempotency;
+using Nido.Infrastructure.Telegram.Authorization;
+using Nido.Infrastructure.Telegram.Pairing;
 using Nido.Infrastructure.Telegram.Webhook;
 using Resend;
 
@@ -151,6 +155,10 @@ public static class DependencyInjection
         services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
         services.AddScoped<ITelegramUpdateIdempotencyService, TelegramUpdateIdempotencyService>();
         services.AddScoped<ITelegramWebhookHandler, TelegramWebhookHandler>();
+        services.AddScoped<ITelegramHogarAccess, TelegramHogarAccessRepository>();
+        services.AddScoped<ITelegramPairingRepository, TelegramPairingRepository>();
+        services.AddScoped<ITelegramPairingTokenHasher, TelegramPairingTokenHasher>();
+        services.AddScoped<ITelegramPairingRateLimiter, TelegramPairingRateLimiter>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:

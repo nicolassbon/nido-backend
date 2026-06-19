@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Nido.Application.Telegram.Idempotency;
@@ -7,6 +8,7 @@ namespace Nido.Infrastructure.Telegram.Webhook;
 
 public sealed class TelegramWebhookHandler : ITelegramWebhookHandler
 {
+    private static readonly SemaphoreSlim[] ProcessingStripes = CreateProcessingStripes();
     private readonly ITelegramUpdateIdempotencyService _idempotency;
 
     public TelegramWebhookHandler(ITelegramUpdateIdempotencyService idempotency)
@@ -14,20 +16,53 @@ public sealed class TelegramWebhookHandler : ITelegramWebhookHandler
         _idempotency = idempotency;
     }
 
-    public async Task<TelegramWebhookResult> HandleAsync(TelegramWebhookRequest request, CancellationToken ct)
+    public async Task<TelegramWebhookResult> HandleAsync(
+        TelegramWebhookRequest request,
+        Func<CancellationToken, Task> dispatch,
+        CancellationToken ct)
     {
-        var alreadyProcessed = await _idempotency.IsAlreadyProcessedAsync(request.UpdateId, ct);
-        if (alreadyProcessed)
+        var stripe = GetProcessingStripe(request.UpdateId);
+        await stripe.WaitAsync(ct);
+
+        try
         {
-            return new TelegramWebhookResult.Duplicate();
+            var reserved = await _idempotency.TryReserveAsync(request.UpdateId, updateHash: null, ct);
+            if (!reserved)
+            {
+                return new TelegramWebhookResult.Duplicate();
+            }
+
+            try
+            {
+                await dispatch(ct);
+                return new TelegramWebhookResult.Accepted();
+            }
+            catch
+            {
+                await _idempotency.ReleaseReservationAsync(request.UpdateId, ct);
+                throw;
+            }
+        }
+        finally
+        {
+            stripe.Release();
+        }
+    }
+
+    private static SemaphoreSlim[] CreateProcessingStripes()
+    {
+        var stripes = new SemaphoreSlim[256];
+        for (var i = 0; i < stripes.Length; i++)
+        {
+            stripes[i] = new SemaphoreSlim(1, 1);
         }
 
-        var recorded = await _idempotency.RecordProcessedAsync(request.UpdateId, updateHash: null, ct);
-        if (!recorded)
-        {
-            return new TelegramWebhookResult.Duplicate();
-        }
+        return stripes;
+    }
 
-        return new TelegramWebhookResult.Accepted();
+    private static SemaphoreSlim GetProcessingStripe(long updateId)
+    {
+        var index = (int)((ulong)updateId % (ulong)ProcessingStripes.Length);
+        return ProcessingStripes[index];
     }
 }

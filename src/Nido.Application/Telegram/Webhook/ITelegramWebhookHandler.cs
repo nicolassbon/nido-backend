@@ -5,5 +5,8 @@ namespace Nido.Application.Telegram.Webhook;
 
 public interface ITelegramWebhookHandler
 {
-    Task<TelegramWebhookResult> HandleAsync(TelegramWebhookRequest request, CancellationToken ct);
+    Task<TelegramWebhookResult> HandleAsync(
+        TelegramWebhookRequest request,
+        Func<CancellationToken, Task> dispatch,
+        CancellationToken ct);
 }

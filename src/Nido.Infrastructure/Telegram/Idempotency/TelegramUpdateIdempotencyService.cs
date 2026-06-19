@@ -27,7 +27,7 @@ public sealed class TelegramUpdateIdempotencyService : ITelegramUpdateIdempotenc
             .AnyAsync(p => p.UpdateId == updateId, ct);
     }
 
-    public async Task<bool> RecordProcessedAsync(long updateId, string? updateHash, CancellationToken ct)
+    public async Task<bool> TryReserveAsync(long updateId, string? updateHash, CancellationToken ct)
     {
         var entity = new ProcessedTelegramUpdate
         {
@@ -50,6 +50,21 @@ public sealed class TelegramUpdateIdempotencyService : ITelegramUpdateIdempotenc
             return false;
         }
     }
+
+    public async Task ReleaseReservationAsync(long updateId, CancellationToken ct)
+    {
+        var entity = await _db.ProcessedTelegramUpdates
+            .SingleOrDefaultAsync(p => p.UpdateId == updateId, ct);
+
+        if (entity is null)
+        {
+            return;
+        }
+
+        _db.ProcessedTelegramUpdates.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+    }
+
     internal static bool IsUpdateIdUniqueViolation(DbUpdateException exception)
     {
         return exception.InnerException is PostgresException pg

@@ -12,6 +12,7 @@ using Nido.Application.Preferencias.Exceptions;
 using Nido.Application.Productos.Exceptions;
 using Nido.Application.Productos.UploadProductImage;
 using Nido.Application.Recetas.UploadRecipeImage;
+using Nido.Application.Telegram.Exceptions;
 using Nido.Domain.Exceptions;
 
 namespace Nido.Api.Errors;
@@ -119,6 +120,16 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         // Preferencias exceptions
         MissingPreferenceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
         InvalidPreferenceRangeException => (StatusCodes.Status400BadRequest, "Validation error"),
+
+        // Telegram exceptions
+        TelegramChatNotLinkedException => (StatusCodes.Status404NotFound, "Not found"),
+        TelegramPairingTokenNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        TelegramHogarAccessDeniedException => (StatusCodes.Status403Forbidden, "Forbidden"),
+        TelegramPairingTokenAlreadyConsumedException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingTokenExpiredException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingTokenRevokedException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingRateLimitExceededException => (StatusCodes.Status429TooManyRequests, "Too many requests"),
+        TelegramConfigurationException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
 
         // Catch-all for remaining infrastructure-level validation errors
         ArgumentException => (StatusCodes.Status400BadRequest, "Validation error"),

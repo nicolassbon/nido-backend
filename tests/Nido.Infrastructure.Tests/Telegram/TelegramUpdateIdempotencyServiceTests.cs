@@ -45,11 +45,11 @@ public sealed class TelegramUpdateIdempotencyServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RecordProcessedAsync_PersistsRow_ThenIsAlreadyProcessedReturnsTrue()
+    public async Task TryReserveAsync_PersistsRow_ThenIsAlreadyProcessedReturnsTrue()
     {
         const long updateId = 1001L;
 
-        var first = await _sut.RecordProcessedAsync(updateId, "hash-abc", CancellationToken.None);
+        var first = await _sut.TryReserveAsync(updateId, "hash-abc", CancellationToken.None);
         var second = await _sut.IsAlreadyProcessedAsync(updateId, CancellationToken.None);
 
         Assert.True(first);
@@ -57,28 +57,41 @@ public sealed class TelegramUpdateIdempotencyServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RecordProcessedAsync_RaceForSameUpdateId_LoserReturnsFalse()
+    public async Task TryReserveAsync_RaceForSameUpdateId_LoserReturnsFalse()
     {
         const long updateId = 2002L;
 
-        var first = await _sut.RecordProcessedAsync(updateId, null, CancellationToken.None);
-        var second = await _sut.RecordProcessedAsync(updateId, null, CancellationToken.None);
+        var first = await _sut.TryReserveAsync(updateId, null, CancellationToken.None);
+        var second = await _sut.TryReserveAsync(updateId, null, CancellationToken.None);
 
         Assert.True(first);
         Assert.False(second);
     }
 
     [Fact]
-    public async Task RecordProcessedAsync_StampsProcessedAt()
+    public async Task TryReserveAsync_StampsProcessedAt()
     {
         var before = DateTime.UtcNow.AddSeconds(-1);
-        var recorded = await _sut.RecordProcessedAsync(3003L, null, CancellationToken.None);
+        var recorded = await _sut.TryReserveAsync(3003L, null, CancellationToken.None);
         var after = DateTime.UtcNow.AddSeconds(1);
 
         Assert.True(recorded);
         var row = await _db.ProcessedTelegramUpdates.AsNoTracking().SingleAsync();
         Assert.InRange(row.ProcessedAt, before, after);
         Assert.Null(row.UpdateHash);
+    }
+
+    [Fact]
+    public async Task ReleaseReservationAsync_RemovesRow_AndRetryCanReserveAgain()
+    {
+        const long updateId = 4004L;
+
+        Assert.True(await _sut.TryReserveAsync(updateId, null, CancellationToken.None));
+
+        await _sut.ReleaseReservationAsync(updateId, CancellationToken.None);
+
+        Assert.False(await _sut.IsAlreadyProcessedAsync(updateId, CancellationToken.None));
+        Assert.True(await _sut.TryReserveAsync(updateId, null, CancellationToken.None));
     }
 
     [Fact]
@@ -176,7 +189,7 @@ public sealed class TelegramUpdateIdempotencyServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RecordProcessedAsync_BubblesNonUniqueViolationDbUpdateException()
+    public async Task TryReserveAsync_BubblesNonUniqueViolationDbUpdateException()
     {
         var interceptor = new ThrowingSaveChangesInterceptor(
             new DbUpdateException(
@@ -211,14 +224,14 @@ public sealed class TelegramUpdateIdempotencyServiceTests : IAsyncLifetime
         var failingService = new TelegramUpdateIdempotencyService(failingDb);
 
         var ex = await Assert.ThrowsAsync<DbUpdateException>(
-            () => failingService.RecordProcessedAsync(9999L, null, CancellationToken.None));
+            () => failingService.TryReserveAsync(9999L, null, CancellationToken.None));
 
         Assert.IsType<PostgresException>(ex.InnerException);
         Assert.Equal(PostgresErrorCodes.ConnectionFailure, ((PostgresException)ex.InnerException!).SqlState);
     }
 
     [Fact]
-    public async Task RecordProcessedAsync_BubblesDbUpdateExceptionWithNullInnerException()
+    public async Task TryReserveAsync_BubblesDbUpdateExceptionWithNullInnerException()
     {
         var interceptor = new ThrowingSaveChangesInterceptor(
             new DbUpdateException("provider-level failure with no detail"));
@@ -233,7 +246,7 @@ public sealed class TelegramUpdateIdempotencyServiceTests : IAsyncLifetime
         var failingService = new TelegramUpdateIdempotencyService(failingDb);
 
         await Assert.ThrowsAsync<DbUpdateException>(
-            () => failingService.RecordProcessedAsync(8888L, null, CancellationToken.None));
+            () => failingService.TryReserveAsync(8888L, null, CancellationToken.None));
     }
 
     private sealed class ThrowingSaveChangesInterceptor : ISaveChangesInterceptor

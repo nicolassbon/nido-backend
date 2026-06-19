@@ -10,6 +10,8 @@ public sealed class TelegramOptions
 
     public string? WebhookSecretToken { get; init; }
 
+    public string BotUsername { get; set; } = string.Empty;
+
     [Required]
     public string DefaultParseMode { get; init; } = "MarkdownV2";
 
@@ -38,6 +40,18 @@ public sealed class TelegramOptions
 
     [Range(1, 300, ErrorMessage = "TimeoutSeconds must be between 1 and 300.")]
     public int TimeoutSeconds { get; init; } = 30;
+
+    [Range(1, 60, ErrorMessage = "PairingTokenTtlMinutes must be between 1 and 60.")]
+    public int PairingTokenTtlMinutes { get; set; } = 15;
+
+    [Range(1, 100, ErrorMessage = "PairingRateLimitGeneratePerWindow must be between 1 and 100.")]
+    public int PairingRateLimitGeneratePerWindow { get; set; } = 5;
+
+    [Range(1, 100, ErrorMessage = "PairingRateLimitConsumePerWindow must be between 1 and 100.")]
+    public int PairingRateLimitConsumePerWindow { get; set; } = 5;
+
+    [Range(1, 3_600, ErrorMessage = "PairingRateLimitWindowSeconds must be between 1 and 3600.")]
+    public int PairingRateLimitWindowSeconds { get; set; } = 60;
 
     public bool DailySummaryEnabled { get; init; } = true;
 
