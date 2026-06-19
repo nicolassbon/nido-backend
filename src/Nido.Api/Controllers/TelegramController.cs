@@ -27,4 +27,30 @@ public sealed class TelegramController : ControllerBase
             result.TokenExpiresAt,
             result.CodeExpiresAt));
     }
+
+    [HttpGet("status")]
+    public async Task<IActionResult> GetStatus(
+        [FromServices] GetTelegramPairingStatusHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(
+            new GetTelegramPairingStatusQuery(currentUser.UsuarioId, currentUser.HogarId),
+            cancellationToken);
+
+        return Ok(new TelegramPairingStatusResponse(result.IsLinked, result.ChatId, result.PairedAt));
+    }
+
+    [HttpPost("unlink")]
+    public async Task<IActionResult> Unlink(
+        [FromServices] UnlinkTelegramPairingHandler unlinkHandler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await unlinkHandler.HandleAsync(
+            new UnlinkTelegramPairingCommand(currentUser.UsuarioId, currentUser.HogarId),
+            cancellationToken);
+
+        return Ok(new UnlinkTelegramChatResponse(result.ChatId, result.UnpairedAt));
+    }
 }

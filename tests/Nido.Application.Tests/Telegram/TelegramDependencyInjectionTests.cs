@@ -53,6 +53,7 @@ public sealed class TelegramDependencyInjectionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.CompletePairingAsync("hash", 1, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.CompletePairingByCodeAsync("hash", 1, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UnlinkChatAsync(1, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UnlinkActiveLinkAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
         Assert.Throws<InvalidOperationException>(() => hasher.Hash("raw-token"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => rateLimiter.TryAcquireGenerateAsync(Guid.NewGuid(), CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => rateLimiter.TryAcquireConsumeAsync(1, CancellationToken.None));

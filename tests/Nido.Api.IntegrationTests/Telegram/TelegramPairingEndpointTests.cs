@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -280,6 +281,183 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         Assert.Equal(64, code.CodeHash.Length);
     }
 
+    [Fact]
+    public async Task GetStatus_WhenNoActiveLink_ReturnsNotLinked()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.GetAsync("/api/telegram/pairing/status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"isLinked\":false", payload);
+        Assert.Contains("\"chatId\":null", payload);
+        Assert.Contains("\"pairedAt\":null", payload);
+    }
+
+    [Fact]
+    public async Task GetStatus_WhenActiveLinkExists_ReturnsLinkedWithChatId()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var chatId = 422L;
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await SeedActiveLinkForUserAsync(factory, usuarioId, hogarId, chatId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.GetAsync("/api/telegram/pairing/status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"isLinked\":true", payload);
+        Assert.Contains($"\"chatId\":{chatId}", payload);
+        Assert.Contains("\"pairedAt\"", payload);
+    }
+
+    [Fact]
+    public async Task GetStatus_WhenLinkWasUnlinked_ReturnsNotLinked()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var chatId = 423L;
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await SeedActiveLinkForUserAsync(factory, usuarioId, hogarId, chatId, unpairedAt: DateTime.UtcNow.AddHours(-1));
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.GetAsync("/api/telegram/pairing/status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"isLinked\":false", payload);
+        Assert.Contains("\"chatId\":null", payload);
+        Assert.Contains("\"pairedAt\":null", payload);
+    }
+
+    [Fact]
+    public async Task Unlink_WhenActiveLinkExists_DeactivatesIt()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var chatId = 424L;
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await SeedActiveLinkForUserAsync(factory, usuarioId, hogarId, chatId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.PostAsync("/api/telegram/pairing/unlink", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(payload);
+        Assert.Equal(chatId, json.RootElement.GetProperty("chatId").GetInt64());
+        Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("unpairedAt").GetString()));
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == chatId);
+        Assert.NotNull(link.UnpairedAt);
+        var responseUnpairedAt = DateTime.Parse(
+            json.RootElement.GetProperty("unpairedAt").GetString()!,
+            provider: null,
+            System.Globalization.DateTimeStyles.RoundtripKind);
+        Assert.InRange(responseUnpairedAt, link.UnpairedAt.Value.AddMilliseconds(-1), link.UnpairedAt.Value.AddMilliseconds(1));
+    }
+
+    [Fact]
+    public async Task Unlink_WhenNoActiveLink_Returns404()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.PostAsync("/api/telegram/pairing/unlink", content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Unlink_WhenAnotherUserHasDifferentActiveLink_OnlyUnlinksCurrentUserAndHogar()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var otherUsuarioId = Guid.NewGuid();
+        var otherHogarId = Guid.NewGuid();
+        const long chatId = 425L;
+        const long otherChatId = 426L;
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await SeedUserAndHouseholdAsync(factory, otherUsuarioId, otherHogarId);
+        await SeedActiveLinkForUserAsync(factory, usuarioId, hogarId, chatId);
+        await SeedActiveLinkForUserAsync(factory, otherUsuarioId, otherHogarId, otherChatId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.PostAsync("/api/telegram/pairing/unlink", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var links = await db.TelegramChatLinks
+            .Where(x => x.ChatId == chatId || x.ChatId == otherChatId)
+            .OrderBy(x => x.UsuarioId)
+            .ToListAsync();
+
+        var currentLink = Assert.Single(links, x => x.ChatId == chatId && x.UsuarioId == usuarioId && x.HogarId == hogarId);
+        var otherLink = Assert.Single(links, x => x.ChatId == otherChatId && x.UsuarioId == otherUsuarioId && x.HogarId == otherHogarId);
+        Assert.NotNull(currentLink.UnpairedAt);
+        Assert.Null(otherLink.UnpairedAt);
+    }
+
     private static string? ExtractPairingCode(string json)
     {
         const string key = "\"pairingCode\"";
@@ -449,6 +627,28 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
             UsuarioId = usuarioId,
             HogarId = hogarId,
             PairedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SeedActiveLinkForUserAsync(
+        NidoTestWebAppFactory factory,
+        Guid usuarioId,
+        Guid hogarId,
+        long chatId,
+        DateTime? unpairedAt = null)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        db.TelegramChatLinks.Add(new TelegramChatLink
+        {
+            Id = Guid.NewGuid(),
+            ChatId = chatId,
+            UsuarioId = usuarioId,
+            HogarId = hogarId,
+            PairedAt = DateTime.UtcNow,
+            UnpairedAt = unpairedAt
         });
         await db.SaveChangesAsync();
     }

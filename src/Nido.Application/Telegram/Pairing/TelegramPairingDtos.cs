@@ -56,8 +56,27 @@ public sealed record CompleteTelegramPairingResult(
 
 public sealed record UnlinkTelegramChatCommand(long ChatId);
 
+public sealed record UnlinkTelegramPairingCommand(
+    Guid UsuarioId,
+    Guid HogarId);
+
 public sealed record UnlinkTelegramChatResult(
     long ChatId,
     Guid HogarId,
     Guid UsuarioId,
     DateTime UnpairedAt);
+
+public sealed record TelegramChatLinkResult(
+    long ChatId,
+    Guid UsuarioId,
+    Guid HogarId,
+    DateTime PairedAt);
+
+public sealed record GetTelegramPairingStatusQuery(
+    Guid UsuarioId,
+    Guid HogarId);
+
+public sealed record TelegramPairingStatusResult(
+    bool IsLinked,
+    long? ChatId,
+    DateTime? PairedAt);

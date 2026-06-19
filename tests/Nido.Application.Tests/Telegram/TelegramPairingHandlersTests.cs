@@ -238,6 +238,21 @@ public sealed class TelegramPairingHandlersTests
         Assert.Equal(88, repository.UnlinkedChatId);
     }
 
+    [Fact]
+    public async Task UnlinkPairingHandler_DelegatesUsingUserAndHogarScope()
+    {
+        var repository = new FakePairingRepository();
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var handler = new UnlinkTelegramPairingHandler(repository);
+
+        var result = await handler.HandleAsync(new UnlinkTelegramPairingCommand(usuarioId, hogarId), CancellationToken.None);
+
+        Assert.Equal(usuarioId, repository.UnlinkedUsuarioId);
+        Assert.Equal(hogarId, repository.UnlinkedHogarId);
+        Assert.Equal(repository.ActiveLinkResult!.ChatId, result.ChatId);
+    }
+
     private sealed class FakePairingRepository : ITelegramPairingRepository
     {
         public string? CreatedTokenHash { get; private set; }
@@ -247,9 +262,12 @@ public sealed class TelegramPairingHandlersTests
         public string? CompletedTokenHash { get; private set; }
         public string? CompletedCodeHash { get; private set; }
         public long? UnlinkedChatId { get; private set; }
+        public Guid? UnlinkedUsuarioId { get; private set; }
+        public Guid? UnlinkedHogarId { get; private set; }
         public Exception? CodeCompletionException { get; init; }
         public int CreateArtifactsCollisionCount { get; init; }
         public int CreateArtifactsCalls { get; private set; }
+        public TelegramChatLinkResult? ActiveLinkResult { get; set; } = new(555, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
 
         public Task<TelegramPairingTokenResult> CreatePairingTokenAsync(Guid hogarId, Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken ct)
         {
@@ -303,6 +321,24 @@ public sealed class TelegramPairingHandlersTests
             UnlinkedChatId = chatId;
             return Task.FromResult(new UnlinkTelegramChatResult(chatId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow));
         }
+
+        public Task<UnlinkTelegramChatResult> UnlinkActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        {
+            UnlinkedUsuarioId = usuarioId;
+            UnlinkedHogarId = hogarId;
+
+            var link = ActiveLinkResult is { } activeLink
+                ? activeLink with { UsuarioId = usuarioId, HogarId = hogarId }
+                : new TelegramChatLinkResult(555, usuarioId, hogarId, DateTime.UtcNow);
+
+            ActiveLinkResult = link;
+            return Task.FromResult(new UnlinkTelegramChatResult(link.ChatId, hogarId, usuarioId, DateTime.UtcNow));
+        }
+
+        public TelegramChatLinkResult? ActiveLink { get; set; }
+
+        public Task<TelegramChatLinkResult?> GetActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(ActiveLink);
     }
 
     private sealed class FakeHasher : ITelegramPairingTokenHasher

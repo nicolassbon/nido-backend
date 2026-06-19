@@ -171,6 +171,46 @@ public sealed class TelegramPairingRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UnlinkActiveLinkAsync_WhenScopedActiveLinkExists_SetsOnlyThatLinkUnpaired()
+    {
+        var first = await SeedTokenAsync();
+        var second = await SeedTokenAsync();
+        await _sut.CompletePairingAsync(first.TokenHash, 5_001, CancellationToken.None);
+
+        _db.TelegramChatLinks.Add(new TelegramChatLink
+        {
+            Id = Guid.NewGuid(),
+            ChatId = 5_002,
+            UsuarioId = second.UsuarioId,
+            HogarId = second.HogarId,
+            PairedAt = DateTime.UtcNow,
+            UnpairedAt = null
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await _sut.UnlinkActiveLinkAsync(first.UsuarioId, first.HogarId, CancellationToken.None);
+
+        Assert.Equal(5_001, result.ChatId);
+
+        var links = await _db.TelegramChatLinks
+            .Where(x => x.ChatId == 5_001 || x.ChatId == 5_002)
+            .OrderBy(x => x.UsuarioId)
+            .ToListAsync();
+
+        var firstLink = Assert.Single(links, x => x.ChatId == 5_001 && x.UsuarioId == first.UsuarioId && x.HogarId == first.HogarId);
+        var secondLink = Assert.Single(links, x => x.ChatId == 5_002 && x.UsuarioId == second.UsuarioId && x.HogarId == second.HogarId);
+        Assert.NotNull(firstLink.UnpairedAt);
+        Assert.Null(secondLink.UnpairedAt);
+    }
+
+    [Fact]
+    public async Task UnlinkActiveLinkAsync_WhenScopedActiveLinkMissing_ThrowsTelegramChatNotLinkedException()
+    {
+        await Assert.ThrowsAsync<TelegramChatNotLinkedException>(() =>
+            _sut.UnlinkActiveLinkAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CreatePairingArtifactsAsync_CreatesTokenAndCodeWithDistinctExpirations()
     {
         var usuarioId = Guid.NewGuid();

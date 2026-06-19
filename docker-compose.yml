@@ -53,6 +53,10 @@ services:
       - Spaces__Region=${Spaces__Region}
       - Spaces__AccessKey=${Spaces__AccessKey}
       - Spaces__SecretKey=${Spaces__SecretKey}
+      - Telegram__BotToken=${Telegram__BotToken}
+      - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
+      - Telegram__FrontEndBaseUrl=${Telegram__FrontEndBaseUrl}
+      - Telegram__BotUsername=${Telegram__BotUsername}
     ports:
       - "8080:8080"
     volumes:

@@ -24,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<CompleteTelegramPairingHandler>();
         services.AddScoped<CompleteTelegramPairingByCodeHandler>();
         services.AddScoped<UnlinkTelegramChatHandler>();
+        services.AddScoped<UnlinkTelegramPairingHandler>();
+        services.AddScoped<GetTelegramPairingStatusHandler>();
         services.AddScoped<TelegramUpdateDispatcher>();
 
         services.TryAddScoped<ITelegramHogarAccess, MissingTelegramHogarAccess>();
@@ -76,6 +78,12 @@ internal sealed class MissingTelegramPairingRepository : ITelegramPairingReposit
         => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
 
     public Task<UnlinkTelegramChatResult> UnlinkChatAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
+    public Task<UnlinkTelegramChatResult> UnlinkActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
+    public Task<TelegramChatLinkResult?> GetActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
 }
 
