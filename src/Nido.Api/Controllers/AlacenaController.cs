@@ -79,7 +79,8 @@ public sealed class AlacenaController : ControllerBase
                 request.FechaVencimiento,
                 request.EstaAbierto,
                 request.PorcentajeConsumido,
-                CantidadEnvases: request.CantidadEnvases ?? 1),
+                CantidadEnvases: request.CantidadEnvases ?? 1,
+                OrigenCarga: request.OrigenCarga),
             ct);
 
         return CreatedAtAction(nameof(GetProductos), ToResponse(created));
@@ -184,7 +185,8 @@ public sealed class AlacenaController : ControllerBase
             item.FechaVencimiento,
             item.EstaAbierto,
             item.PorcentajeConsumido,
-            item.CantidadEnvases
+            item.CantidadEnvases,
+            item.OrigenCarga
         );
 
     private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)

@@ -4,9 +4,16 @@ public sealed record ListaCompraGrupoResult(
     string GrupoNombre,
     IReadOnlyList<ListaCompraItemResult> Items);
 
+public sealed record ListaCompraListResult(
+    Guid Id,
+    string Nombre,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    IReadOnlyList<ListaCompraItemResult> Items);
+
 public sealed record ListaCompraItemResult(
     Guid Id,
-    Guid ProductoId,
+    Guid? ProductoId,
     string Nombre,
     decimal? Cantidad,
     string? Unidad,
@@ -16,7 +23,7 @@ public sealed record ListaCompraItemResult(
 
 public sealed record ListaCompraHistorialItemResult(
     Guid Id,
-    Guid ProductoId,
+    Guid? ProductoId,
     string Nombre,
     decimal? Cantidad,
     string? Unidad,

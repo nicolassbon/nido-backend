@@ -14,5 +14,6 @@ public sealed record StockItemResponse(
     bool EstaAbierto,
     decimal PorcentajeConsumido,
     // Cantidad de envases idénticos del mismo producto.
-    int CantidadEnvases
+    int CantidadEnvases,
+    string OrigenCarga
 );

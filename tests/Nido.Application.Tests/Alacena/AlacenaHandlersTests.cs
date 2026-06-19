@@ -39,6 +39,32 @@ public sealed class AlacenaHandlersTests
     }
 
     [Fact]
+    public async Task Create_NormalizesAndPropagatesLoadOrigin()
+    {
+        var repo = new FakeAlacenaRepository();
+        var handler = new CreateStockItemHandler(repo);
+
+        await handler.Handle(
+            new CreateStockItemCommand(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Leche",
+                "779123",
+                null,
+                "Alacena",
+                1,
+                "lt",
+                null,
+                false,
+                0,
+                OrigenCarga: "codigo_barras"),
+            CancellationToken.None);
+
+        Assert.NotNull(repo.LastCreateRequest);
+        Assert.Equal(StockLoadOrigins.CodigoBarras, repo.LastCreateRequest!.OrigenCarga);
+    }
+
+    [Fact]
     public async Task Update_WhenNotExists_ReturnsNull()
     {
         var repo = new FakeAlacenaRepository { UpdatedResult = null };
@@ -203,6 +229,7 @@ public sealed class AlacenaHandlersTests
         public Guid LastGetByIdHogarId { get; private set; }
         public Guid LastDeleteId { get; private set; }
         public Guid LastDeleteHogarId { get; private set; }
+        public CreateStockItemRequestModel? LastCreateRequest { get; private set; }
 
         public Task<IReadOnlyList<StockItemResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult(Items);
@@ -215,8 +242,11 @@ public sealed class AlacenaHandlersTests
         }
 
         public Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
-            => Task.FromResult(CreatedResult ??
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido, request.CantidadEnvases));
+        {
+            LastCreateRequest = request;
+            return Task.FromResult(CreatedResult ??
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido, request.CantidadEnvases, request.OrigenCarga));
+        }
 
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);

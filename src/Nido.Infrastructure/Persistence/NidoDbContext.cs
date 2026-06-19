@@ -98,6 +98,8 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<ListaCompra> ListaCompras { get; set; }
 
+    public virtual DbSet<ListaCompraHogar> ListasCompraHogar { get; set; }
+
     public virtual DbSet<Logro> Logros { get; set; }
 
     public virtual DbSet<LogrosHogar> LogrosHogars { get; set; }
@@ -115,6 +117,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<RecetaElectrodomestico> RecetaElectrodomesticos { get; set; }
 
     public virtual DbSet<RecetasCocinada> RecetasCocinadas { get; set; }
+
+    public virtual DbSet<RecetaGuardadaHogar> RecetasGuardadasHogar { get; set; }
 
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
@@ -540,6 +544,10 @@ public partial class NidoDbContext : DbContext
                 .HasDefaultValue("Productos agregados")
                 .HasColumnName("grupo_nombre");
             entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.ListaId).HasColumnName("lista_id");
+            entity.Property(e => e.NombreManual)
+                .HasMaxLength(255)
+                .HasColumnName("nombre_manual");
             entity.Property(e => e.Orden)
                 .HasDefaultValue(0)
                 .HasColumnName("orden");
@@ -569,10 +577,48 @@ public partial class NidoDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("lista_compras_hogar_id_fkey");
 
+            entity.HasOne(d => d.Lista).WithMany(p => p.Items)
+                .HasForeignKey(d => d.ListaId)
+                .HasConstraintName("lista_compras_lista_id_fkey");
+
             entity.HasOne(d => d.Producto).WithMany(p => p.ListaCompras)
                 .HasForeignKey(d => d.ProductoId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("lista_compras_producto_id_fkey");
+        });
+
+        modelBuilder.Entity<ListaCompraHogar>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("listas_compra_hogar_pkey");
+
+            entity.ToTable("listas_compra_hogar");
+
+            entity.HasIndex(e => e.HogarId, "idx_listas_compra_hogar_hogar");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(120)
+                .HasColumnName("nombre");
+            entity.Property(e => e.CreadaPor).HasColumnName("creada_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Hogar).WithMany(p => p.ListasCompraHogar)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("listas_compra_hogar_hogar_id_fkey");
+
+            entity.HasOne(d => d.CreadaPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadaPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("listas_compra_hogar_creada_por_fkey");
         });
 
         modelBuilder.Entity<Logro>(entity =>
@@ -995,6 +1041,10 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.CantidadEnvases)
                 .HasDefaultValue(1)
                 .HasColumnName("cantidad_envases");
+            entity.Property(e => e.OrigenCarga)
+                .HasMaxLength(30)
+                .HasDefaultValue("manual")
+                .HasColumnName("origen_carga");
 
             entity.HasOne(d => d.CargadoPorNavigation).WithMany(p => p.StockHogarCargadoPorNavigations)
                 .HasForeignKey(d => d.CargadoPor)
@@ -1015,6 +1065,36 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.UpdatedBy)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("stock_hogar_updated_by_fkey");
+        });
+
+        modelBuilder.Entity<RecetaGuardadaHogar>(entity =>
+        {
+            entity.HasKey(e => new { e.HogarId, e.RecetaId }).HasName("recetas_guardadas_hogar_pkey");
+
+            entity.ToTable("recetas_guardadas_hogar");
+
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.RecetaId).HasColumnName("receta_id");
+            entity.Property(e => e.GuardadaPor).HasColumnName("guardada_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Hogar).WithMany(p => p.RecetasGuardadasHogar)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("recetas_guardadas_hogar_hogar_id_fkey");
+
+            entity.HasOne(d => d.Receta).WithMany(p => p.RecetasGuardadasHogar)
+                .HasForeignKey(d => d.RecetaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("recetas_guardadas_hogar_receta_id_fkey");
+
+            entity.HasOne(d => d.GuardadaPorNavigation).WithMany()
+                .HasForeignKey(d => d.GuardadaPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("recetas_guardadas_hogar_guardada_por_fkey");
         });
 
         modelBuilder.Entity<PresupuestoMensual>(entity =>

@@ -31,4 +31,6 @@ public partial class Receta
     public virtual ICollection<RecetasCocinada> RecetasCocinada { get; set; } = new List<RecetasCocinada>();
 
     public virtual ICollection<ReseniasRecetum> ReseniasReceta { get; set; } = new List<ReseniasRecetum>();
+
+    public virtual ICollection<RecetaGuardadaHogar> RecetasGuardadasHogar { get; set; } = new List<RecetaGuardadaHogar>();
 }

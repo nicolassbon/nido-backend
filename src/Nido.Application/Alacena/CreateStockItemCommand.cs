@@ -12,5 +12,6 @@ public sealed record CreateStockItemCommand(
     string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido,
-    int CantidadEnvases = 1
+    int CantidadEnvases = 1,
+    string? OrigenCarga = null
 );

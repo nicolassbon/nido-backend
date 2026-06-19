@@ -28,6 +28,172 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return ToGroups(items);
     }
 
+    public async Task<IReadOnlyList<ListaCompraListResult>> GetListsAsync(Guid hogarId, CancellationToken ct)
+    {
+        var listas = await _db.ListasCompraHogar
+            .AsNoTracking()
+            .Where(lista => lista.HogarId == hogarId)
+            .Include(lista => lista.Items.Where(item => item.RemovidoDeListaAt == null))
+                .ThenInclude(item => item.Producto)
+            .OrderBy(lista => lista.CreatedAt)
+            .ThenBy(lista => lista.Nombre)
+            .ToListAsync(ct);
+
+        return listas.Select(ToListResult).ToList();
+    }
+
+    public async Task<ListaCompraListResult> CreateListAsync(Guid hogarId, Guid usuarioId, string nombre, CancellationToken ct)
+    {
+        var lista = new ListaCompraHogar
+        {
+            Id = Guid.NewGuid(),
+            HogarId = hogarId,
+            Nombre = nombre,
+            CreadaPor = usuarioId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.ListasCompraHogar.Add(lista);
+        await _db.SaveChangesAsync(ct);
+        return ToListResult(lista);
+    }
+
+    public async Task<ListaCompraListResult?> UpdateListAsync(Guid hogarId, Guid listaId, string nombre, CancellationToken ct)
+    {
+        var lista = await _db.ListasCompraHogar
+            .Include(l => l.Items.Where(item => item.RemovidoDeListaAt == null))
+                .ThenInclude(item => item.Producto)
+            .FirstOrDefaultAsync(lista => lista.Id == listaId && lista.HogarId == hogarId, ct);
+
+        if (lista is null)
+        {
+            return null;
+        }
+
+        lista.Nombre = nombre;
+        lista.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return ToListResult(lista);
+    }
+
+    public async Task<bool> DeleteListAsync(Guid hogarId, Guid listaId, CancellationToken ct)
+    {
+        var lista = await _db.ListasCompraHogar
+            .Include(l => l.Items)
+            .FirstOrDefaultAsync(lista => lista.Id == listaId && lista.HogarId == hogarId, ct);
+
+        if (lista is null)
+        {
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var item in lista.Items)
+        {
+            if (item.RemovidoDeListaAt == null)
+            {
+                item.RemovidoDeListaAt = now;
+            }
+
+            item.ListaId = null;
+        }
+
+        _db.ListasCompraHogar.Remove(lista);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<ListaCompraItemResult?> AddItemToListAsync(
+        Guid hogarId,
+        Guid listaId,
+        Guid usuarioId,
+        string nombre,
+        decimal? cantidad,
+        string? unidad,
+        CancellationToken ct)
+    {
+        var exists = await _db.ListasCompraHogar.AnyAsync(lista => lista.Id == listaId && lista.HogarId == hogarId, ct);
+        if (!exists)
+        {
+            return null;
+        }
+
+        var nextOrder = await QueryActive(hogarId)
+            .Where(item => item.ListaId == listaId)
+            .Select(item => (int?)item.Orden)
+            .MaxAsync(ct) ?? -1;
+
+        var item = new ListaCompra
+        {
+            Id = Guid.NewGuid(),
+            HogarId = hogarId,
+            ListaId = listaId,
+            ProductoId = null,
+            AgregadoPor = usuarioId,
+            Cantidad = cantidad,
+            Unidad = NormalizeOptional(unidad),
+            Comprado = false,
+            AgregadoAlInventario = false,
+            GrupoNombre = ListaComprasDefaults.ManualGroupName,
+            Orden = nextOrder + 1,
+            CreatedAt = DateTime.UtcNow,
+            NombreManual = nombre.Trim(),
+            ProductoNombreSnapshot = nombre.Trim()
+        };
+
+        _db.ListaCompras.Add(item);
+        await _db.SaveChangesAsync(ct);
+        return ToItemResult(item);
+    }
+
+    public async Task<ListaCompraItemResult?> UpdateItemAsync(
+        Guid hogarId,
+        Guid listaId,
+        Guid itemId,
+        string? nombre,
+        decimal? cantidad,
+        string? unidad,
+        bool? comprado,
+        Guid usuarioId,
+        CancellationToken ct)
+    {
+        var item = await QueryActive(hogarId)
+            .FirstOrDefaultAsync(item => item.Id == itemId && item.ListaId == listaId, ct);
+
+        if (item is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(nombre))
+        {
+            item.NombreManual = nombre.Trim();
+            item.ProductoNombreSnapshot = nombre.Trim();
+            item.ProductoId = null;
+            item.Producto = null;
+        }
+
+        item.Cantidad = cantidad;
+        item.Unidad = NormalizeOptional(unidad);
+
+        if (comprado.HasValue && comprado.Value != (item.Comprado == true))
+        {
+            if (comprado.Value)
+            {
+                MarkPurchased(item, usuarioId);
+            }
+            else
+            {
+                item.Comprado = false;
+                item.CompradoEn = null;
+                item.CompradoPor = null;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return ToItemResult(item);
+    }
+
     public async Task<IReadOnlyList<ListaCompraHistorialItemResult>> GetHistorialAsync(Guid hogarId, CancellationToken ct)
     {
         return await _db.ListaCompras
@@ -66,6 +232,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             item.RemovidoDeListaAt = now;
         }
 
+        var lista = await EnsureDefaultListAsync(hogarId, usuarioId, ct);
         for (var i = 0; i < items.Count; i++)
         {
             var input = items[i];
@@ -74,6 +241,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             {
                 Id = Guid.NewGuid(),
                 HogarId = hogarId,
+                ListaId = lista.Id,
                 ProductoId = producto.Id,
                 Producto = producto,
                 AgregadoPor = usuarioId,
@@ -84,6 +252,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
                 GrupoNombre = grupoNombre,
                 Orden = i,
                 CreatedAt = now.AddTicks(i),
+                NombreManual = producto.Nombre,
                 ProductoNombreSnapshot = producto.Nombre
             });
         }
@@ -107,10 +276,12 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             .MaxAsync(ct) ?? -1;
 
         var producto = await GetOrCreateProductoAsync(nombre, ct);
+        var lista = await EnsureDefaultListAsync(hogarId, usuarioId, ct);
         var item = new ListaCompra
         {
             Id = Guid.NewGuid(),
             HogarId = hogarId,
+            ListaId = lista.Id,
             ProductoId = producto.Id,
             Producto = producto,
             AgregadoPor = usuarioId,
@@ -121,6 +292,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             GrupoNombre = grupoNombre,
             Orden = nextOrder + 1,
             CreatedAt = DateTime.UtcNow,
+            NombreManual = producto.Nombre,
             ProductoNombreSnapshot = producto.Nombre
         };
 
@@ -188,6 +360,21 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return true;
     }
 
+    public async Task<bool> RemoveItemAsync(Guid id, Guid hogarId, Guid listaId, CancellationToken ct)
+    {
+        var item = await QueryActive(hogarId)
+            .FirstOrDefaultAsync(item => item.Id == id && item.ListaId == listaId, ct);
+
+        if (item is null)
+        {
+            return false;
+        }
+
+        item.RemovidoDeListaAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task ClearActiveAsync(Guid hogarId, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
@@ -227,6 +414,29 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return producto;
     }
 
+    private async Task<ListaCompraHogar> EnsureDefaultListAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
+    {
+        var lista = await _db.ListasCompraHogar
+            .FirstOrDefaultAsync(lista => lista.HogarId == hogarId && lista.Nombre == "Principal", ct);
+
+        if (lista is not null)
+        {
+            return lista;
+        }
+
+        lista = new ListaCompraHogar
+        {
+            Id = Guid.NewGuid(),
+            HogarId = hogarId,
+            Nombre = "Principal",
+            CreadaPor = usuarioId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.ListasCompraHogar.Add(lista);
+        return lista;
+    }
+
     private static void MarkPurchased(ListaCompra item, Guid usuarioId)
     {
         if (item.Comprado == true)
@@ -247,18 +457,36 @@ public sealed class ListaComprasRepository : IListaComprasRepository
                 group.OrderBy(item => item.Orden).ThenBy(item => item.CreatedAt).Select(ToItemResult).ToList()))
             .ToList();
 
+    private static ListaCompraListResult ToListResult(ListaCompraHogar lista)
+        => new(
+            lista.Id,
+            lista.Nombre,
+            lista.CreatedAt,
+            lista.UpdatedAt,
+            lista.Items
+                .Where(item => item.RemovidoDeListaAt == null)
+                .OrderBy(item => item.Orden)
+                .ThenBy(item => item.CreatedAt)
+                .Select(ToItemResult)
+                .ToList());
+
     private static ListaCompraItemResult ToItemResult(ListaCompra item)
         => new(
             item.Id,
             item.ProductoId,
-            string.IsNullOrWhiteSpace(item.ProductoNombreSnapshot)
-                ? item.Producto.Nombre
-                : item.ProductoNombreSnapshot,
+            GetItemName(item),
             item.Cantidad,
             item.Unidad,
             item.Comprado == true,
             item.CompradoEn,
             item.Orden);
+
+    private static string GetItemName(ListaCompra item)
+        => !string.IsNullOrWhiteSpace(item.NombreManual)
+            ? item.NombreManual
+            : !string.IsNullOrWhiteSpace(item.ProductoNombreSnapshot)
+                ? item.ProductoNombreSnapshot
+                : item.Producto?.Nombre ?? string.Empty;
 
     private static string? NormalizeOptional(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

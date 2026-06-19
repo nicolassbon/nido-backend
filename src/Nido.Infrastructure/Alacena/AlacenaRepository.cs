@@ -86,7 +86,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             Ubicacion = request.Ubicacion,
             EstaAbierto = request.EstaAbierto,
             PorcentajeConsumido = request.PorcentajeConsumido,
-            CantidadEnvases = request.CantidadEnvases < 1 ? 1 : request.CantidadEnvases
+            CantidadEnvases = request.CantidadEnvases < 1 ? 1 : request.CantidadEnvases,
+            OrigenCarga = request.OrigenCarga
         };
 
         _db.StockHogars.Add(stock);
@@ -161,7 +162,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.FechaVencimiento?.ToString("yyyy-MM-dd"),
             stock.EstaAbierto,
             stock.PorcentajeConsumido,
-            stock.CantidadEnvases);
+            stock.CantidadEnvases,
+            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga);
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();

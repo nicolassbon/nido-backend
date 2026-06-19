@@ -68,6 +68,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
         var vecesCocinadas = await GetVecesCocinadadasAsync(hogarId, ct);
         var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), hogarId, ct);
+        var guardadas = await GetRecetasGuardadasIdsAsync(hogarId, ct);
 
         return recetas.Select(receta =>
             ToResult(
@@ -76,7 +77,20 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 productosPorVencer,
                 hoy,
                 vecesCocinadas.GetValueOrDefault(receta.Id, 0),
-                resumenes.GetValueOrDefault(receta.Id, new ResenaResumen(0m, 0)))).ToList();
+                resumenes.GetValueOrDefault(receta.Id, new ResenaResumen(0m, 0)),
+                guardadas.Contains(receta.Id))).ToList();
+    }
+
+    public async Task<IReadOnlyList<RecetaResult>> GetSavedAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
+    {
+        var savedIds = await GetRecetasGuardadasIdsAsync(hogarId, ct);
+        if (savedIds.Count == 0)
+        {
+            return [];
+        }
+
+        var all = await GetAllAsync(hogarId, usuarioId, ct);
+        return all.Where(receta => savedIds.Contains(receta.Id)).ToList();
     }
 
     public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, Guid usuarioId, CancellationToken ct)
@@ -102,8 +116,53 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             .AsNoTracking()
             .CountAsync(rc => rc.RecetaId == id && rc.HogarId == hogarId, ct);
         var resumen = await _resenaRepository.GetResumenAsync(id, hogarId, ct);
+        var guardada = await _db.RecetasGuardadasHogar
+            .AsNoTracking()
+            .AnyAsync(saved => saved.HogarId == hogarId && saved.RecetaId == id, ct);
 
-        return ToResult(receta, productosEnStock, productosPorVencer, hoy, vecesCocinada, resumen);
+        return ToResult(receta, productosEnStock, productosPorVencer, hoy, vecesCocinada, resumen, guardada);
+    }
+
+    public async Task<bool> SaveAsync(Guid recetaId, Guid hogarId, Guid usuarioId, CancellationToken ct)
+    {
+        var recetaExists = await _db.Recetas.AnyAsync(receta => receta.Id == recetaId, ct);
+        if (!recetaExists)
+        {
+            return false;
+        }
+
+        var alreadySaved = await _db.RecetasGuardadasHogar
+            .AnyAsync(saved => saved.HogarId == hogarId && saved.RecetaId == recetaId, ct);
+
+        if (!alreadySaved)
+        {
+            _db.RecetasGuardadasHogar.Add(new RecetaGuardadaHogar
+            {
+                HogarId = hogarId,
+                RecetaId = recetaId,
+                GuardadaPor = usuarioId,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> UnsaveAsync(Guid recetaId, Guid hogarId, CancellationToken ct)
+    {
+        var saved = await _db.RecetasGuardadasHogar
+            .FirstOrDefaultAsync(saved => saved.HogarId == hogarId && saved.RecetaId == recetaId, ct);
+
+        if (saved is null)
+        {
+            return false;
+        }
+
+        _db.RecetasGuardadasHogar.Remove(saved);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct)
@@ -303,7 +362,8 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar> productosPorVencer,
         DateOnly hoy,
         int vecesCocinada,
-        ResenaResumen resumen)
+        ResenaResumen resumen,
+        bool guardada)
     {
         var nutricion = receta.InfoNutricionalReceta.FirstOrDefault();
         var urgencia = CalculateUrgencia(receta, productosPorVencer, hoy);
@@ -356,7 +416,8 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 producto.ProductoId,
                 producto.Nombre,
                 producto.FechaVencimiento.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                producto.FechaVencimiento.DayNumber - hoy.DayNumber)).ToList());
+                producto.FechaVencimiento.DayNumber - hoy.DayNumber)).ToList(),
+            guardada);
     }
 
     private static UrgenciaReceta CalculateUrgencia(
@@ -789,6 +850,20 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             .Where(rc => rc.HogarId == hogarId)
             .GroupBy(rc => rc.RecetaId)
             .ToDictionaryAsync(g => g.Key, g => g.Count(), ct);
+    }
+
+    private async Task<IReadOnlySet<Guid>> GetRecetasGuardadasIdsAsync(Guid hogarId, CancellationToken ct)
+    {
+        if (hogarId == Guid.Empty)
+            return new HashSet<Guid>();
+
+        var ids = await _db.RecetasGuardadasHogar
+            .AsNoTracking()
+            .Where(saved => saved.HogarId == hogarId)
+            .Select(saved => saved.RecetaId)
+            .ToListAsync(ct);
+
+        return ids.ToHashSet();
     }
 
     public async Task<RecipeImageTarget?> GetImageTargetAsync(Guid recipeId, CancellationToken cancellationToken)

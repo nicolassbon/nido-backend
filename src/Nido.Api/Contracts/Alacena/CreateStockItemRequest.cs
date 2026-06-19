@@ -11,5 +11,6 @@ public sealed record CreateStockItemRequest(
     bool EstaAbierto,
     decimal PorcentajeConsumido,
     // Cantidad de envases idénticos. Default 1.
-    int? CantidadEnvases = 1
+    int? CantidadEnvases = 1,
+    string? OrigenCarga = null
 );
