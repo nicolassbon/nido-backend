@@ -19,8 +19,3 @@ public sealed record TelegramChatLinkSnapshot(
     Guid HogarId,
     DateTime? PairedAt,
     DateTime? UnpairedAt);
-
-public sealed class TelegramHogarAccess
-{
-    public ITelegramHogarAccess? Implementation { get; set; }
-}

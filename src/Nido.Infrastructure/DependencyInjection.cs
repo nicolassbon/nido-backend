@@ -21,6 +21,7 @@ using Nido.Application.Common.Assets;
 using Nido.Application.Common.Images;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Security;
 using Nido.Application.Common.Storage;
 using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Productos;
@@ -46,7 +47,16 @@ using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Application.Tareas;
 using Nido.Infrastructure.Tareas;
 using Nido.Application.Notificaciones;
+using Nido.Application.Telegram.Client;
+using Nido.Application.Telegram.Idempotency;
+using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Pairing;
+using Nido.Application.Telegram.Webhook;
 using Nido.Infrastructure.Notificaciones;
+using Nido.Infrastructure.Telegram.Idempotency;
+using Nido.Infrastructure.Telegram.Authorization;
+using Nido.Infrastructure.Telegram.Pairing;
+using Nido.Infrastructure.Telegram.Webhook;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -80,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
         services.AddScoped<IHogarRepository, HogarRepository>();
+        services.AddScoped<IHogarMembershipRepository, HogarMembershipRepository>();
         services.AddOptions();
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>
@@ -127,6 +138,27 @@ public static class DependencyInjection
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
+
+        services.AddHttpClient<ITelegramClient, Telegram.TelegramClient>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>().Value;
+            if (string.IsNullOrWhiteSpace(opts.BotToken))
+            {
+                throw new InvalidOperationException(
+                    "Telegram BotToken is not configured. Set Telegram:BotToken in configuration.");
+            }
+
+            client.BaseAddress = new Uri($"https://api.telegram.org/bot{opts.BotToken}/");
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+        });
+
+        services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
+        services.AddScoped<ITelegramUpdateIdempotencyService, TelegramUpdateIdempotencyService>();
+        services.AddScoped<ITelegramWebhookHandler, TelegramWebhookHandler>();
+        services.AddScoped<ITelegramHogarAccess, TelegramHogarAccessRepository>();
+        services.AddScoped<ITelegramPairingRepository, TelegramPairingRepository>();
+        services.AddScoped<ITelegramPairingTokenHasher, TelegramPairingTokenHasher>();
+        services.AddScoped<ITelegramPairingRateLimiter, TelegramPairingRateLimiter>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:

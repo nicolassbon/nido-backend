@@ -1,5 +1,6 @@
 using Nido.Application.Hogares;
 using Nido.Application.Hogares.Exceptions;
+using Nido.Application.Tests.Common.Security;
 
 namespace Nido.Application.Tests.Hogares;
 
@@ -8,25 +9,27 @@ public sealed class RemoveMiembroHandlerTests
     [Fact]
     public async Task Handle_OwnerRemovingAnotherMember_RemovesTarget()
     {
-        var repo = new FakeInvitacionRepository
-        {
-            IsOwner = true,
-            IsTargetMember = true
-        };
+        var repo = new FakeInvitacionRepository();
+        var membershipService = new RecordingHouseholdMembershipService();
         var command = new RemoveMiembroCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        var handler = new RemoveMiembroHandler(repo);
+        var handler = new RemoveMiembroHandler(repo, membershipService);
 
         await handler.Handle(command, CancellationToken.None);
 
         Assert.Equal(command.HogarId, repo.RemovedHogarId);
         Assert.Equal(command.TargetUsuarioId, repo.RemovedUsuarioId);
+        Assert.Single(membershipService.OwnerChecks);
+        Assert.Single(membershipService.MemberChecks);
     }
 
     [Fact]
     public async Task Handle_CallerIsNotOwner_ThrowsNotHouseholdOwner()
     {
-        var repo = new FakeInvitacionRepository { IsOwner = false };
-        var handler = new RemoveMiembroHandler(repo);
+        var membershipService = new RecordingHouseholdMembershipService
+        {
+            OwnerExceptionToThrow = new NotHouseholdOwnerException()
+        };
+        var handler = new RemoveMiembroHandler(new FakeInvitacionRepository(), membershipService);
 
         await Assert.ThrowsAsync<NotHouseholdOwnerException>(() =>
             handler.Handle(new RemoveMiembroCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
@@ -36,8 +39,7 @@ public sealed class RemoveMiembroHandlerTests
     public async Task Handle_CallerRemovesSelf_ThrowsCannotRemoveSelf()
     {
         var usuarioId = Guid.NewGuid();
-        var repo = new FakeInvitacionRepository { IsOwner = true };
-        var handler = new RemoveMiembroHandler(repo);
+        var handler = new RemoveMiembroHandler(new FakeInvitacionRepository(), new RecordingHouseholdMembershipService());
 
         await Assert.ThrowsAsync<CannotRemoveSelfException>(() =>
             handler.Handle(new RemoveMiembroCommand(usuarioId, Guid.NewGuid(), usuarioId), CancellationToken.None));
@@ -46,12 +48,9 @@ public sealed class RemoveMiembroHandlerTests
     [Fact]
     public async Task Handle_TargetNotInHousehold_ThrowsNotHouseholdMember()
     {
-        var repo = new FakeInvitacionRepository
-        {
-            IsOwner = true,
-            IsTargetMember = false
-        };
-        var handler = new RemoveMiembroHandler(repo);
+        var membershipService = new RecordingHouseholdMembershipService();
+        membershipService.MemberExceptionToThrow = new NotHouseholdMemberException();
+        var handler = new RemoveMiembroHandler(new FakeInvitacionRepository(), membershipService);
 
         await Assert.ThrowsAsync<NotHouseholdMemberException>(() =>
             handler.Handle(new RemoveMiembroCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
@@ -59,16 +58,8 @@ public sealed class RemoveMiembroHandlerTests
 
     private sealed class FakeInvitacionRepository : IInvitacionRepository
     {
-        public bool IsOwner { get; set; }
-        public bool IsTargetMember { get; set; }
         public Guid? RemovedHogarId { get; private set; }
         public Guid? RemovedUsuarioId { get; private set; }
-
-        public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-            => Task.FromResult(IsOwner);
-
-        public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-            => Task.FromResult(IsTargetMember);
 
         public Task RemoveMiembroAsync(Guid hogarId, Guid targetUsuarioId, CancellationToken ct)
         {
