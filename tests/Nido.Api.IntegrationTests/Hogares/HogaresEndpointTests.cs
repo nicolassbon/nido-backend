@@ -296,8 +296,7 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-        var membership = await db.MiembrosHogars.SingleAsync(x => x.UsuarioId == invitee.UsuarioId);
-        Assert.Equal(owner.HogarId, membership.HogarId);
+        var membership = await db.MiembrosHogars.SingleAsync(x => x.UsuarioId == invitee.UsuarioId && x.HogarId == owner.HogarId);
         Assert.Equal("integrante", membership.Rol);
     }
 

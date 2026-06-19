@@ -35,16 +35,10 @@ public sealed class AceptarInvitacionHandler
         if (totalMiembros >= MaxMiembros)
             throw new MaxMembersExceededException(MaxMiembros);
 
-        // If user is already in the target household, nothing to do
-        var currentHogarId = await _repository.GetUserCurrentHogarIdAsync(command.UsuarioId, ct);
-        if (currentHogarId == invitacion.HogarId)
+        if (await _repository.IsMemberOfHouseholdAsync(command.UsuarioId, invitacion.HogarId, ct))
             throw new AlreadyMemberException();
 
-        // User can only move if they're the sole owner of their current (auto-created) household
-        if (!await _repository.IsUserSoleOwnerAsync(command.UsuarioId, ct))
-            throw new NotSoleOwnerException();
-
-        await _repository.MoveUserToHouseholdAsync(command.UsuarioId, currentHogarId, invitacion.HogarId, command.Token, ct);
+        await _repository.AddUserToHouseholdAsync(command.UsuarioId, invitacion.HogarId, command.Token, ct);
 
         var (email, nombre) = await _repository.GetUsuarioInfoAsync(command.UsuarioId, ct);
         var nuevoToken = _jwtTokenService.CreateToken(command.UsuarioId, invitacion.HogarId, email, nombre);
