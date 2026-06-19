@@ -91,4 +91,15 @@ public sealed class OnboardingController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("wellness")]
+    public async Task<IActionResult> GetWellness(
+        [FromServices] IOnboardingRepository repository,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var restriccionIds = await repository.GetUserRestriccionesAsync(currentUser.UsuarioId, cancellationToken);
+        var metaIds = await repository.GetHogarMetasAsync(currentUser.HogarId, cancellationToken);
+        return Ok(new WellnessOnboardingResponse(restriccionIds, metaIds));
+    }
 }

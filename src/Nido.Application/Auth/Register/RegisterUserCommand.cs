@@ -5,4 +5,5 @@ public sealed record RegisterUserCommand(
     string Email,
     string Password,
     string Sexo,
-    RegistrationProfileImageUpload? Foto);
+    RegistrationProfileImageUpload? Foto,
+    bool AceptaTerminos);

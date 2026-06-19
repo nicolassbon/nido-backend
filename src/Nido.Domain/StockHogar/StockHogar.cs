@@ -15,8 +15,12 @@ public sealed class StockHogar
         Guid usuarioIngresoId,
         string ubicacion,
         bool estaAbierto,
-        decimal porcentajeConsumido)
+        decimal porcentajeConsumido,
+        int cantidadEnvases = 1)
     {
+        if (cantidadEnvases < 1)
+            throw new ArgumentOutOfRangeException(nameof(cantidadEnvases), "Debe ser al menos 1.");
+
         Id = Guid.NewGuid();
         HogarId = hogarId;
         ProductoId = productoId;
@@ -27,6 +31,7 @@ public sealed class StockHogar
         Ubicacion = ubicacion;
         EstaAbierto = estaAbierto;
         PorcentajeConsumido = porcentajeConsumido;
+        CantidadEnvases = cantidadEnvases;
     }
 
     public Guid Id { get; private set; }
@@ -48,4 +53,10 @@ public sealed class StockHogar
     public bool EstaAbierto { get; private set; }
 
     public decimal PorcentajeConsumido { get; private set; }
+
+    /// <summary>
+    /// Cantidad de envases idénticos del producto. Mínimo 1.
+    /// Ej: 2 paquetes de 100g cada uno → CantidadEnvases=2, CantidadActual=100.
+    /// </summary>
+    public int CantidadEnvases { get; private set; } = 1;
 }

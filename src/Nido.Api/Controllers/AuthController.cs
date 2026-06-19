@@ -12,7 +12,6 @@ using Nido.Application.Auth.Logout;
 using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Register;
-using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Security;
 using Nido.Infrastructure.Auth;
 using Nido.Infrastructure.ProfileImages;
@@ -96,15 +95,25 @@ public sealed class AuthController : ControllerBase
         }
 
         var result = await _registerUserHandler.Handle(
-            new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, foto),
+            new RegisterUserCommand(request.Nombre, request.Email, request.Password, request.Sexo, foto, request.AceptaTerminos),
             cancellationToken);
+
+        if (result.IsSilentSuccess)
+        {
+            return Ok(RegisterResponse.SilentSuccess());
+        }
 
         if (result.RefreshToken is not null)
         {
             SetRefreshTokenCookie(result.RefreshToken);
         }
 
-        return StatusCode(StatusCodes.Status201Created, new RegisterResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+        return StatusCode(
+            StatusCodes.Status201Created,
+            RegisterResponse.Created(
+                result.UsuarioId!.Value,
+                result.HogarId!.Value,
+                result.AccessToken!));
     }
 
     [AllowAnonymous]

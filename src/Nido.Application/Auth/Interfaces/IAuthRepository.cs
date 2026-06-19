@@ -2,8 +2,6 @@ using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.ResetPassword;
-using Nido.Application.Common.ProfileImages;
-
 namespace Nido.Application.Auth.Interfaces;
 
 public interface IAuthRepository
@@ -19,7 +17,8 @@ public interface IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
+        bool aceptaTerminos,
         CancellationToken cancellationToken);
     Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken);
     Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken);

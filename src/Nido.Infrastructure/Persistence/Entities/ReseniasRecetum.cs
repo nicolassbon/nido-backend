@@ -9,6 +9,8 @@ public partial class ReseniasRecetum
 
     public Guid RecetaId { get; set; }
 
+    public Guid HogarId { get; set; }
+
     public Guid UsuarioId { get; set; }
 
     public int? Puntuacion { get; set; }
@@ -17,7 +19,11 @@ public partial class ReseniasRecetum
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime? UpdatedAt { get; set; }
+
     public virtual Receta Receta { get; set; } = null!;
 
     public virtual Usuario Usuario { get; set; } = null!;
+
+    public virtual Hogare? Hogar { get; set; }
 }
