@@ -53,6 +53,15 @@ public sealed class TelegramOptions
     [Range(1, 3_600, ErrorMessage = "PairingRateLimitWindowSeconds must be between 1 and 3600.")]
     public int PairingRateLimitWindowSeconds { get; set; } = 60;
 
+    [Range(1, 60, ErrorMessage = "PairingCodeTtlMinutes must be between 1 and 60.")]
+    public int PairingCodeTtlMinutes { get; set; } = 15;
+
+    [Range(1, 100, ErrorMessage = "PairingCodeRateLimitValidatePerWindow must be between 1 and 100.")]
+    public int PairingCodeRateLimitValidatePerWindow { get; set; } = 5;
+
+    [Range(1, 3_600, ErrorMessage = "PairingCodeRateLimitWindowSeconds must be between 1 and 3600.")]
+    public int PairingCodeRateLimitWindowSeconds { get; set; } = 60;
+
     public bool DailySummaryEnabled { get; init; } = true;
 
     [Range(1, 10_485_760, ErrorMessage = "WebhookMaxPayloadBytes must be between 1 and 10485760.")]

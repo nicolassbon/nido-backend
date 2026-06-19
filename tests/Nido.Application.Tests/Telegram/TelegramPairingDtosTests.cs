@@ -59,12 +59,26 @@ public sealed class TelegramPairingDtosTests
     public void StartTelegramPairingResult_RoundTripsValues()
     {
         var deepLink = "https://t.me/nido_bot?start=abc";
-        var expiresAt = DateTime.UtcNow.AddMinutes(15);
+        var pairingCode = "123456";
+        var tokenExpiresAt = DateTime.UtcNow.AddMinutes(10);
+        var codeExpiresAt = DateTime.UtcNow.AddMinutes(15);
 
-        var result = new StartTelegramPairingResult(deepLink, expiresAt);
+        var result = new StartTelegramPairingResult(deepLink, pairingCode, tokenExpiresAt, codeExpiresAt);
 
         Assert.Equal(deepLink, result.DeepLinkUrl);
-        Assert.Equal(expiresAt, result.ExpiresAt);
+        Assert.Equal(pairingCode, result.PairingCode);
+        Assert.Equal(tokenExpiresAt, result.TokenExpiresAt);
+        Assert.Equal(codeExpiresAt, result.CodeExpiresAt);
+        Assert.Equal(codeExpiresAt, result.ExpiresAt);
+    }
+
+    [Fact]
+    public void CompleteTelegramPairingByCodeCommand_RoundTripsValues()
+    {
+        var command = new CompleteTelegramPairingByCodeCommand(123, "482917");
+
+        Assert.Equal(123, command.ChatId);
+        Assert.Equal("482917", command.Code);
     }
 
     [Fact]

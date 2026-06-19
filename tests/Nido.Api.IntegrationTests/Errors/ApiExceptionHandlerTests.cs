@@ -134,6 +134,10 @@ public sealed class ApiExceptionHandlerTests
         { new TelegramPairingTokenAlreadyConsumedException(), 410 },
         { new TelegramPairingTokenExpiredException(), 410 },
         { new TelegramPairingTokenRevokedException(), 410 },
+        { new TelegramPairingCodeNotFoundException(), 404 },
+        { new TelegramPairingCodeExpiredException(), 410 },
+        { new TelegramPairingCodeRevokedException(), 410 },
+        { new TelegramPairingCodeUnavailableException(), 503 },
         { new TelegramPairingRateLimitExceededException(), 429 },
     };
 

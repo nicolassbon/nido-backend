@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped(sp => sp.GetRequiredService<IOptions<TelegramOptions>>().Value);
         services.AddScoped<StartTelegramPairingHandler>();
         services.AddScoped<CompleteTelegramPairingHandler>();
+        services.AddScoped<CompleteTelegramPairingByCodeHandler>();
         services.AddScoped<UnlinkTelegramChatHandler>();
         services.AddScoped<TelegramUpdateDispatcher>();
 
@@ -58,7 +59,20 @@ internal sealed class MissingTelegramPairingRepository : ITelegramPairingReposit
     public Task<TelegramPairingTokenResult> CreatePairingTokenAsync(Guid hogarId, Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
 
+    public Task<(TelegramPairingTokenResult Token, TelegramPairingCodeResult Code)> CreatePairingArtifactsAsync(
+        Guid hogarId,
+        Guid usuarioId,
+        string tokenHash,
+        DateTime tokenExpiresAt,
+        string codeHash,
+        DateTime codeExpiresAt,
+        CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
     public Task<CompleteTelegramPairingResult> CompletePairingAsync(string tokenHash, long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
+    public Task<CompleteTelegramPairingResult> CompletePairingByCodeAsync(string codeHash, long chatId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
 
     public Task<UnlinkTelegramChatResult> UnlinkChatAsync(long chatId, CancellationToken ct)
@@ -77,6 +91,9 @@ internal sealed class MissingTelegramPairingRateLimiter : ITelegramPairingRateLi
         => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
 
     public Task<bool> TryAcquireConsumeAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
+
+    public Task<bool> TryAcquireCodeValidateAsync(long chatId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
 }
 

@@ -13,15 +13,26 @@ public sealed class TelegramPairingRateLimiter(
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public Task<bool> TryAcquireGenerateAsync(Guid usuarioId, CancellationToken ct)
-        => Task.FromResult(TryAcquire($"telegram:pairing:generate:{usuarioId}", options.PairingRateLimitGeneratePerWindow));
+        => Task.FromResult(TryAcquire(
+            $"telegram:pairing:generate:{usuarioId}",
+            options.PairingRateLimitGeneratePerWindow,
+            options.PairingRateLimitWindowSeconds));
 
     public Task<bool> TryAcquireConsumeAsync(long chatId, CancellationToken ct)
-        => Task.FromResult(TryAcquire($"telegram:pairing:consume:{chatId}", options.PairingRateLimitConsumePerWindow));
+        => Task.FromResult(TryAcquire(
+            $"telegram:pairing:consume:{chatId}",
+            options.PairingRateLimitConsumePerWindow,
+            options.PairingRateLimitWindowSeconds));
 
-    private bool TryAcquire(string keyPrefix, int limit)
+    public Task<bool> TryAcquireCodeValidateAsync(long chatId, CancellationToken ct)
+        => Task.FromResult(TryAcquire(
+            $"telegram:pairing:code-validate:{chatId}",
+            options.PairingCodeRateLimitValidatePerWindow,
+            options.PairingCodeRateLimitWindowSeconds));
+
+    private bool TryAcquire(string keyPrefix, int limit, int windowSeconds)
     {
         var now = _timeProvider.GetUtcNow();
-        var windowSeconds = options.PairingRateLimitWindowSeconds;
         var window = now.ToUnixTimeSeconds() / windowSeconds;
         var key = $"{keyPrefix}:{window}";
 

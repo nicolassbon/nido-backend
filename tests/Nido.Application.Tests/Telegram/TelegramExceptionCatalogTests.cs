@@ -26,6 +26,7 @@ public sealed class TelegramExceptionCatalogTests
             "TelegramPairingTokenExpiredException",
             "TelegramPairingTokenRevokedException",
             "TelegramPairingRateLimitExceededException",
+            "TelegramPairingCodeNotFoundException",
             "TelegramPairingCodeExpiredException",
             "TelegramPairingCodeRevokedException",
             "TelegramTareaNotAssignedToUserException"
@@ -111,6 +112,15 @@ public sealed class TelegramExceptionCatalogTests
         var ex = new TelegramChatNotLinkedException();
 
         Assert.Equal("TELEGRAM_CHAT_NOT_LINKED", ex.Code);
+        Assert.NotEmpty(ex.Message);
+    }
+
+    [Fact]
+    public void TelegramPairingCodeNotFoundException_CarriesStableCode()
+    {
+        var ex = new TelegramPairingCodeNotFoundException();
+
+        Assert.Equal("TELEGRAM_PAIRING_CODE_NOT_FOUND", ex.Code);
         Assert.NotEmpty(ex.Message);
     }
 

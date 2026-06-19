@@ -18,14 +18,73 @@ public sealed class TelegramPairingHandlersTests
             repository,
             hasher,
             rateLimiter,
-            new TelegramOptions { BotUsername = "nido_bot", PairingTokenTtlMinutes = 15 });
+            new TelegramOptions { BotUsername = "nido_bot", PairingTokenTtlMinutes = 10, PairingCodeTtlMinutes = 15 });
 
         var result = await handler.HandleAsync(new StartTelegramPairingCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
         Assert.StartsWith("https://t.me/nido_bot?start=", result.DeepLinkUrl);
+        Assert.Matches(@"^\d{6}$", result.PairingCode);
         Assert.NotNull(repository.CreatedTokenHash);
+        Assert.NotNull(repository.CreatedCodeHash);
         Assert.DoesNotContain(repository.CreatedTokenHash!, result.DeepLinkUrl, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.PairingCode, repository.CreatedCodeHash!, StringComparison.Ordinal);
         Assert.StartsWith("hash:", repository.CreatedTokenHash);
+        Assert.StartsWith("hash:", repository.CreatedCodeHash);
+        Assert.Equal(repository.CreatedTokenExpiresAt, result.TokenExpiresAt);
+        Assert.Equal(repository.CreatedCodeExpiresAt, result.CodeExpiresAt);
+    }
+
+    [Fact]
+    public async Task StartHandler_UsesDistinctTokenAndCodeTtls()
+    {
+        var repository = new FakePairingRepository();
+        var handler = new StartTelegramPairingHandler(
+            repository,
+            new FakeHasher(),
+            new FakeRateLimiter(),
+            new TelegramOptions { BotUsername = "nido_bot", PairingTokenTtlMinutes = 7, PairingCodeTtlMinutes = 19 });
+
+        var before = DateTime.UtcNow;
+        var result = await handler.HandleAsync(new StartTelegramPairingCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+        var after = DateTime.UtcNow;
+
+        Assert.InRange(result.TokenExpiresAt, before.AddMinutes(7), after.AddMinutes(7));
+        Assert.InRange(result.CodeExpiresAt, before.AddMinutes(19), after.AddMinutes(19));
+        Assert.Equal(repository.CreatedTokenExpiresAt, result.TokenExpiresAt);
+        Assert.Equal(repository.CreatedCodeExpiresAt, result.CodeExpiresAt);
+    }
+
+    [Fact]
+    public async Task StartHandler_WhenCodeHashCollides_RetriesWithNewCode()
+    {
+        var repository = new FakePairingRepository { CreateArtifactsCollisionCount = 1 };
+        var handler = new StartTelegramPairingHandler(
+            repository,
+            new FakeHasher(),
+            new FakeRateLimiter(),
+            new TelegramOptions { BotUsername = "nido_bot" });
+
+        var result = await handler.HandleAsync(new StartTelegramPairingCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Equal(2, repository.CreateArtifactsCalls);
+        Assert.NotNull(repository.CreatedCodeHash);
+        Assert.DoesNotContain(result.PairingCode, repository.CreatedCodeHash!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StartHandler_WhenCodeHashCollidesExhaustively_ThrowsUnavailable()
+    {
+        var repository = new FakePairingRepository { CreateArtifactsCollisionCount = 3 };
+        var handler = new StartTelegramPairingHandler(
+            repository,
+            new FakeHasher(),
+            new FakeRateLimiter(),
+            new TelegramOptions { BotUsername = "nido_bot" });
+
+        var ex = await Assert.ThrowsAsync<TelegramPairingCodeUnavailableException>(() =>
+            handler.HandleAsync(new StartTelegramPairingCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
+
+        Assert.Equal(3, repository.CreateArtifactsCalls);
     }
 
     [Fact]
@@ -78,6 +137,7 @@ public sealed class TelegramPairingHandlersTests
         var repository = new FakePairingRepository();
         var dispatcher = new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
+            new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
             new UnlinkTelegramChatHandler(repository));
 
         var result = await dispatcher.DispatchAsync(
@@ -86,7 +146,79 @@ public sealed class TelegramPairingHandlersTests
 
         Assert.NotNull(result);
         Assert.Equal(99, result!.ChatId);
-        Assert.Equal("hash:token-123", repository.CompletedTokenHash);
+        Assert.Equal("hash:746f6b656e2d313233", repository.CompletedTokenHash);
+    }
+
+    [Fact]
+    public async Task CompleteByCodeHandler_HashesCode_AndDelegatesToRepository()
+    {
+        var repository = new FakePairingRepository();
+        var handler = new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter());
+
+        await handler.HandleAsync(new CompleteTelegramPairingByCodeCommand(42, "123456"), CancellationToken.None);
+
+        Assert.Equal("hash:313233343536", repository.CompletedCodeHash);
+    }
+
+    [Fact]
+    public async Task CompleteByCodeHandler_WhenRateLimitExceeded_Throws()
+    {
+        var handler = new CompleteTelegramPairingByCodeHandler(
+            new FakePairingRepository(),
+            new FakeHasher(),
+            new FakeRateLimiter { AllowCodeValidate = false });
+
+        await Assert.ThrowsAsync<TelegramPairingRateLimitExceededException>(() =>
+            handler.HandleAsync(new CompleteTelegramPairingByCodeCommand(42, "123456"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CompleteByCodeHandler_PassesThroughRepositoryException()
+    {
+        var repository = new FakePairingRepository { CodeCompletionException = new TelegramPairingCodeNotFoundException() };
+        var handler = new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter());
+
+        await Assert.ThrowsAsync<TelegramPairingCodeNotFoundException>(() =>
+            handler.HandleAsync(new CompleteTelegramPairingByCodeCommand(42, "123456"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Dispatcher_RoutesPairCommand_ToCodeHandler()
+    {
+        var repository = new FakePairingRepository();
+        var dispatcher = new TelegramUpdateDispatcher(
+            new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
+            new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
+            new UnlinkTelegramChatHandler(repository));
+
+        var result = await dispatcher.DispatchAsync(
+            new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/pair 123456", new TelegramWebhookChat(77, "private"))),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(77, result!.ChatId);
+        Assert.Equal("hash:313233343536", repository.CompletedCodeHash);
+    }
+
+    [Theory]
+    [InlineData("/pair 12345")]
+    [InlineData("/pair 1234567")]
+    [InlineData("/pair abcdef")]
+    [InlineData("/pair")]
+    public async Task Dispatcher_IgnoresMalformedPairCommand(string text)
+    {
+        var repository = new FakePairingRepository();
+        var dispatcher = new TelegramUpdateDispatcher(
+            new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
+            new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
+            new UnlinkTelegramChatHandler(repository));
+
+        var result = await dispatcher.DispatchAsync(
+            new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, text, new TelegramWebhookChat(77, "private"))),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Null(repository.CompletedCodeHash);
     }
 
     [Fact]
@@ -95,6 +227,7 @@ public sealed class TelegramPairingHandlersTests
         var repository = new FakePairingRepository();
         var dispatcher = new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
+            new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
             new UnlinkTelegramChatHandler(repository));
 
         var result = await dispatcher.DispatchAsync(
@@ -108,8 +241,15 @@ public sealed class TelegramPairingHandlersTests
     private sealed class FakePairingRepository : ITelegramPairingRepository
     {
         public string? CreatedTokenHash { get; private set; }
+        public string? CreatedCodeHash { get; private set; }
+        public DateTime CreatedTokenExpiresAt { get; private set; }
+        public DateTime CreatedCodeExpiresAt { get; private set; }
         public string? CompletedTokenHash { get; private set; }
+        public string? CompletedCodeHash { get; private set; }
         public long? UnlinkedChatId { get; private set; }
+        public Exception? CodeCompletionException { get; init; }
+        public int CreateArtifactsCollisionCount { get; init; }
+        public int CreateArtifactsCalls { get; private set; }
 
         public Task<TelegramPairingTokenResult> CreatePairingTokenAsync(Guid hogarId, Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken ct)
         {
@@ -117,9 +257,44 @@ public sealed class TelegramPairingHandlersTests
             return Task.FromResult(new TelegramPairingTokenResult(Guid.NewGuid(), hogarId, usuarioId, DateTime.UtcNow, expiresAt, null, null, TelegramPairingStatus.Pending));
         }
 
+        public Task<(TelegramPairingTokenResult Token, TelegramPairingCodeResult Code)> CreatePairingArtifactsAsync(
+            Guid hogarId,
+            Guid usuarioId,
+            string tokenHash,
+            DateTime tokenExpiresAt,
+            string codeHash,
+            DateTime codeExpiresAt,
+            CancellationToken ct)
+        {
+            CreateArtifactsCalls++;
+            if (CreateArtifactsCalls <= CreateArtifactsCollisionCount)
+            {
+                throw new TelegramPairingCodeCollisionException();
+            }
+
+            CreatedTokenHash = tokenHash;
+            CreatedCodeHash = codeHash;
+            CreatedTokenExpiresAt = tokenExpiresAt;
+            CreatedCodeExpiresAt = codeExpiresAt;
+            var token = new TelegramPairingTokenResult(Guid.NewGuid(), hogarId, usuarioId, DateTime.UtcNow, tokenExpiresAt, null, null, TelegramPairingStatus.Pending);
+            var code = new TelegramPairingCodeResult(Guid.NewGuid(), hogarId, usuarioId, 0, DateTime.UtcNow, codeExpiresAt, null, null, TelegramPairingStatus.Pending);
+            return Task.FromResult((token, code));
+        }
+
         public Task<CompleteTelegramPairingResult> CompletePairingAsync(string tokenHash, long chatId, CancellationToken ct)
         {
             CompletedTokenHash = tokenHash;
+            return Task.FromResult(new CompleteTelegramPairingResult(chatId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow));
+        }
+
+        public Task<CompleteTelegramPairingResult> CompletePairingByCodeAsync(string codeHash, long chatId, CancellationToken ct)
+        {
+            CompletedCodeHash = codeHash;
+            if (CodeCompletionException is not null)
+            {
+                return Task.FromException<CompleteTelegramPairingResult>(CodeCompletionException);
+            }
+
             return Task.FromResult(new CompleteTelegramPairingResult(chatId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow));
         }
 
@@ -132,16 +307,18 @@ public sealed class TelegramPairingHandlersTests
 
     private sealed class FakeHasher : ITelegramPairingTokenHasher
     {
-        public string Hash(string token) => $"hash:{token}";
+        public string Hash(string token) => $"hash:{Convert.ToHexStringLower(System.Text.Encoding.UTF8.GetBytes(token))}";
     }
 
     private sealed class FakeRateLimiter : ITelegramPairingRateLimiter
     {
         public bool AllowGenerate { get; init; } = true;
         public bool AllowConsume { get; init; } = true;
+        public bool AllowCodeValidate { get; init; } = true;
 
         public int GenerateCalls { get; private set; }
         public int ConsumeCalls { get; private set; }
+        public int CodeValidateCalls { get; private set; }
 
         public Task<bool> TryAcquireGenerateAsync(Guid usuarioId, CancellationToken ct)
         {
@@ -153,6 +330,12 @@ public sealed class TelegramPairingHandlersTests
         {
             ConsumeCalls++;
             return Task.FromResult(AllowConsume);
+        }
+
+        public Task<bool> TryAcquireCodeValidateAsync(long chatId, CancellationToken ct)
+        {
+            CodeValidateCalls++;
+            return Task.FromResult(AllowCodeValidate);
         }
     }
 }

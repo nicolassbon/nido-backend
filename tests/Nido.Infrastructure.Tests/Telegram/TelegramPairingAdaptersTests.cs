@@ -68,4 +68,61 @@ public sealed class TelegramPairingAdaptersTests
         Assert.Equal(3, results.Count(static result => result));
         Assert.Equal(61, results.Count(static result => !result));
     }
+
+    [Fact]
+    public async Task RateLimiter_CodeValidate_BlocksOnceWindowLimitIsReached()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        const long chatId = 123;
+        var sut = new TelegramPairingRateLimiter(
+            cache,
+            new TelegramOptions
+            {
+                PairingCodeRateLimitValidatePerWindow = 2,
+                PairingCodeRateLimitWindowSeconds = 60
+            });
+
+        Assert.True(await sut.TryAcquireCodeValidateAsync(chatId, CancellationToken.None));
+        Assert.True(await sut.TryAcquireCodeValidateAsync(chatId, CancellationToken.None));
+        Assert.False(await sut.TryAcquireCodeValidateAsync(chatId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RateLimiter_CodeValidate_UsesDedicatedWindowSeconds()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var start = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var fakeTime = new FakeTimeProvider(start);
+        const long chatId = 123;
+        var sut = new TelegramPairingRateLimiter(
+            cache,
+            new TelegramOptions
+            {
+                PairingCodeRateLimitValidatePerWindow = 1,
+                PairingCodeRateLimitWindowSeconds = 1,
+                PairingRateLimitWindowSeconds = 3600
+            },
+            fakeTime);
+
+        Assert.True(await sut.TryAcquireCodeValidateAsync(chatId, CancellationToken.None));
+        Assert.False(await sut.TryAcquireCodeValidateAsync(chatId, CancellationToken.None));
+
+        fakeTime.Advance(TimeSpan.FromSeconds(1.1));
+
+        Assert.True(await sut.TryAcquireCodeValidateAsync(chatId, CancellationToken.None));
+    }
+
+    private sealed class FakeTimeProvider : TimeProvider
+    {
+        private DateTimeOffset _now;
+
+        public FakeTimeProvider(DateTimeOffset start)
+        {
+            _now = start;
+        }
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void Advance(TimeSpan amount) => _now = _now.Add(amount);
+    }
 }

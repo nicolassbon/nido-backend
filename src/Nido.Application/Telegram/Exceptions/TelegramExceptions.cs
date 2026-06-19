@@ -53,6 +53,11 @@ public sealed class TelegramPairingRateLimitExceededException : NidoException
     public TelegramPairingRateLimitExceededException() : base("TELEGRAM_PAIRING_RATE_LIMIT_EXCEEDED", "Telegram pairing is temporarily rate limited. Please try again shortly.") { }
 }
 
+public sealed class TelegramPairingCodeNotFoundException : NidoException
+{
+    public TelegramPairingCodeNotFoundException() : base("TELEGRAM_PAIRING_CODE_NOT_FOUND", "The Telegram pairing code was not found. Please request a new one.") { }
+}
+
 public sealed class TelegramPairingCodeExpiredException : NidoException
 {
     public TelegramPairingCodeExpiredException() : base("TELEGRAM_PAIRING_CODE_EXPIRED", "This pairing code has expired. Please request a new one.") { }
@@ -61,6 +66,20 @@ public sealed class TelegramPairingCodeExpiredException : NidoException
 public sealed class TelegramPairingCodeRevokedException : NidoException
 {
     public TelegramPairingCodeRevokedException() : base("TELEGRAM_PAIRING_CODE_REVOKED", "This pairing code was revoked after too many wrong attempts.") { }
+}
+
+public sealed class TelegramPairingCodeCollisionException : NidoException
+{
+    public TelegramPairingCodeCollisionException()
+        : base("TELEGRAM_PAIRING_CODE_COLLISION", "The generated Telegram pairing code collided with an existing code.")
+    { }
+}
+
+public sealed class TelegramPairingCodeUnavailableException : NidoException
+{
+    public TelegramPairingCodeUnavailableException()
+        : base("TELEGRAM_PAIRING_CODE_UNAVAILABLE", "A pairing code could not be generated right now. Please try again.")
+    { }
 }
 
 public sealed class TelegramTareaNotAssignedToUserException : NidoException

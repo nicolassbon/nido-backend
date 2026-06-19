@@ -21,6 +21,10 @@ public sealed class TelegramController : ControllerBase
             new StartTelegramPairingCommand(currentUser.UsuarioId, currentUser.HogarId),
             cancellationToken);
 
-        return Ok(new StartTelegramPairingResponse(result.DeepLinkUrl, result.ExpiresAt));
+        return Ok(new StartTelegramPairingResponse(
+            result.DeepLinkUrl,
+            result.PairingCode,
+            result.TokenExpiresAt,
+            result.CodeExpiresAt));
     }
 }

@@ -13,6 +13,7 @@ using Nido.Application.Telegram;
 using Nido.Application.Telegram.Client;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
+using Nido.Tests.Shared;
 using Xunit;
 
 namespace Nido.Api.IntegrationTests.Telegram;
@@ -52,12 +53,16 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var payload = await response.Content.ReadAsStringAsync();
         Assert.Contains("https://t.me/", payload);
+        Assert.Matches(@"""pairingCode""\s*:\s*""\d{6}""", payload);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
         var token = await db.TelegramPairingTokens.AsNoTracking().SingleAsync(x => x.UsuarioId == usuarioId && x.HogarId == hogarId);
+        var code = await db.TelegramPairingCodes.AsNoTracking().SingleAsync(x => x.UsuarioId == usuarioId && x.HogarId == hogarId);
         Assert.DoesNotContain(token.TokenHash, payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(code.CodeHash, payload, StringComparison.Ordinal);
         Assert.Equal(64, token.TokenHash.Length);
+        Assert.Equal(64, code.CodeHash.Length);
     }
 
     [Fact]
@@ -147,6 +152,145 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         Assert.Contains(sentMessages.Messages, message => message.ChatId == 77);
     }
 
+    [Fact]
+    public async Task WebhookPair_WithValidCode_CreatesChatLink_AndSendsConfirmation()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        }).WithTelegramWebhookConfig("default-test-webhook-secret");
+
+        var (codeHash, rawCode) = await SeedCodeAsync(factory, activeMembership: true);
+
+        using var client = factory.CreateClient();
+        var response = await PostWebhookAsync(client, 40_001, 66, $"/pair {rawCode}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var code = await db.TelegramPairingCodes.SingleAsync(x => x.CodeHash == codeHash);
+        var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 66);
+        Assert.NotNull(code.ConsumedAt);
+        Assert.Null(link.UnpairedAt);
+        Assert.Contains(sentMessages.Messages, message => message.ChatId == 66);
+    }
+
+    [Fact]
+    public async Task WebhookPair_WithUnknownCode_Returns404()
+    {
+        using var factory = _baseFactory.WithTelegramWebhookConfig("default-test-webhook-secret");
+        using var client = factory.CreateClient();
+
+        var response = await PostWebhookAsync(client, 40_010, 67, "/pair 000000");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("TELEGRAM_PAIRING_CODE_NOT_FOUND", payload);
+    }
+
+    [Fact]
+    public async Task WebhookPair_WithExpiredCode_Returns410()
+    {
+        using var factory = _baseFactory.WithTelegramWebhookConfig("default-test-webhook-secret");
+        var (codeHash, rawCode) = await SeedCodeAsync(factory, activeMembership: true, expiresAt: DateTime.UtcNow.AddMinutes(-1));
+
+        using var client = factory.CreateClient();
+        var response = await PostWebhookAsync(client, 40_011, 68, $"/pair {rawCode}");
+
+        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("TELEGRAM_PAIRING_CODE_EXPIRED", payload);
+    }
+
+    [Fact]
+    public async Task WebhookPair_WithRevokedCode_Returns410()
+    {
+        using var factory = _baseFactory.WithTelegramWebhookConfig("default-test-webhook-secret");
+        var (codeHash, rawCode) = await SeedCodeAsync(factory, activeMembership: true, revokedAt: DateTime.UtcNow.AddMinutes(-1), status: TelegramPairingStatus.Revoked);
+
+        using var client = factory.CreateClient();
+        var response = await PostWebhookAsync(client, 40_012, 69, $"/pair {rawCode}");
+
+        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("TELEGRAM_PAIRING_CODE_REVOKED", payload);
+    }
+
+    [Fact]
+    public async Task WebhookPair_WhenRateLimited_Returns429()
+    {
+        using var factory = _baseFactory
+            .WithTelegramWebhookConfig("default-test-webhook-secret")
+            .WithStorageOverride(services =>
+            {
+                services.PostConfigure<TelegramOptions>(options =>
+                {
+                    options.PairingCodeRateLimitValidatePerWindow = 2;
+                    options.PairingCodeRateLimitWindowSeconds = 60;
+                });
+            });
+
+        using var client = factory.CreateClient();
+
+        for (var i = 0; i < 2; i++)
+        {
+            var ok = await PostWebhookAsync(client, 40_100L + i, 70, "/pair 000000");
+            Assert.Equal(HttpStatusCode.NotFound, ok.StatusCode);
+        }
+
+        var blocked = await PostWebhookAsync(client, 40_102, 70, "/pair 000000");
+        Assert.Equal(HttpStatusCode.TooManyRequests, blocked.StatusCode);
+    }
+
+    [Fact]
+    public async Task StartEndpoint_RawPairingCode_DoesNotAppearInLogsOrDatabaseColumns()
+    {
+        var logCapture = new TestLogCapture();
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+            services.PostConfigure<TelegramOptions>(options => options.BotUsername = "nido_bot");
+        }).WithLogCapture(logCapture);
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.PostAsync(StartEndpoint, content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        var pairingCode = ExtractPairingCode(payload);
+        Assert.NotNull(pairingCode);
+
+        var allLogs = string.Join(Environment.NewLine, logCapture.Entries.Select(e => e.Message));
+        Assert.DoesNotContain(pairingCode, allLogs, StringComparison.Ordinal);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var code = await db.TelegramPairingCodes.AsNoTracking().SingleAsync(x => x.UsuarioId == usuarioId && x.HogarId == hogarId);
+        Assert.DoesNotContain(pairingCode, code.CodeHash, StringComparison.Ordinal);
+        Assert.Equal(64, code.CodeHash.Length);
+    }
+
+    private static string? ExtractPairingCode(string json)
+    {
+        const string key = "\"pairingCode\"";
+        var index = json.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+        if (index < 0) return null;
+
+        var start = json.IndexOf('"', index + key.Length) + 1;
+        var end = json.IndexOf('"', start);
+        return json[start..end];
+    }
+
     private static HttpClient CreateAuthenticatedClient(HttpClient client)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-test-jwt-key-minimum-32-bytes-long!!"));
@@ -231,6 +375,54 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         await db.SaveChangesAsync();
 
         return (tokenHash, rawToken);
+    }
+
+    private static async Task<(string CodeHash, string RawCode)> SeedCodeAsync(
+        NidoTestWebAppFactory factory,
+        bool activeMembership,
+        DateTime? expiresAt = null,
+        DateTime? revokedAt = null,
+        TelegramPairingStatus status = TelegramPairingStatus.Pending)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var rawCode = Random.Shared.Next(0, 1_000_000).ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
+        var codeHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(rawCode))).ToLowerInvariant();
+
+        db.Usuarios.Add(new Usuario
+        {
+            Id = usuarioId,
+            Nombre = "Webhook Code User",
+            Email = $"{Guid.NewGuid():N}@test.local",
+            Sexo = "U",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        db.Hogares.Add(new Hogare { Id = hogarId, Nombre = "Webhook Code Hogar", CreatedAt = DateTime.UtcNow });
+
+        if (activeMembership)
+        {
+            db.MiembrosHogars.Add(new MiembrosHogar { Id = Guid.NewGuid(), UsuarioId = usuarioId, HogarId = hogarId, Rol = "owner", Puntos = 0 });
+        }
+
+        db.TelegramPairingCodes.Add(new TelegramPairingCode
+        {
+            Id = Guid.NewGuid(),
+            HogarId = hogarId,
+            UsuarioId = usuarioId,
+            CodeHash = codeHash,
+            Status = (int)status,
+            AttemptCount = 0,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = expiresAt ?? DateTime.UtcNow.AddMinutes(10),
+            RevokedAt = revokedAt
+        });
+        await db.SaveChangesAsync();
+
+        return (codeHash, rawCode);
     }
 
     private static async Task SeedActiveLinkAsync(NidoTestWebAppFactory factory, long chatId)

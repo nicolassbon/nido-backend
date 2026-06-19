@@ -33,11 +33,20 @@ public sealed record StartTelegramPairingCommand(
 
 public sealed record StartTelegramPairingResult(
     string DeepLinkUrl,
-    DateTime ExpiresAt);
+    string PairingCode,
+    DateTime TokenExpiresAt,
+    DateTime CodeExpiresAt)
+{
+    public DateTime ExpiresAt => CodeExpiresAt;
+}
 
 public sealed record CompleteTelegramPairingCommand(
     long ChatId,
     string Token);
+
+public sealed record CompleteTelegramPairingByCodeCommand(
+    long ChatId,
+    string Code);
 
 public sealed record CompleteTelegramPairingResult(
     long ChatId,

@@ -1,11 +1,15 @@
+using System.Text.RegularExpressions;
 using Nido.Application.Telegram.Pairing;
 
 namespace Nido.Application.Telegram.Webhook;
 
-public sealed class TelegramUpdateDispatcher(
+public sealed partial class TelegramUpdateDispatcher(
     CompleteTelegramPairingHandler completePairingHandler,
+    CompleteTelegramPairingByCodeHandler completePairingByCodeHandler,
     UnlinkTelegramChatHandler unlinkTelegramChatHandler)
 {
+    private static readonly Regex PairingCodeRegex = GetPairingCodeRegex();
+
     public async Task<TelegramDispatchResult?> DispatchAsync(TelegramWebhookRequest request, CancellationToken ct)
     {
         var text = request.Message?.Text?.Trim();
@@ -30,6 +34,18 @@ public sealed class TelegramUpdateDispatcher(
             return new TelegramDispatchResult(chatId.Value, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.");
         }
 
+        if (string.Equals(command, "/pair", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
+        {
+            var code = parts[1];
+            if (!PairingCodeRegex.IsMatch(code))
+            {
+                return null;
+            }
+
+            await completePairingByCodeHandler.HandleAsync(new CompleteTelegramPairingByCodeCommand(chatId.Value, code), ct);
+            return new TelegramDispatchResult(chatId.Value, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.");
+        }
+
         if (string.Equals(command, "/unlink", StringComparison.OrdinalIgnoreCase))
         {
             await unlinkTelegramChatHandler.HandleAsync(new UnlinkTelegramChatCommand(chatId.Value), ct);
@@ -38,6 +54,9 @@ public sealed class TelegramUpdateDispatcher(
 
         return null;
     }
+
+    [GeneratedRegex(@"^\d{6}$", RegexOptions.CultureInvariant)]
+    private static partial Regex GetPairingCodeRegex();
 }
 
 public sealed record TelegramDispatchResult(long ChatId, string ConfirmationText);

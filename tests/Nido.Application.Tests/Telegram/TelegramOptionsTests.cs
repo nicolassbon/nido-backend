@@ -31,6 +31,11 @@ public sealed class TelegramOptionsTests
         Assert.Equal(5, options.GroupingEarlySendThreshold);
         Assert.Equal(30, options.ConversationStateTtlMinutes);
         Assert.Equal(30, options.TimeoutSeconds);
+        Assert.Equal(15, options.PairingTokenTtlMinutes);
+        Assert.Equal(15, options.PairingCodeTtlMinutes);
+        Assert.Equal(5, options.PairingRateLimitGeneratePerWindow);
+        Assert.Equal(5, options.PairingCodeRateLimitValidatePerWindow);
+        Assert.Equal(60, options.PairingCodeRateLimitWindowSeconds);
         Assert.True(options.DailySummaryEnabled);
         Assert.Null(options.BotToken);
         Assert.Null(options.WebhookSecretToken);
@@ -59,6 +64,11 @@ public sealed class TelegramOptionsTests
         Assert.Equal(5, options.GroupingEarlySendThreshold);
         Assert.Equal(30, options.ConversationStateTtlMinutes);
         Assert.Equal(30, options.TimeoutSeconds);
+        Assert.Equal(15, options.PairingTokenTtlMinutes);
+        Assert.Equal(15, options.PairingCodeTtlMinutes);
+        Assert.Equal(5, options.PairingRateLimitGeneratePerWindow);
+        Assert.Equal(5, options.PairingCodeRateLimitValidatePerWindow);
+        Assert.Equal(60, options.PairingCodeRateLimitWindowSeconds);
         Assert.True(options.DailySummaryEnabled);
     }
 
@@ -79,6 +89,11 @@ public sealed class TelegramOptionsTests
                 ["Telegram:GroupingEarlySendThreshold"] = "8",
                 ["Telegram:ConversationStateTtlMinutes"] = "45",
                 ["Telegram:TimeoutSeconds"] = "60",
+                ["Telegram:PairingTokenTtlMinutes"] = "12",
+                ["Telegram:PairingCodeTtlMinutes"] = "20",
+                ["Telegram:PairingRateLimitGeneratePerWindow"] = "7",
+                ["Telegram:PairingCodeRateLimitValidatePerWindow"] = "8",
+                ["Telegram:PairingCodeRateLimitWindowSeconds"] = "120",
                 ["Telegram:DailySummaryEnabled"] = "false",
                 ["Telegram:BotToken"] = "bot:secret",
                 ["Telegram:WebhookSecretToken"] = "webhook-secret"
@@ -101,6 +116,11 @@ public sealed class TelegramOptionsTests
         Assert.Equal(8, options.GroupingEarlySendThreshold);
         Assert.Equal(45, options.ConversationStateTtlMinutes);
         Assert.Equal(60, options.TimeoutSeconds);
+        Assert.Equal(12, options.PairingTokenTtlMinutes);
+        Assert.Equal(20, options.PairingCodeTtlMinutes);
+        Assert.Equal(7, options.PairingRateLimitGeneratePerWindow);
+        Assert.Equal(8, options.PairingCodeRateLimitValidatePerWindow);
+        Assert.Equal(120, options.PairingCodeRateLimitWindowSeconds);
         Assert.False(options.DailySummaryEnabled);
         Assert.Equal("bot:secret", options.BotToken);
         Assert.Equal("webhook-secret", options.WebhookSecretToken);
@@ -269,6 +289,11 @@ public sealed class TelegramOptionsTests
         Assert.Equal(5, options.GroupingEarlySendThreshold);
         Assert.Equal(30, options.ConversationStateTtlMinutes);
         Assert.Equal(30, options.TimeoutSeconds);
+        Assert.Equal(15, options.PairingTokenTtlMinutes);
+        Assert.Equal(15, options.PairingCodeTtlMinutes);
+        Assert.Equal(5, options.PairingRateLimitGeneratePerWindow);
+        Assert.Equal(5, options.PairingCodeRateLimitValidatePerWindow);
+        Assert.Equal(60, options.PairingCodeRateLimitWindowSeconds);
         Assert.True(options.DailySummaryEnabled);
     }
 
@@ -344,6 +369,14 @@ public sealed class TelegramOptionsTests
     [InlineData("Telegram:MaxAttempts", 0)]
     [InlineData("Telegram:TimeoutSeconds", 0)]
     [InlineData("Telegram:TimeoutSeconds", 301)]
+    [InlineData("Telegram:PairingTokenTtlMinutes", 0)]
+    [InlineData("Telegram:PairingTokenTtlMinutes", 61)]
+    [InlineData("Telegram:PairingCodeTtlMinutes", 0)]
+    [InlineData("Telegram:PairingCodeTtlMinutes", 61)]
+    [InlineData("Telegram:PairingCodeRateLimitValidatePerWindow", 0)]
+    [InlineData("Telegram:PairingCodeRateLimitValidatePerWindow", 101)]
+    [InlineData("Telegram:PairingCodeRateLimitWindowSeconds", 0)]
+    [InlineData("Telegram:PairingCodeRateLimitWindowSeconds", 3601)]
     public void Options_Pipeline_ThrowsValidationException_WhenRangeInvalid(string key, int value)
     {
         var services = new ServiceCollection();

@@ -124,12 +124,16 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         // Telegram exceptions
         TelegramChatNotLinkedException => (StatusCodes.Status404NotFound, "Not found"),
         TelegramPairingTokenNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        TelegramPairingCodeNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
         TelegramHogarAccessDeniedException => (StatusCodes.Status403Forbidden, "Forbidden"),
         TelegramPairingTokenAlreadyConsumedException => (StatusCodes.Status410Gone, "Gone"),
         TelegramPairingTokenExpiredException => (StatusCodes.Status410Gone, "Gone"),
         TelegramPairingTokenRevokedException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingCodeExpiredException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingCodeRevokedException => (StatusCodes.Status410Gone, "Gone"),
         TelegramPairingRateLimitExceededException => (StatusCodes.Status429TooManyRequests, "Too many requests"),
         TelegramConfigurationException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
+        TelegramPairingCodeUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
 
         // Catch-all for remaining infrastructure-level validation errors
         ArgumentException => (StatusCodes.Status400BadRequest, "Validation error"),
