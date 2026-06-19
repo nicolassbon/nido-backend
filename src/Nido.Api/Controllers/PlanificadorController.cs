@@ -16,7 +16,7 @@ public sealed class PlanificadorController : ControllerBase
         => _handler = handler;
 
     /// <summary>
-    /// Obtiene (o crea) la semana a partir de fechaInicio (debe ser lunes, formato yyyy-MM-dd).
+    /// Obtiene o crea la semana a partir de fechaInicio, en formato yyyy-MM-dd.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetSemana(
@@ -31,7 +31,7 @@ public sealed class PlanificadorController : ControllerBase
         return Ok(ToResponse(result));
     }
 
-    /// <summary>Agrega un ítem (receta o texto libre) a un slot del planificador.</summary>
+    /// <summary>Agrega un item, receta o texto libre, a un slot del planificador.</summary>
     [HttpPost("items")]
     public async Task<IActionResult> AddItem(
         [FromBody] AddPlanificadorItemRequest request,
@@ -59,7 +59,27 @@ public sealed class PlanificadorController : ControllerBase
         return Ok(ToItemResponse(result));
     }
 
-    /// <summary>Elimina un ítem del planificador.</summary>
+    /// <summary>Edita una receta o tarea ya planificada.</summary>
+    [HttpPatch("items/{id:guid}")]
+    public async Task<IActionResult> UpdateItem(
+        Guid id,
+        [FromBody] UpdatePlanificadorItemRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _handler.UpdateItem(
+            new UpdatePlanificadorItemCommand(
+                id,
+                currentUser.HogarId,
+                request.RecetaId,
+                request.TituloLibre,
+                request.Hora),
+            ct);
+
+        return result is null ? NotFound() : Ok(ToItemResponse(result));
+    }
+
+    /// <summary>Elimina un item del planificador.</summary>
     [HttpDelete("items/{id:guid}")]
     public async Task<IActionResult> DeleteItem(
         Guid id,
@@ -75,7 +95,7 @@ public sealed class PlanificadorController : ControllerBase
     private static object ToItemResponse(PlanificadorItemResult item) => new
     {
         item.Id,
-        Fecha       = item.Fecha.ToString("yyyy-MM-dd"),
+        Fecha = item.Fecha.ToString("yyyy-MM-dd"),
         item.TipoComida,
         item.RecetaId,
         item.RecetaNombre,
@@ -90,13 +110,18 @@ public sealed class PlanificadorController : ControllerBase
     {
         semana.Id,
         FechaInicio = semana.FechaInicio.ToString("yyyy-MM-dd"),
-        Items       = semana.Items.Select(ToItemResponse).ToList(),
+        Items = semana.Items.Select(ToItemResponse).ToList(),
     };
 }
 
 public sealed record AddPlanificadorItemRequest(
-    string  Fecha,
-    string  TipoComida,
-    Guid?   RecetaId,
+    string Fecha,
+    string TipoComida,
+    Guid? RecetaId,
+    string? TituloLibre,
+    string? Hora);
+
+public sealed record UpdatePlanificadorItemRequest(
+    Guid? RecetaId,
     string? TituloLibre,
     string? Hora);

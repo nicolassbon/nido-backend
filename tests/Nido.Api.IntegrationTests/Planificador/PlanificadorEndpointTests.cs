@@ -78,7 +78,133 @@ public sealed class PlanificadorEndpointTests : IClassFixture<NidoTestWebAppFact
         Assert.Equal("Tarta de verduras", item.RecetaNombre);
     }
 
-    private async Task<Guid> SeedRecipeAsync(string nombre)
+    [Fact]
+    public async Task UpdateItem_WhenTask_UpdatesItemAndAppearsInWeek()
+    {
+        await RegisterAndAuthenticateAsync(_client, "plan-update-task");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "tarea",
+            recetaId = (Guid?)null,
+            tituloLibre = "Limpiar la heladera",
+            hora = "10:30"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+
+        var updateResponse = await _client.PatchAsJsonAsync($"/api/planificador/items/{created!.Id}", new
+        {
+            recetaId = (Guid?)null,
+            tituloLibre = "Ordenar la alacena",
+            hora = "11:15"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+        Assert.Equal(created.Id, updated!.Id);
+        Assert.Equal("Ordenar la alacena", updated.TituloLibre);
+        Assert.Equal("11:15", updated.Hora);
+
+        var weekResponse = await _client.GetAsync("/api/planificador?fechaInicio=2026-06-15");
+        var week = await weekResponse.Content.ReadFromJsonAsync<PlanificadorSemanaBody>();
+        var item = Assert.Single(week!.Items);
+        Assert.Equal("Ordenar la alacena", item.TituloLibre);
+        Assert.Equal("11:15", item.Hora);
+    }
+
+    [Fact]
+    public async Task UpdateItem_WhenRecipe_UpdatesRecipeAndAppearsInWeek()
+    {
+        await RegisterAndAuthenticateAsync(_client, "plan-update-meal");
+        var recetaId = await SeedRecipeAsync("Tarta de verduras", "/images/tarta.png");
+        var nuevaRecetaId = await SeedRecipeAsync("Guiso de lentejas", "/images/guiso.png");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "almuerzo",
+            recetaId,
+            tituloLibre = (string?)null,
+            hora = "13:00"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+
+        var updateResponse = await _client.PatchAsJsonAsync($"/api/planificador/items/{created!.Id}", new
+        {
+            recetaId = nuevaRecetaId,
+            tituloLibre = (string?)null,
+            hora = "14:00"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+        Assert.Equal(nuevaRecetaId, updated!.RecetaId);
+        Assert.Equal("Guiso de lentejas", updated.RecetaNombre);
+        Assert.Equal("/images/guiso.png", updated.ImagenUrl);
+        Assert.Equal("14:00", updated.Hora);
+
+        var weekResponse = await _client.GetAsync("/api/planificador?fechaInicio=2026-06-15");
+        var week = await weekResponse.Content.ReadFromJsonAsync<PlanificadorSemanaBody>();
+        var item = Assert.Single(week!.Items);
+        Assert.Equal(nuevaRecetaId, item.RecetaId);
+        Assert.Equal("Guiso de lentejas", item.RecetaNombre);
+        Assert.Equal("/images/guiso.png", item.ImagenUrl);
+    }
+
+    [Fact]
+    public async Task DeleteItem_RemovesItemFromWeek()
+    {
+        await RegisterAndAuthenticateAsync(_client, "plan-delete");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "tarea",
+            recetaId = (Guid?)null,
+            tituloLibre = "Sacar basura",
+            hora = "20:00"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+
+        var deleteResponse = await _client.DeleteAsync($"/api/planificador/items/{created!.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var weekResponse = await _client.GetAsync("/api/planificador?fechaInicio=2026-06-15");
+        var week = await weekResponse.Content.ReadFromJsonAsync<PlanificadorSemanaBody>();
+        Assert.Empty(week!.Items);
+    }
+
+    [Fact]
+    public async Task UpdateAndDeleteItem_WhenOtherHousehold_ReturnNotFound()
+    {
+        await RegisterAndAuthenticateAsync(_client, "plan-owner");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "tarea",
+            recetaId = (Guid?)null,
+            tituloLibre = "Regar plantas",
+            hora = "09:00"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+
+        await RegisterAndAuthenticateAsync(_client, "plan-other");
+
+        var updateResponse = await _client.PatchAsJsonAsync($"/api/planificador/items/{created!.Id}", new
+        {
+            recetaId = (Guid?)null,
+            tituloLibre = "No permitido",
+            hora = "10:00"
+        });
+        var deleteResponse = await _client.DeleteAsync($"/api/planificador/items/{created.Id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, updateResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deleteResponse.StatusCode);
+    }
+
+    private async Task<Guid> SeedRecipeAsync(string nombre, string? imagenUrl = null)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
@@ -89,7 +215,8 @@ public sealed class PlanificadorEndpointTests : IClassFixture<NidoTestWebAppFact
             Descripcion = "Receta de prueba",
             TiempoCoccionMin = 30,
             Dificultad = "Facil",
-            Porciones = 4
+            Porciones = 4,
+            ImagenUrl = imagenUrl
         };
 
         db.Recetas.Add(receta);

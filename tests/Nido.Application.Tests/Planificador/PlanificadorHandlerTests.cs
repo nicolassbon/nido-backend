@@ -41,6 +41,9 @@ public sealed class PlanificadorHandlerTests
         public Task<PlanificadorItemResult> AddItemAsync(AddPlanificadorItemCommand command, CancellationToken ct)
             => throw new NotImplementedException();
 
+        public Task<PlanificadorItemResult?> UpdateItemAsync(UpdatePlanificadorItemCommand command, CancellationToken ct)
+            => throw new NotImplementedException();
+
         public Task<bool> DeleteItemAsync(DeletePlanificadorItemCommand command, CancellationToken ct)
             => throw new NotImplementedException();
     }

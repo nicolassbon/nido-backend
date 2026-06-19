@@ -20,6 +20,9 @@ public sealed class PlanificadorHandler
     public Task<PlanificadorItemResult> AddItem(AddPlanificadorItemCommand command, CancellationToken ct)
         => _repository.AddItemAsync(command, ct);
 
+    public Task<PlanificadorItemResult?> UpdateItem(UpdatePlanificadorItemCommand command, CancellationToken ct)
+        => _repository.UpdateItemAsync(command, ct);
+
     public Task<bool> DeleteItem(DeletePlanificadorItemCommand command, CancellationToken ct)
         => _repository.DeleteItemAsync(command, ct);
 }

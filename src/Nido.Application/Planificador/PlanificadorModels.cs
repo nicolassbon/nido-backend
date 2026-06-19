@@ -26,6 +26,13 @@ public sealed record AddPlanificadorItemCommand(
     string?  TituloLibre,
     string?  Hora);
 
+public sealed record UpdatePlanificadorItemCommand(
+    Guid    ItemId,
+    Guid    HogarId,
+    Guid?   RecetaId,
+    string? TituloLibre,
+    string? Hora);
+
 public sealed record DeletePlanificadorItemCommand(
     Guid ItemId,
     Guid HogarId);

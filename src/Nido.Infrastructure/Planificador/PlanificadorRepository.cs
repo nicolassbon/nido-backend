@@ -112,6 +112,60 @@ public sealed class PlanificadorRepository : IPlanificadorRepository
         return true;
     }
 
+    public async Task<PlanificadorItemResult?> UpdateItemAsync(
+        UpdatePlanificadorItemCommand command, CancellationToken ct)
+    {
+        var item = await _db.PlanificadorItems
+            .Include(i => i.Semana)
+            .Include(i => i.Receta)
+            .FirstOrDefaultAsync(i => i.Id == command.ItemId && i.Semana.HogarId == command.HogarId, ct);
+
+        if (item is null) return null;
+
+        string? recetaNombre = null;
+        string? imagenUrl = null;
+        var isTask = item.TipoComida == "tarea";
+
+        if (isTask)
+        {
+            var titulo = command.TituloLibre?.Trim();
+            if (string.IsNullOrWhiteSpace(titulo)) return null;
+
+            item.RecetaId = null;
+            item.Receta = null;
+            item.TituloLibre = titulo;
+            item.ImagenUrl = null;
+        }
+        else
+        {
+            if (!command.RecetaId.HasValue) return null;
+
+            var receta = await _db.Recetas
+                .AsNoTracking()
+                .Where(r => r.Id == command.RecetaId.Value)
+                .Select(r => new { r.Id, r.Nombre, r.ImagenUrl })
+                .FirstOrDefaultAsync(ct);
+
+            if (receta is null) return null;
+
+            item.RecetaId = receta.Id;
+            item.Receta = null;
+            item.TituloLibre = null;
+            item.ImagenUrl = receta.ImagenUrl;
+            recetaNombre = receta.Nombre;
+            imagenUrl = receta.ImagenUrl;
+        }
+
+        item.Hora = string.IsNullOrWhiteSpace(command.Hora) ? null : command.Hora;
+        await _db.SaveChangesAsync(ct);
+
+        return new PlanificadorItemResult(
+            item.Id, item.Fecha, item.TipoComida,
+            item.RecetaId, recetaNombre ?? item.Receta?.Nombre,
+            imagenUrl ?? item.ImagenUrl ?? item.Receta?.ImagenUrl,
+            item.TituloLibre, item.Hora, item.Orden, item.CreadoPor);
+    }
+
     private static DateOnly GetLunes(DateOnly fecha)
     {
         var dow = (int)fecha.DayOfWeek;
