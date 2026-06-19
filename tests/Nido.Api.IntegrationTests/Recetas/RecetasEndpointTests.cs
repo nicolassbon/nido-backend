@@ -1003,8 +1003,8 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(0.95m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == cebollaStockId)).CantidadActual);
         Assert.Equal(0.55m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == mantecaStockId)).CantidadActual);
         Assert.Equal(94m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == salStockId)).CantidadActual);
-        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == arvejasStockId));
-        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == pasasStockId));
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == arvejasStockId)).CantidadActual);
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == pasasStockId)).CantidadActual);
     }
 
     [Fact]
@@ -1141,7 +1141,7 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var verifyScope = _factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
-        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == stockViejoId));
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == stockViejoId)).CantidadActual);
         var stockRestante = await verifyDb.StockHogars.SingleAsync(s => s.Id == stockNuevoId);
         Assert.Equal(200m, stockRestante.CantidadActual);
     }
@@ -1319,7 +1319,7 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         using var verifyScope = _factory.Services.CreateScope();
         var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
-        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == stockId));
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == stockId)).CantidadActual);
         Assert.Equal(1, await verifyDb.RecetasCocinadas.CountAsync(rc => rc.RecetaId == recetaId && rc.HogarId == auth.HogarId));
     }
 

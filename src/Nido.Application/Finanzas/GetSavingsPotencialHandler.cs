@@ -20,11 +20,11 @@ public sealed class GetSavingsPotencialHandler
     public async Task<SavingsPotencialResult> Handle(Guid hogarId, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
-        var today = DateOnly.FromDateTime(now);
         var primerDiaMesActual = new DateOnly(now.Year, now.Month, 1);
+        var ultimoDiaMesActual = primerDiaMesActual.AddMonths(1).AddDays(-1);
 
         var gastosMesActual = await _repo.GetGastosAsync(
-            new GetGastosQuery(hogarId, primerDiaMesActual.ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), null), ct);
+            new GetGastosQuery(hogarId, primerDiaMesActual.ToString("yyyy-MM-dd"), ultimoDiaMesActual.ToString("yyyy-MM-dd"), null), ct);
 
         // Query the last 3 complete months and split by month in memory
         var inicioHistorico = primerDiaMesActual.AddMonths(-3);
