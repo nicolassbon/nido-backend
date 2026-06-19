@@ -34,7 +34,7 @@ public sealed class AlacenaHandlersTests
 
         await Assert.ThrowsAsync<InvalidStockItemDateException>(() =>
             handler.Handle(
-                new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, "Alacena", 1, "g", "no-fecha", false, 0),
+                new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, null, "Alacena", 1, "g", "no-fecha", false, 0),
                 CancellationToken.None));
     }
 
@@ -49,6 +49,7 @@ public sealed class AlacenaHandlersTests
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 "Leche",
+                null,
                 "779123",
                 null,
                 "Alacena",

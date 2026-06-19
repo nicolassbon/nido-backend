@@ -148,6 +148,14 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<SuscripcionPush> SuscripcionesPush { get; set; }
 
+    public virtual DbSet<UnidadMedida> UnidadesMedida { get; set; }
+
+    public virtual DbSet<UbicacionCatalogo> UbicacionesCatalogo { get; set; }
+
+    public virtual DbSet<PlanificadorSemana> PlanificadorSemanas { get; set; }
+
+    public virtual DbSet<PlanificadorItem> PlanificadorItems { get; set; }
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -1310,6 +1318,79 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("suscripciones_push_usuario_id_fkey");
+        });
+
+        modelBuilder.Entity<UnidadMedida>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("unidades_medida_pkey");
+            entity.ToTable("unidades_medida");
+            entity.HasIndex(e => e.Codigo).IsUnique();
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.Codigo).HasMaxLength(20).HasColumnName("codigo");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+        });
+
+        modelBuilder.Entity<UbicacionCatalogo>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("ubicaciones_catalogo_pkey");
+            entity.ToTable("ubicaciones_catalogo");
+            entity.HasIndex(e => e.Nombre).IsUnique();
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+            entity.Property(e => e.Icono).HasMaxLength(50).HasColumnName("icono");
+            entity.Property(e => e.Color).HasMaxLength(20).HasColumnName("color");
+        });
+
+        modelBuilder.Entity<PlanificadorSemana>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("planificador_semana_pkey");
+            entity.ToTable("planificador_semana");
+            entity.HasIndex(e => e.HogarId, "idx_planificador_semana_hogar");
+            entity.HasIndex(e => new { e.HogarId, e.FechaInicio }).IsUnique().HasDatabaseName("planificador_semana_hogar_fecha_key");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.FechaInicio).HasColumnName("fecha_inicio");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_semana_hogar_id_fkey");
+        });
+
+        modelBuilder.Entity<PlanificadorItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("planificador_item_pkey");
+            entity.ToTable("planificador_item");
+            entity.HasIndex(e => e.SemanaId, "idx_planificador_item_semana");
+            entity.HasIndex(e => e.Fecha, "idx_planificador_item_fecha");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.SemanaId).HasColumnName("semana_id");
+            entity.Property(e => e.Fecha).HasColumnName("fecha");
+            entity.Property(e => e.TipoComida).HasMaxLength(20).HasColumnName("tipo_comida");
+            entity.Property(e => e.RecetaId).HasColumnName("receta_id");
+            entity.Property(e => e.TituloLibre).HasMaxLength(255).HasColumnName("titulo_libre");
+            entity.Property(e => e.ImagenUrl).HasMaxLength(500).HasColumnName("imagen_url");
+            entity.Property(e => e.Hora).HasMaxLength(10).HasColumnName("hora");
+            entity.Property(e => e.Orden).HasDefaultValue(0).HasColumnName("orden");
+            entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Semana).WithMany(p => p.Items)
+                .HasForeignKey(d => d.SemanaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_item_semana_id_fkey");
+            entity.HasOne(d => d.Receta).WithMany()
+                .HasForeignKey(d => d.RecetaId)
+                .HasConstraintName("planificador_item_receta_id_fkey");
+            entity.HasOne(d => d.CreadoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadoPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("planificador_item_creado_por_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

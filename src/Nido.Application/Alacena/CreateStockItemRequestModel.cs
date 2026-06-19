@@ -4,6 +4,7 @@ public sealed record CreateStockItemRequestModel(
     Guid HogarId,
     Guid UsuarioId,
     string Nombre,
+    Guid? CategoriaId,
     string? CodigoBarras,
     string? Imagen,
     string Ubicacion,
