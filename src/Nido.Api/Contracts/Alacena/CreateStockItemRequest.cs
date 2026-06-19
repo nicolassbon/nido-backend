@@ -2,6 +2,7 @@ namespace Nido.Api.Contracts.Alacena;
 
 public sealed record CreateStockItemRequest(
     string Nombre,
+    Guid? CategoriaId,
     string? CodigoBarras,
     string? Imagen,
     string Ubicacion,

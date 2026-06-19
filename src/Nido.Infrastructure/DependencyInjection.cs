@@ -1,4 +1,4 @@
-using Amazon.Runtime;
+﻿using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -49,6 +49,8 @@ using Nido.Application.Tareas;
 using Nido.Infrastructure.Tareas;
 using Nido.Application.Notificaciones;
 using Nido.Infrastructure.Notificaciones;
+using Nido.Application.Planificador;
+using Nido.Infrastructure.Planificador;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -132,11 +134,11 @@ public static class DependencyInjection
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
         services.AddScoped<IPushNotificationService, PushNotificationService>();
 
-        // ── Lookup externo de productos por barcode ────────────────────────
+        // â”€â”€ Lookup externo de productos por barcode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Pipeline:
         //   IExternalProductLookupService
-        //     → CachedExternalProductLookupService   (decorator: cache en memoria)
-        //         → OpenFoodFactsLookupService        (consulta OFF + UPC Item DB)
+        //     â†’ CachedExternalProductLookupService   (decorator: cache en memoria)
+        //         â†’ OpenFoodFactsLookupService        (consulta OFF + UPC Item DB)
         services.AddOptions<ExternalLookupOptions>()
             .Bind(configuration.GetSection(ExternalLookupOptions.SectionName));
         services.AddMemoryCache();
@@ -153,6 +155,11 @@ public static class DependencyInjection
                 sp.GetRequiredService<IMemoryCache>(),
                 sp.GetRequiredService<IOptions<ExternalLookupOptions>>()));
 
+        services.AddScoped<CatalogoRepository>();
+        services.AddScoped<IPlanificadorRepository, PlanificadorRepository>();
+        services.AddScoped<PlanificadorHandler>();
+
         return services;
     }
 }
+
