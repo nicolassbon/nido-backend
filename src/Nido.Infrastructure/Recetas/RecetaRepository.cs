@@ -252,10 +252,17 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             if (!cantidadEnUnidadStock.HasValue)
                 continue;
 
+            // Siempre marcar como abierto al consumir (estuviera cerrado o no)
+            item.EstaAbierto = true;
+            item.UpdatedBy   = usuarioId;
+            item.UpdatedAt   = DateTime.UtcNow;
+
             if (disponible <= cantidadEnUnidadStock.Value)
             {
+                // Envase agotado: queda con cantidad=0 y abierto para descarte manual.
                 restante -= ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente, productoNombre) ?? 0;
-                _db.StockHogars.Remove(item);
+                item.CantidadActual      = 0;
+                item.PorcentajeConsumido = 100m;
             }
             else
             {
@@ -263,7 +270,6 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 //  - bajamos CantidadActual por el consumo
                 //  - recalculamos porcentajeConsumido respecto a la cantidad
                 //    original del envase (inferida desde el estado previo)
-                //  - marcamos el envase como abierto
                 var nuevaCantidad = disponible - cantidadEnUnidadStock.Value;
                 var cantidadOriginal = item.PorcentajeConsumido < 100m
                     ? disponible / ((100m - item.PorcentajeConsumido) / 100m)
@@ -273,11 +279,8 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                     ? Math.Clamp(((cantidadOriginal - nuevaCantidad) / cantidadOriginal) * 100m, 0m, 99m)
                     : item.PorcentajeConsumido;
 
-                item.CantidadActual       = nuevaCantidad;
-                item.EstaAbierto          = true;
-                item.PorcentajeConsumido  = decimal.Round(nuevoPctConsumido, 2);
-                item.UpdatedBy            = usuarioId;
-                item.UpdatedAt            = DateTime.UtcNow;
+                item.CantidadActual      = nuevaCantidad;
+                item.PorcentajeConsumido = decimal.Round(nuevoPctConsumido, 2);
                 restante = 0;
             }
         }

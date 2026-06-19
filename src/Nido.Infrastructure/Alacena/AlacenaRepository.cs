@@ -57,14 +57,20 @@ public sealed class AlacenaRepository : IAlacenaRepository
             {
                 Id = Guid.NewGuid(),
                 Nombre = request.Nombre,
+                CategoriaId = request.CategoriaId is null || request.CategoriaId == Guid.Empty
+                    ? null
+                    : request.CategoriaId,
                 CodigoBarras = request.CodigoBarras,
                 ImagenUrl = request.Imagen
             };
             _db.Productos.Add(producto);
         }
-        else if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+        else
         {
-            producto.ImagenUrl = request.Imagen;
+            if (producto.CategoriaId is null && request.CategoriaId is not null && request.CategoriaId != Guid.Empty)
+                producto.CategoriaId = request.CategoriaId;
+            if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+                producto.ImagenUrl = request.Imagen;
         }
 
         DateOnly? fechaVencimiento = null;

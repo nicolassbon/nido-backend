@@ -26,6 +26,7 @@ public sealed class CreateStockItemHandler
             command.HogarId,
             command.UsuarioId,
             command.Nombre,
+            command.CategoriaId,
             command.CodigoBarras,
             command.Imagen,
             command.Ubicacion,

@@ -72,6 +72,46 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     }
 
     [Fact]
+    public async Task NamedListFlow_CreatesListAndAllowsAddingItems()
+    {
+        await RegisterAndAuthenticateAsync(_client, "lista-named");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/listas-compra", new
+        {
+            nombre = "Compra semanal"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ListaBody>();
+        Assert.NotNull(created);
+        Assert.Equal("Compra semanal", created!.Nombre);
+        Assert.Empty(created.Items);
+
+        var addItemResponse = await _client.PostAsJsonAsync($"/api/listas-compra/{created.Id}/items", new
+        {
+            nombre = "Leche",
+            cantidad = (decimal?)1m,
+            unidad = "lt"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, addItemResponse.StatusCode);
+        var added = await addItemResponse.Content.ReadFromJsonAsync<ListaItemBody>();
+        Assert.NotNull(added);
+        Assert.Equal("Leche", added!.Nombre);
+
+        var listsResponse = await _client.GetAsync("/api/listas-compra");
+        Assert.Equal(HttpStatusCode.OK, listsResponse.StatusCode);
+        var lists = await listsResponse.Content.ReadFromJsonAsync<List<ListaBody>>();
+        var list = Assert.Single(lists!);
+        Assert.Equal(created.Id, list.Id);
+        Assert.Equal("Compra semanal", list.Nombre);
+        var item = Assert.Single(list.Items);
+        Assert.Equal("Leche", item.Nombre);
+        Assert.Equal(1m, item.Cantidad);
+        Assert.Equal("lt", item.Unidad);
+    }
+
+    [Fact]
     public async Task RemoveAndClear_HideActiveItemsButKeepPurchasedHistory()
     {
         await RegisterAndAuthenticateAsync(_client, "lista-clear");
@@ -131,8 +171,9 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     }
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
+    private sealed record ListaBody(Guid Id, string Nombre, DateTime CreatedAt, DateTime? UpdatedAt, List<ListaItemBody> Items);
     private sealed record ListaGrupoBody(string GrupoNombre, List<ListaItemBody> Items);
-    private sealed record ListaItemBody(Guid Id, Guid ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden);
+    private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden);
     private sealed record HistorialItemBody(Guid Id, Guid ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor);
 }
 

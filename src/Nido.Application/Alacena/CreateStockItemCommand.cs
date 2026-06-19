@@ -4,6 +4,7 @@ public sealed record CreateStockItemCommand(
     Guid HogarId,
     Guid UsuarioId,
     string Nombre,
+    Guid? CategoriaId,
     string? CodigoBarras,
     string? Imagen,
     string Ubicacion,
