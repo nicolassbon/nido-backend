@@ -28,12 +28,12 @@ public sealed class GetInsightsHandler
     public async Task<InsightsListResult> Handle(Guid hogarId, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
-        var today = DateOnly.FromDateTime(now);
         var primerDiaMesActual = new DateOnly(now.Year, now.Month, 1);
+        var ultimoDiaMesActual = primerDiaMesActual.AddMonths(1).AddDays(-1);
 
         // Load current month and 3 previous months
         var gastosMesActual = await _repo.GetGastosAsync(
-            new GetGastosQuery(hogarId, primerDiaMesActual.ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), null), ct);
+            new GetGastosQuery(hogarId, primerDiaMesActual.ToString("yyyy-MM-dd"), ultimoDiaMesActual.ToString("yyyy-MM-dd"), null), ct);
 
         var mesesAnteriores = new List<Dictionary<string, decimal>>();
         for (int i = 1; i <= 3; i++)
