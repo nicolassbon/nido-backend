@@ -15,6 +15,10 @@ public partial class Producto
 
     public Guid? CategoriaId { get; set; }
 
+    public decimal? CantidadCompraEstandar { get; set; }
+
+    public string? UnidadCompraEstandar { get; set; }
+
     public virtual CategoriasProducto? Categoria { get; set; }
 
     public virtual ICollection<InfoNutricionalProducto> InfoNutricionalProductos { get; set; } = new List<InfoNutricionalProducto>();

@@ -440,6 +440,139 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetById_CuandoIngredienteTieneCompraEstandar_DevuelveElEstandarDeCompra()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Arroz",
+                CantidadCompraEstandar = 1m,
+                UnidadCompraEstandar = "kg"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Arroz salteado",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Arroz",
+                Cantidad = 200m,
+                Unidad = "g"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var ingrediente = Assert.Single(body!.Ingredientes);
+        Assert.Equal(1m, ingrediente.CantidadCompraEstandar);
+        Assert.Equal("kg", ingrediente.UnidadCompraEstandar);
+    }
+
+    [Fact]
+    public async Task GetById_CuandoIngredienteNoTieneCompraEstandar_DevuelveNull()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Salsa casera",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = null,
+                NombreIngrediente = "Ingrediente imposible xyz",
+                Cantidad = 1m,
+                Unidad = "pizca"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var ingrediente = Assert.Single(body!.Ingredientes);
+        Assert.Null(ingrediente.CantidadCompraEstandar);
+        Assert.Null(ingrediente.UnidadCompraEstandar);
+    }
+
+    [Fact]
+    public async Task GetById_CuandoIngredienteNoTieneProductoId_PeroMatcheaPorNombre_DevuelveCompraEstandar()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Aceite de oliva",
+                CantidadCompraEstandar = 1m,
+                UnidadCompraEstandar = "lt"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Arroz salteado",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = null,
+                NombreIngrediente = "Aceite de oliva",
+                Cantidad = 1m,
+                Unidad = "cda"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var ingrediente = Assert.Single(body!.Ingredientes);
+        Assert.Equal(1m, ingrediente.CantidadCompraEstandar);
+        Assert.Equal("lt", ingrediente.UnidadCompraEstandar);
+    }
+
+    [Fact]
     public async Task Cocinar_SinAuth_Returns401()
     {
         var response = await _client.PostAsJsonAsync($"/api/recetas/{Guid.NewGuid()}/cocinar", new { });
@@ -1453,8 +1586,15 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         string FechaVencimiento,
         int DiasHastaVencimiento);
     private sealed record RecetaDetalleBody(Guid Id, List<IngredienteDetalleBody> Ingredientes, int VecesCocinada);
+    private sealed record RecetaDetalleCompraBody(Guid Id, List<IngredienteDetalleCompraBody> Ingredientes, int VecesCocinada);
     private sealed record RecetaConIngredientesBody(Guid Id, string Nombre, List<IngredienteBody> Ingredientes);
     private sealed record IngredienteBody(Guid Id, List<string> Alergenos);
     private sealed record IngredienteDetalleBody(Guid Id, bool EnStock, List<string> Alergenos);
+    private sealed record IngredienteDetalleCompraBody(
+        Guid Id,
+        decimal? CantidadCompraEstandar,
+        string? UnidadCompraEstandar,
+        bool EnStock,
+        List<string> Alergenos);
     private sealed record CocinarBody(Guid RecetaId, int VecesCocinada);
 }

@@ -24,6 +24,7 @@ public sealed class ListaComprasController : ControllerBase
     private readonly AddListaCompraItemHandler _addItemHandler;
     private readonly MarkListaCompraItemCompradoHandler _markCompradoHandler;
     private readonly MarkListaCompraItemCompradoByNameHandler _markCompradoByNameHandler;
+    private readonly MarkListaCompraItemAgregadoInventarioHandler _markAgregadoInventarioHandler;
     private readonly RemoveListaCompraItemHandler _removeItemHandler;
     private readonly ClearListaComprasHandler _clearHandler;
 
@@ -41,6 +42,7 @@ public sealed class ListaComprasController : ControllerBase
         AddListaCompraItemHandler addItemHandler,
         MarkListaCompraItemCompradoHandler markCompradoHandler,
         MarkListaCompraItemCompradoByNameHandler markCompradoByNameHandler,
+        MarkListaCompraItemAgregadoInventarioHandler markAgregadoInventarioHandler,
         RemoveListaCompraItemHandler removeItemHandler,
         ClearListaComprasHandler clearHandler)
     {
@@ -57,6 +59,7 @@ public sealed class ListaComprasController : ControllerBase
         _addItemHandler = addItemHandler;
         _markCompradoHandler = markCompradoHandler;
         _markCompradoByNameHandler = markCompradoByNameHandler;
+        _markAgregadoInventarioHandler = markAgregadoInventarioHandler;
         _removeItemHandler = removeItemHandler;
         _clearHandler = clearHandler;
     }
@@ -271,6 +274,19 @@ public sealed class ListaComprasController : ControllerBase
             ct);
 
         return Ok(result.Select(ToResponse));
+    }
+
+    [HttpPatch("/api/lista-compras/items/{id:guid}/agregado-inventario")]
+    public async Task<IActionResult> MarkAgregadoInventario(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var updated = await _markAgregadoInventarioHandler.Handle(
+            new MarkListaCompraItemAgregadoInventarioCommand(id, currentUser.HogarId),
+            ct);
+
+        return updated ? NoContent() : NotFound();
     }
 
     [HttpDelete("/api/lista-compras/items/{id:guid}")]

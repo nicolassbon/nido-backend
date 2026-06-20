@@ -68,6 +68,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         var diasAlerta = await GetDiasAlertaAsync(usuarioId, ct);
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
         var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
+        var productosCompraEstandar = await GetProductosCompraEstandarAsync(ct);
         var vecesCocinadas = await GetVecesCocinadadasAsync(hogarId, ct);
         var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), hogarId, ct);
         var guardadas = await GetRecetasGuardadasIdsAsync(hogarId, ct);
@@ -77,6 +78,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 receta,
                 productosEnStock,
                 productosPorVencer,
+                productosCompraEstandar,
                 hoy,
                 vecesCocinadas.GetValueOrDefault(receta.Id, 0),
                 resumenes.GetValueOrDefault(receta.Id, new ResenaResumen(0m, 0)),
@@ -114,6 +116,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         var diasAlerta = await GetDiasAlertaAsync(usuarioId, ct);
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
         var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
+        var productosCompraEstandar = await GetProductosCompraEstandarAsync(ct);
         var vecesCocinada = await _db.RecetasCocinadas
             .AsNoTracking()
             .CountAsync(rc => rc.RecetaId == id && rc.HogarId == hogarId, ct);
@@ -122,7 +125,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             .AsNoTracking()
             .AnyAsync(saved => saved.HogarId == hogarId && saved.RecetaId == id, ct);
 
-        return ToResult(receta, productosEnStock, productosPorVencer, hoy, vecesCocinada, resumen, guardada);
+        return ToResult(receta, productosEnStock, productosPorVencer, productosCompraEstandar, hoy, vecesCocinada, resumen, guardada);
     }
 
     public async Task<bool> SaveAsync(Guid recetaId, Guid hogarId, Guid usuarioId, CancellationToken ct)
@@ -365,6 +368,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         Receta receta,
         IReadOnlySet<Guid> productosEnStock,
         IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar> productosPorVencer,
+        IReadOnlyList<ProductoCompraEstandar> productosCompraEstandar,
         DateOnly hoy,
         int vecesCocinada,
         ResenaResumen resumen,
@@ -388,15 +392,21 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             nutricion?.Grasas,
             receta.IngredientesReceta
                 .OrderBy(ingrediente => ingrediente.NombreIngrediente)
-                .Select(ingrediente => new RecetaIngredienteResult(
-                    ingrediente.Id,
-                    ingrediente.ProductoId,
-                    ingrediente.NombreIngrediente,
-                    ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
-                    ingrediente.Cantidad,
-                    ingrediente.Unidad,
-                    ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value),
-                    DetectAlergenos(ingrediente)))
+                .Select(ingrediente =>
+                {
+                    var compraEstandar = ResolvePurchaseStandard(ingrediente, productosCompraEstandar);
+                    return new RecetaIngredienteResult(
+                        ingrediente.Id,
+                        ingrediente.ProductoId,
+                        ingrediente.NombreIngrediente,
+                        ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
+                        ingrediente.Cantidad,
+                        ingrediente.Unidad,
+                        compraEstandar?.Cantidad,
+                        compraEstandar?.Unidad,
+                        ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value),
+                        DetectAlergenos(ingrediente));
+                })
                 .ToList(),
             receta.PasosReceta
                 .OrderBy(paso => paso.Orden)
@@ -513,6 +523,50 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         }
 
         return builder.ToString().Trim();
+    }
+
+    private async Task<IReadOnlyList<ProductoCompraEstandar>> GetProductosCompraEstandarAsync(CancellationToken ct)
+    {
+        return await _db.Productos
+            .AsNoTracking()
+            .Where(producto =>
+                producto.CantidadCompraEstandar.HasValue &&
+                !string.IsNullOrWhiteSpace(producto.UnidadCompraEstandar))
+            .Select(producto => new ProductoCompraEstandar(
+                producto.Id,
+                producto.Nombre,
+                producto.CantidadCompraEstandar!.Value,
+                producto.UnidadCompraEstandar!))
+            .ToListAsync(ct);
+    }
+
+    private static ProductoCompraEstandar? ResolvePurchaseStandard(
+        IngredientesRecetum ingrediente,
+        IReadOnlyList<ProductoCompraEstandar> productosCompraEstandar)
+    {
+        if (ingrediente.Producto is not null &&
+            ingrediente.Producto.CantidadCompraEstandar.HasValue &&
+            !string.IsNullOrWhiteSpace(ingrediente.Producto.UnidadCompraEstandar))
+        {
+            return new ProductoCompraEstandar(
+                ingrediente.Producto.Id,
+                ingrediente.Producto.Nombre,
+                ingrediente.Producto.CantidadCompraEstandar.Value,
+                ingrediente.Producto.UnidadCompraEstandar!);
+        }
+
+        var ingredientName = BuildIngredientLookupName(ingrediente);
+        return productosCompraEstandar
+            .Select(producto => new
+            {
+                Producto = producto,
+                Score = GetNameMatchScore(ingredientName, producto.Nombre)
+            })
+            .Where(match => match.Score >= 700)
+            .OrderByDescending(match => match.Score)
+            .ThenBy(match => match.Producto.Nombre.Length)
+            .Select(match => (ProductoCompraEstandar?)match.Producto)
+            .FirstOrDefault();
     }
 
     private static decimal? ConvertQuantity(decimal quantity, string? fromUnit, string? toUnit, string? ingredientName = null)
@@ -777,6 +831,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         => Math.Abs(left - right) < 0.0001m;
 
     private readonly record struct IngredientConsumption(decimal Cantidad, string? Unidad);
+    private readonly record struct ProductoCompraEstandar(Guid Id, string Nombre, decimal Cantidad, string Unidad);
 
     private readonly record struct UnitInfo(string Family, decimal Factor);
 

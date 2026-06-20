@@ -1140,6 +1140,11 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("codigo_barras");
 
+                    b.Property<decimal?>("CantidadCompraEstandar")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("cantidad_compra_estandar");
+
                     b.Property<string>("ImagenUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1150,6 +1155,11 @@ namespace Nido.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("nombre");
+
+                    b.Property<string>("UnidadCompraEstandar")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("unidad_compra_estandar");
 
                     b.HasKey("Id")
                         .HasName("productos_pkey");
