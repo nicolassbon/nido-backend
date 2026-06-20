@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Conversation;
-using Nido.Application.Telegram.Exceptions;
 using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Xunit;
@@ -75,22 +74,21 @@ public sealed class TelegramDependencyInjectionTests
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_WhenSecretsMissing_ValidatorThrowsConfigurationException()
+    public async Task AddTelegramWebhook_WhenSecretsMissing_StartsWithoutThrowing()
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>())
             .Build();
 
+        services.AddLogging();
         services.AddTelegramWebhook(configuration);
 
         using var provider = services.BuildServiceProvider();
         var validator = Assert.Single(provider.GetServices<IHostedService>());
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => validator.StartAsync(CancellationToken.None));
-
-        Assert.Contains("Telegram:BotToken", exception.Message, StringComparison.Ordinal);
-        Assert.Contains("Telegram:WebhookSecretToken", exception.Message, StringComparison.Ordinal);
+        await validator.StartAsync(CancellationToken.None);
+        await validator.StopAsync(CancellationToken.None);
     }
 
     [Fact]
@@ -105,6 +103,7 @@ public sealed class TelegramDependencyInjectionTests
             })
             .Build();
 
+        services.AddLogging();
         services.AddTelegramWebhook(configuration);
 
         using var provider = services.BuildServiceProvider();

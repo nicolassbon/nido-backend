@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Persistence;
@@ -23,7 +24,7 @@ public sealed class TelegramOutboxInfrastructureTests : IAsyncLifetime
         _database = await _server.CreateDatabaseAsync("telegram_outbox_infra");
         _db = CreateDbContext();
         await _db.Database.MigrateAsync();
-        _writer = new TelegramOutboxWriter(_db);
+        _writer = new TelegramOutboxWriter(_db, NullLogger<TelegramOutboxWriter>.Instance);
         _reader = new TelegramOutboxReader(_db, new TelegramOptions());
     }
 

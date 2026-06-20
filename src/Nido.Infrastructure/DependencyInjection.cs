@@ -197,7 +197,20 @@ public static class DependencyInjection
 
     public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services)
     {
-        services.AddHostedService<TelegramSenderWorker>();
+        throw new NotSupportedException("Use the AddTelegramSenderWorker(IServiceCollection, IConfiguration) overload.");
+    }
+
+    public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services, IConfiguration configuration)
+    {
+        var options = configuration.GetSection(Application.Telegram.TelegramOptions.SectionName)
+            .Get<Application.Telegram.TelegramOptions>()
+            ?? new Application.Telegram.TelegramOptions();
+
+        if (options.HasBotToken)
+        {
+            services.AddHostedService<TelegramSenderWorker>();
+        }
+
         return services;
     }
 }

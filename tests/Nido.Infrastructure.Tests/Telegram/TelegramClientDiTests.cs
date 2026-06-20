@@ -1,10 +1,12 @@
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Client;
 using Nido.Infrastructure.Telegram;
+using Nido.Infrastructure.Telegram.Outbox;
 
 namespace Nido.Infrastructure.Tests.Telegram;
 
@@ -95,6 +97,37 @@ public sealed class TelegramClientDiTests
             .GetValue(client)!;
 
         Assert.Equal(new Uri("https://api.telegram.org/botmy-token/"), http.BaseAddress);
+    }
+
+    [Fact]
+    public void AddTelegramSenderWorker_WithoutBotToken_DoesNotRegisterHostedService()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration();
+
+        services.AddTelegramSenderWorker(config);
+
+        Assert.DoesNotContain(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TelegramSenderWorker));
+    }
+
+    [Fact]
+    public void AddTelegramSenderWorker_WithBotToken_RegistersHostedService()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration(new Dictionary<string, string?>
+        {
+            ["Telegram:BotToken"] = "my-token"
+        });
+
+        services.AddTelegramSenderWorker(config);
+
+        Assert.Contains(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TelegramSenderWorker));
     }
 
     private static IConfiguration CreateMinimalConfiguration(Dictionary<string, string?>? extra = null)

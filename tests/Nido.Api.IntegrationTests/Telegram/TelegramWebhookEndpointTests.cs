@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Menu;
@@ -223,25 +224,30 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     }
 
     [Fact]
-    public async Task Post_MenuCommand_WhenOutboxEnqueueFails_DoesNotReturn200()
+    public async Task Post_MenuCommand_WhenOutboxEnqueueFails_ReleasesReservation_AndRetryCanRecoverConfirmation()
     {
         using var factory = CreateEnqueueOnlyFactory().WithStorageOverride(services =>
         {
             services.RemoveAll<ITelegramOutboxWriter>();
-            services.AddSingleton<ITelegramOutboxWriter>(new ThrowingTelegramOutboxWriter());
+            services.AddScoped<ITelegramOutboxWriter, FlakyTelegramOutboxWriter>();
         });
 
         await SeedLinkedCurrentMemberAsync(factory, 397);
 
         using var client = factory.CreateClient();
-        var response = await PostMessageAsync(client, 12_253, 397, "/menu");
+        var first = await PostMessageAsync(client, 12_253, 397, "/menu");
+        var retry = await PostMessageAsync(client, 12_253, 397, "/menu");
 
-        Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
         var outboxCount = await db.TelegramOutboxMessages.AsNoTracking().CountAsync(x => x.ChatId == 397);
-        Assert.Equal(0, outboxCount);
+        var processedCount = await db.ProcessedTelegramUpdates.AsNoTracking().CountAsync(x => x.UpdateId == 12_253);
+
+        Assert.Equal(1, outboxCount);
+        Assert.Equal(1, processedCount);
     }
 
     [Fact]
@@ -443,9 +449,18 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
             }
         });
 
-    private sealed class ThrowingTelegramOutboxWriter : ITelegramOutboxWriter
+    private sealed class FlakyTelegramOutboxWriter(NidoDbContext db) : ITelegramOutboxWriter
     {
+        private static int _attempts;
+
         public Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
-            => throw new InvalidOperationException("Simulated outbox failure.");
+        {
+            if (Interlocked.Increment(ref _attempts) == 1)
+            {
+                throw new InvalidOperationException("Simulated outbox failure.");
+            }
+
+            return new TelegramOutboxWriter(db, NullLogger<TelegramOutboxWriter>.Instance).EnqueueAsync(request, ct);
+        }
     }
 }

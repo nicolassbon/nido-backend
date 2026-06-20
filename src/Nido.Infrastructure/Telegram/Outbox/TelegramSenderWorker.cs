@@ -35,6 +35,11 @@ public sealed class TelegramSenderWorker(
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         var leases = await outboxReader.DequeuePendingAsync(options.OutboxMaxBatchSize, utcNow, ct);
 
+        if (leases.Count > 0)
+        {
+            logger.LogInformation("Telegram sender worker claimed {MessageCount} outbox message(s).", leases.Count);
+        }
+
         foreach (var lease in leases)
         {
             var payload = JsonSerializer.Deserialize<TelegramOutboxPayload>(lease.PayloadJson);
@@ -42,6 +47,11 @@ public sealed class TelegramSenderWorker(
             {
                 await outboxReader.MarkFailedAsync(lease.MessageId, TelegramOutboxStatus.Dead, lease.Attempts + 1, ct);
                 DeadCounter.Add(1);
+                logger.LogWarning(
+                    "Telegram interactive outbox message {MessageId} dead-lettered because payload was invalid. chat_id={ChatId} type={MessageType}",
+                    lease.MessageId,
+                    lease.ChatId,
+                    lease.MessageType);
                 continue;
             }
 
@@ -53,7 +63,12 @@ public sealed class TelegramSenderWorker(
                 case TelegramSendResult.Success:
                     await outboxReader.MarkSentAsync(lease.MessageId, attempts, ct);
                     SentCounter.Add(1);
-                    logger.LogInformation("Telegram interactive outbox message {MessageId} sent.", lease.MessageId);
+                    logger.LogInformation(
+                        "Telegram interactive outbox message {MessageId} sent. chat_id={ChatId} type={MessageType} attempts={Attempts}",
+                        lease.MessageId,
+                        lease.ChatId,
+                        lease.MessageType,
+                        attempts);
                     break;
                 case TelegramSendResult.Error { Value: TelegramRateLimitError rateLimit }:
                     await ScheduleRetryAsync(lease, attempts, TimeSpan.FromSeconds(Math.Max(rateLimit.RetryAfter, 1)), ct);
@@ -61,7 +76,12 @@ public sealed class TelegramSenderWorker(
                 case TelegramSendResult.Error { Value: TelegramPermanentError }:
                     await outboxReader.MarkFailedAsync(lease.MessageId, TelegramOutboxStatus.Dead, attempts, ct);
                     DeadCounter.Add(1);
-                    logger.LogWarning("Telegram interactive outbox message {MessageId} dead-lettered after permanent error.", lease.MessageId);
+                    logger.LogWarning(
+                        "Telegram interactive outbox message {MessageId} dead-lettered after permanent error. chat_id={ChatId} type={MessageType} attempts={Attempts}",
+                        lease.MessageId,
+                        lease.ChatId,
+                        lease.MessageType,
+                        attempts);
                     break;
                 case TelegramSendResult.Error { Value: TelegramTransientError }:
                     await ScheduleRetryAsync(lease, attempts, TimeSpan.FromSeconds(Math.Pow(2, attempts)), ct);
@@ -80,13 +100,24 @@ public sealed class TelegramSenderWorker(
         {
             await outboxReader.MarkFailedAsync(lease.MessageId, TelegramOutboxStatus.Dead, attempts, ct);
             DeadCounter.Add(1);
-            logger.LogWarning("Telegram interactive outbox message {MessageId} reached max attempts.", lease.MessageId);
+            logger.LogWarning(
+                "Telegram interactive outbox message {MessageId} reached max attempts. chat_id={ChatId} type={MessageType} attempts={Attempts}",
+                lease.MessageId,
+                lease.ChatId,
+                lease.MessageType,
+                attempts);
             return;
         }
 
         var nextAttemptAt = _timeProvider.GetUtcNow().UtcDateTime.Add(delay);
         await outboxReader.MarkRetryAsync(lease.MessageId, nextAttemptAt, attempts, ct);
         RetriedCounter.Add(1);
-        logger.LogInformation("Telegram interactive outbox message {MessageId} scheduled for retry at {NextAttemptAt}.", lease.MessageId, nextAttemptAt);
+        logger.LogInformation(
+            "Telegram interactive outbox message {MessageId} scheduled for retry at {NextAttemptAt}. chat_id={ChatId} type={MessageType} attempts={Attempts}",
+            lease.MessageId,
+            nextAttemptAt,
+            lease.ChatId,
+            lease.MessageType,
+            attempts);
     }
 }

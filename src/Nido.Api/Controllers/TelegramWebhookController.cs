@@ -76,12 +76,12 @@ public sealed class TelegramWebhookController : ControllerBase
             return BadRequest();
         }
 
-        TelegramDispatchResult? dispatchResult = null;
         var result = await _handler.HandleAsync(
             payload,
             async innerCt =>
             {
-                dispatchResult = await _dispatcher.DispatchAsync(payload, innerCt);
+                var dispatchResult = await _dispatcher.DispatchAsync(payload, innerCt);
+                await EnqueueConfirmationAsync(dispatchResult, innerCt);
             },
             ct);
 
@@ -92,7 +92,6 @@ public sealed class TelegramWebhookController : ControllerBase
         switch (result)
         {
             case TelegramWebhookResult.Accepted:
-                await EnqueueConfirmationAsync(dispatchResult, ct);
                 _telemetry.RecordAccepted(elapsed);
                 return Ok();
             case TelegramWebhookResult.Duplicate:

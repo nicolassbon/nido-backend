@@ -68,7 +68,7 @@ builder.Services.AddFinanzasModule();
 builder.Services.AddTareasModule();
 builder.Services.AddNotificacionesModule();
 builder.Services.AddTelegramWebhook(builder.Configuration);
-builder.Services.AddTelegramSenderWorker();
+builder.Services.AddTelegramSenderWorker(builder.Configuration);
 
 
 builder.Services.AddHttpContextAccessor();

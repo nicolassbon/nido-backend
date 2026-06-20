@@ -1,4 +1,6 @@
+using System.Diagnostics.Metrics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Persistence;
@@ -7,8 +9,12 @@ using Npgsql;
 
 namespace Nido.Infrastructure.Telegram.Outbox;
 
-public sealed class TelegramOutboxWriter(NidoDbContext db) : ITelegramOutboxWriter
+public sealed class TelegramOutboxWriter(NidoDbContext db, ILogger<TelegramOutboxWriter> logger) : ITelegramOutboxWriter
 {
+    private static readonly Meter Meter = new("Nido.Telegram.Outbox");
+    private static readonly Counter<long> EnqueuedCounter = Meter.CreateCounter<long>("telegram_outbox_enqueued");
+    private static readonly Counter<long> DeduplicatedCounter = Meter.CreateCounter<long>("telegram_outbox_deduplicated");
+
     public async Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
     {
         var entity = new TelegramOutboxMessage
@@ -40,8 +46,21 @@ public sealed class TelegramOutboxWriter(NidoDbContext db) : ITelegramOutboxWrit
                     && x.Status == (int)TelegramOutboxStatus.Pending,
                 ct);
 
+            DeduplicatedCounter.Add(1);
+            logger.LogInformation(
+                "Telegram outbox deduplicated pending message for chat {ChatId} type {MessageType}.",
+                request.ChatId,
+                request.MessageType);
+
             return Map(existing);
         }
+
+        EnqueuedCounter.Add(1);
+        logger.LogInformation(
+            "Telegram outbox enqueued message {MessageId} for chat {ChatId} type {MessageType}.",
+            entity.Id,
+            entity.ChatId,
+            entity.MessageType);
 
         return Map(entity);
     }
