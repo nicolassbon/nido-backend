@@ -40,6 +40,7 @@ public sealed class PerfilController(
 
         var alergias = await repository.GetRestriccionesUsuarioAsync(userId, "alergia", cancellationToken);
         var alimentacion = await repository.GetRestriccionesUsuarioAsync(userId, "restriccion_alimentaria", cancellationToken);
+        var stats = await repository.GetStatsAsync(userId, currentUser.HogarId, cancellationToken);
 
         return Ok(new
         {
@@ -52,7 +53,10 @@ public sealed class PerfilController(
             fotoUrl,
             fechaRegistro = usuario.CreatedAt.ToString("dd/MM/yyyy"),
             alergias,
-            alimentacion
+            alimentacion,
+            tareasCompletadas = stats.TareasCompletadas,
+            productosEscaneados = stats.ProductosEscaneados,
+            logros = stats.Logros
         });
     }
 

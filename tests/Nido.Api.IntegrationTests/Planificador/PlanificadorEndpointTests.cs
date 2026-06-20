@@ -79,6 +79,33 @@ public sealed class PlanificadorEndpointTests : IClassFixture<NidoTestWebAppFact
     }
 
     [Fact]
+    public async Task AddItem_WhenRecipeImageIsStorageKey_ReturnsPublicImageUrl()
+    {
+        await RegisterAndAuthenticateAsync(_client, "plan-meal-image");
+        var recetaId = await SeedRecipeAsync("Sopa de calabaza", "recipes/sopa.webp");
+
+        var response = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "cena",
+            recetaId,
+            tituloLibre = (string?)null,
+            hora = "20:00"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+        Assert.StartsWith("https://", created!.ImagenUrl, StringComparison.Ordinal);
+        Assert.EndsWith("/recipes/sopa.webp", created.ImagenUrl, StringComparison.Ordinal);
+
+        var weekResponse = await _client.GetAsync("/api/planificador?fechaInicio=2026-06-15");
+        var week = await weekResponse.Content.ReadFromJsonAsync<PlanificadorSemanaBody>();
+        var item = Assert.Single(week!.Items);
+        Assert.StartsWith("https://", item.ImagenUrl, StringComparison.Ordinal);
+        Assert.EndsWith("/recipes/sopa.webp", item.ImagenUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task UpdateItem_WhenTask_UpdatesItemAndAppearsInWeek()
     {
         await RegisterAndAuthenticateAsync(_client, "plan-update-task");

@@ -755,6 +755,121 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task Cocinar_DescuentaMedidasDeReferenciaEnVolumen()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var lecheId = Guid.NewGuid();
+        var aceiteId = Guid.NewGuid();
+        var extractoId = Guid.NewGuid();
+        var lecheStockId = Guid.NewGuid();
+        var aceiteStockId = Guid.NewGuid();
+        var extractoStockId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.AddRange(
+                new Producto { Id = lecheId, Nombre = "Leche" },
+                new Producto { Id = aceiteId, Nombre = "Aceite" },
+                new Producto { Id = extractoId, Nombre = "Extracto" });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Medidas caseras",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.AddRange(
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = lecheId,
+                    NombreIngrediente = "Leche",
+                    Cantidad = 2m,
+                    Unidad = "vaso"
+                },
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = aceiteId,
+                    NombreIngrediente = "Aceite",
+                    Cantidad = null,
+                    Unidad = "\u00BD cucharadita"
+                },
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = extractoId,
+                    NombreIngrediente = "Extracto",
+                    Cantidad = 1m,
+                    Unidad = "pizca"
+                });
+            db.StockHogars.AddRange(
+                new StockHogar
+                {
+                    Id = lecheStockId,
+                    HogarId = auth.HogarId,
+                    ProductoId = lecheId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 1m,
+                    UnidadMedida = "lt",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = aceiteStockId,
+                    HogarId = auth.HogarId,
+                    ProductoId = aceiteId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 100m,
+                    UnidadMedida = "ml",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = extractoStockId,
+                    HogarId = auth.HogarId,
+                    ProductoId = extractoId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 10m,
+                    UnidadMedida = "ml",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var lecheStock = await verifyDb.StockHogars.SingleAsync(s => s.Id == lecheStockId);
+        var aceiteStock = await verifyDb.StockHogars.SingleAsync(s => s.Id == aceiteStockId);
+        var extractoStock = await verifyDb.StockHogars.SingleAsync(s => s.Id == extractoStockId);
+        Assert.Equal(0.5m, lecheStock.CantidadActual);
+        Assert.Equal(97.5m, aceiteStock.CantidadActual);
+        Assert.Equal(9.7m, extractoStock.CantidadActual);
+    }
+
+    [Fact]
     public async Task Cocinar_ConvierteTazaDeIngredienteSeco_AGramosDelStock()
     {
         var auth = await AuthenticateAsync();
