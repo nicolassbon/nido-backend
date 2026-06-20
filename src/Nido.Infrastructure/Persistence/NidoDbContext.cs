@@ -820,9 +820,15 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.CodigoBarras)
                 .HasMaxLength(255)
                 .HasColumnName("codigo_barras");
+            entity.Property(e => e.CantidadCompraEstandar)
+                .HasPrecision(10, 2)
+                .HasColumnName("cantidad_compra_estandar");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
+            entity.Property(e => e.UnidadCompraEstandar)
+                .HasMaxLength(50)
+                .HasColumnName("unidad_compra_estandar");
 
             entity.HasOne(d => d.Categoria).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.CategoriaId)

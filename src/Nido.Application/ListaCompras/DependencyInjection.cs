@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<AddListaCompraItemHandler>();
         services.AddScoped<MarkListaCompraItemCompradoHandler>();
         services.AddScoped<MarkListaCompraItemCompradoByNameHandler>();
+        services.AddScoped<MarkListaCompraItemAgregadoInventarioHandler>();
         services.AddScoped<RemoveListaCompraItemHandler>();
         services.AddScoped<ClearListaComprasHandler>();
         return services;
