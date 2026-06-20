@@ -119,5 +119,7 @@ public sealed class ListaComprasNamedHandlersTests
             => Task.FromResult(true);
         public Task ClearActiveAsync(Guid hogarId, CancellationToken ct)
             => Task.CompletedTask;
+        public Task<bool> MarkAddedToInventoryAsync(Guid id, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(true);
     }
 }

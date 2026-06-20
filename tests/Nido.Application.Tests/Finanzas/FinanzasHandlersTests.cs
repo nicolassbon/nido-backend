@@ -1,4 +1,4 @@
-﻿using Nido.Application.Alacena;
+using Nido.Application.Alacena;
 using Nido.Application.Finanzas;
 using Nido.Application.Finanzas.Exceptions;
 using Nido.Application.Recetas;
