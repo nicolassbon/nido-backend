@@ -3,7 +3,12 @@ using System.Net.Http.Headers;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Nido.Application.Telegram.Client;
+using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Menu;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
 using Xunit;
 
 namespace Nido.Api.IntegrationTests.Telegram;
@@ -138,12 +143,169 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         await AssertNoProcessedRowAsync(factory, 8003);
     }
 
+    [Fact]
+    public async Task Post_MenuCommand_WithLinkedMember_SendsMainMenu_AndStoresConversationState()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        });
+
+        await SeedLinkedCurrentMemberAsync(factory, 301);
+
+        using var client = factory.CreateClient();
+        var response = await PostMessageAsync(client, 12_001, 301, "/menu");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(sentMessages.Messages, message =>
+            message.ChatId == 301
+            && message.Text.Contains("Elegí una opción respondiendo con un número", StringComparison.Ordinal)
+            && message.Text.Contains("Ver productos por vencer", StringComparison.Ordinal));
+
+        using var scope = factory.Services.CreateScope();
+        var stateStore = scope.ServiceProvider.GetRequiredService<ITelegramConversationStateStore>();
+        var state = await stateStore.GetAsync(301, CancellationToken.None);
+        Assert.NotNull(state);
+        Assert.Equal(TelegramMenuCopy.MainMenuId, state!.MenuId);
+    }
+
+    [Fact]
+    public async Task Post_DigitSelection_AfterMenu_RoutesToProviderPlaceholder()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        });
+
+        await SeedLinkedCurrentMemberAsync(factory, 302);
+
+        using var client = factory.CreateClient();
+        var menuResponse = await PostMessageAsync(client, 12_101, 302, "/menu");
+        var digitResponse = await PostMessageAsync(client, 12_102, 302, "2");
+
+        Assert.Equal(HttpStatusCode.OK, menuResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, digitResponse.StatusCode);
+        Assert.Contains(sentMessages.Messages, message =>
+            message.ChatId == 302
+            && message.Text.Contains("Placeholder for option 2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Post_DigitSelection_WithoutState_SendsRecoveryMainMenu()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        });
+
+        await SeedLinkedCurrentMemberAsync(factory, 303);
+
+        using var client = factory.CreateClient();
+        var response = await PostMessageAsync(client, 12_201, 303, "2");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(sentMessages.Messages, message =>
+            message.ChatId == 303
+            && message.Text.Contains("ya no está disponible", StringComparison.Ordinal)
+            && message.Text.Contains("Ver productos por vencer", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Post_MenuCommand_WhenChatNotLinked_Returns200_AndSendsPairingRecovery()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        });
+
+        using var client = factory.CreateClient();
+        var response = await PostMessageAsync(client, 12_251, 399, "/menu");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(sentMessages.Messages, message =>
+            message.ChatId == 399
+            && message.Text.Contains("no está vinculado", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Post_MenuCommand_WhenMembershipIsStale_Returns200_UnlinksChat_AndSendsRecovery()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        });
+
+        await SeedLinkedCurrentMemberAsync(factory, 398);
+        await RemoveMembershipAsync(factory, 398);
+
+        using var client = factory.CreateClient();
+        var response = await PostMessageAsync(client, 12_252, 398, "/menu");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(sentMessages.Messages, message =>
+            message.ChatId == 398
+            && message.Text.Contains("ya no está disponible", StringComparison.Ordinal));
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 398);
+        Assert.NotNull(link.UnpairedAt);
+    }
+
+    [Fact]
+    public async Task Post_Unlink_ClearsConversationState()
+    {
+        var sentMessages = new FakeTelegramClient();
+        using var factory = _factory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramClient>();
+            services.AddSingleton<ITelegramClient>(sentMessages);
+        });
+
+        await SeedLinkedCurrentMemberAsync(factory, 304);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var stateStore = scope.ServiceProvider.GetRequiredService<ITelegramConversationStateStore>();
+            await stateStore.SetAsync(new TelegramConversationState(304, TelegramMenuCopy.MainMenuId, DateTime.UtcNow, null), CancellationToken.None);
+        }
+
+        using var client = factory.CreateClient();
+        var response = await PostMessageAsync(client, 12_301, 304, "/unlink");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var db = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 304);
+        Assert.NotNull(link.UnpairedAt);
+
+        var stateStoreAfter = verifyScope.ServiceProvider.GetRequiredService<ITelegramConversationStateStore>();
+        var state = await stateStoreAfter.GetAsync(304, CancellationToken.None);
+        Assert.Null(state);
+    }
+
     private Task<HttpResponseMessage> PostUpdateAsync(long updateId)
         => PostUpdateAsync(_client, updateId);
 
     private static async Task<HttpResponseMessage> PostUpdateAsync(HttpClient client, long updateId)
     {
         using var content = BuildUpdate(updateId);
+        return await PostAsync(client, content);
+    }
+
+    private static async Task<HttpResponseMessage> PostMessageAsync(HttpClient client, long updateId, long chatId, string text)
+    {
+        using var content = BuildUpdate(updateId, chatId, text);
         return await PostAsync(client, content);
     }
 
@@ -161,10 +323,18 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     }
 
     private static StringContent BuildUpdate(long updateId)
-        => new(BuildUpdateBody(updateId), Encoding.UTF8, "application/json");
+        => BuildUpdate(updateId, 1, "hi");
+
+    private static StringContent BuildUpdate(long updateId, long chatId, string text)
+        => new(BuildUpdateBody(updateId, chatId, text), Encoding.UTF8, "application/json");
 
     private static string BuildUpdateBody(long updateId)
-        => "{\"update_id\":" + updateId + ",\"message\":{\"message_id\":1,\"date\":1,\"text\":\"hi\",\"chat\":{\"id\":1,\"type\":\"private\"}}}";
+        => BuildUpdateBody(updateId, 1, "hi");
+
+    private static string BuildUpdateBody(long updateId, long chatId, string text)
+        => "{\"update_id\":" + updateId + ",\"message\":{\"message_id\":1,\"date\":1,\"text\":"
+            + System.Text.Json.JsonSerializer.Serialize(text)
+            + ",\"chat\":{\"id\":" + chatId + ",\"type\":\"private\"}}}";
 
     private async Task AssertNoProcessedRowAsync(long updateId)
         => await AssertNoProcessedRowAsync(_factory, updateId);
@@ -201,5 +371,62 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         var count = await db.ProcessedTelegramUpdates.AsNoTracking()
             .CountAsync(p => p.UpdateId == updateId);
         Assert.Equal(1, count);
+    }
+
+    private static async Task SeedLinkedCurrentMemberAsync(NidoTestWebAppFactory factory, long chatId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+
+        db.Usuarios.Add(new Usuario
+        {
+            Id = usuarioId,
+            Nombre = "Telegram",
+            Email = $"telegram-{chatId}@example.com",
+            PasswordHash = "hash",
+            Sexo = "U",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        db.Hogares.Add(new Hogare { Id = hogarId, Nombre = $"Hogar {chatId}", CreatedAt = DateTime.UtcNow });
+        db.MiembrosHogars.Add(new MiembrosHogar { Id = Guid.NewGuid(), UsuarioId = usuarioId, HogarId = hogarId, Rol = "owner", Puntos = 0 });
+        db.TelegramChatLinks.Add(new TelegramChatLink
+        {
+            Id = Guid.NewGuid(),
+            ChatId = chatId,
+            UsuarioId = usuarioId,
+            HogarId = hogarId,
+            PairedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task RemoveMembershipAsync(NidoTestWebAppFactory factory, long chatId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var link = await db.TelegramChatLinks.AsNoTracking().SingleAsync(x => x.ChatId == chatId);
+        var memberships = await db.MiembrosHogars
+            .Where(x => x.UsuarioId == link.UsuarioId && x.HogarId == link.HogarId)
+            .ToListAsync();
+
+        db.MiembrosHogars.RemoveRange(memberships);
+        await db.SaveChangesAsync();
+    }
+
+    private sealed class FakeTelegramClient : ITelegramClient
+    {
+        public List<(long ChatId, string Text)> Messages { get; } = [];
+
+        public Task<TelegramSendResult> SendMessageAsync(long chatId, string text, string? parseMode = null, TelegramInlineKeyboardMarkup? replyMarkup = null, CancellationToken ct = default)
+        {
+            Messages.Add((chatId, text));
+            return Task.FromResult<TelegramSendResult>(new TelegramSendResult.Success(new TelegramMessageSent(1)));
+        }
     }
 }

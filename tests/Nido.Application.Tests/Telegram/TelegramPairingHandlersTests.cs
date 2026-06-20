@@ -1,5 +1,8 @@
 using Nido.Application.Telegram;
+using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Exceptions;
+using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Webhook;
 using Xunit;
@@ -138,7 +141,11 @@ public sealed class TelegramPairingHandlersTests
         var dispatcher = new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
             new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
-            new UnlinkTelegramChatHandler(repository));
+            new UnlinkTelegramChatHandler(repository),
+            new FakeTelegramHogarAccess(),
+            new FakeConversationStateStore(),
+            new FakeMenuRegistry(),
+            new FakeMenuProvider());
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/start token-123", new TelegramWebhookChat(99, "private"))),
@@ -189,7 +196,11 @@ public sealed class TelegramPairingHandlersTests
         var dispatcher = new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
             new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
-            new UnlinkTelegramChatHandler(repository));
+            new UnlinkTelegramChatHandler(repository),
+            new FakeTelegramHogarAccess(),
+            new FakeConversationStateStore(),
+            new FakeMenuRegistry(),
+            new FakeMenuProvider());
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/pair 123456", new TelegramWebhookChat(77, "private"))),
@@ -211,7 +222,11 @@ public sealed class TelegramPairingHandlersTests
         var dispatcher = new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
             new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
-            new UnlinkTelegramChatHandler(repository));
+            new UnlinkTelegramChatHandler(repository),
+            new FakeTelegramHogarAccess(),
+            new FakeConversationStateStore(),
+            new FakeMenuRegistry(),
+            new FakeMenuProvider());
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, text, new TelegramWebhookChat(77, "private"))),
@@ -228,7 +243,11 @@ public sealed class TelegramPairingHandlersTests
         var dispatcher = new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
             new CompleteTelegramPairingByCodeHandler(repository, new FakeHasher(), new FakeRateLimiter()),
-            new UnlinkTelegramChatHandler(repository));
+            new UnlinkTelegramChatHandler(repository),
+            new FakeTelegramHogarAccess(),
+            new FakeConversationStateStore(),
+            new FakeMenuRegistry(),
+            new FakeMenuProvider());
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/unlink", new TelegramWebhookChat(88, "private"))),
@@ -373,5 +392,47 @@ public sealed class TelegramPairingHandlersTests
             CodeValidateCalls++;
             return Task.FromResult(AllowCodeValidate);
         }
+    }
+
+    private sealed class FakeConversationStateStore : ITelegramConversationStateStore
+    {
+        public Task<TelegramConversationState?> GetAsync(long chatId, CancellationToken ct)
+            => Task.FromResult<TelegramConversationState?>(null);
+
+        public Task SetAsync(TelegramConversationState state, CancellationToken ct)
+            => Task.CompletedTask;
+
+        public Task ClearAsync(long chatId, CancellationToken ct)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FakeTelegramHogarAccess : ITelegramHogarAccess
+    {
+        public Task<TelegramChatLinkSnapshot?> GetActiveLinkAsync(long chatId, CancellationToken ct)
+            => Task.FromResult<TelegramChatLinkSnapshot?>(null);
+
+        public Task<bool> IsUserCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(false);
+
+        public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(false);
+    }
+
+    private sealed class FakeMenuRegistry : ITelegramMenuRegistry
+    {
+        public TelegramMenu GetDefaultMenu()
+            => new(TelegramMenuCopy.MainMenuId, []);
+
+        public TelegramMenu? Get(string menuId)
+            => null;
+    }
+
+    private sealed class FakeMenuProvider : ITelegramMenuProvider
+    {
+        public Task<TelegramMenuRenderResult> RenderMenuAsync(TelegramMenu menu, TelegramChatLinkSnapshot link, CancellationToken ct)
+            => Task.FromResult(new TelegramMenuRenderResult(TelegramMenuCopy.MainMenuText));
+
+        public Task<TelegramMenuSelectionResult> SelectAsync(string menuId, string optionKey, TelegramChatLinkSnapshot link, CancellationToken ct)
+            => Task.FromResult(new TelegramMenuSelectionResult(false, string.Empty, null, false));
     }
 }

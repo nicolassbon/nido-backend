@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Exceptions;
+using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Xunit;
 
@@ -26,6 +28,9 @@ public sealed class TelegramDependencyInjectionTests
         Assert.NotNull(provider.GetRequiredService<ITelegramPairingRepository>());
         Assert.NotNull(provider.GetRequiredService<ITelegramPairingTokenHasher>());
         Assert.NotNull(provider.GetRequiredService<ITelegramPairingRateLimiter>());
+        Assert.NotNull(provider.GetRequiredService<ITelegramConversationStateStore>());
+        Assert.NotNull(provider.GetRequiredService<ITelegramMenuRegistry>());
+        Assert.NotNull(provider.GetRequiredService<ITelegramMenuProvider>());
         Assert.NotNull(provider.GetRequiredService<CompleteTelegramPairingByCodeHandler>());
     }
 
@@ -44,6 +49,9 @@ public sealed class TelegramDependencyInjectionTests
         var repository = provider.GetRequiredService<ITelegramPairingRepository>();
         var hasher = provider.GetRequiredService<ITelegramPairingTokenHasher>();
         var rateLimiter = provider.GetRequiredService<ITelegramPairingRateLimiter>();
+        var conversationStateStore = provider.GetRequiredService<ITelegramConversationStateStore>();
+        var menuRegistry = provider.GetRequiredService<ITelegramMenuRegistry>();
+        var menuProvider = provider.GetRequiredService<ITelegramMenuProvider>();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => hogarAccess.GetActiveLinkAsync(1, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => hogarAccess.IsUserCurrentMemberAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
@@ -58,6 +66,12 @@ public sealed class TelegramDependencyInjectionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => rateLimiter.TryAcquireGenerateAsync(Guid.NewGuid(), CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => rateLimiter.TryAcquireConsumeAsync(1, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => rateLimiter.TryAcquireCodeValidateAsync(1, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => conversationStateStore.GetAsync(1, CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(() => menuRegistry.GetDefaultMenu());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => menuProvider.RenderMenuAsync(
+            new TelegramMenu("main-menu", Array.Empty<TelegramMenuOption>()),
+            new TelegramChatLinkSnapshot(1, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, null),
+            CancellationToken.None));
     }
 
     [Fact]

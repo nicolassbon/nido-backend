@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Exceptions;
@@ -32,6 +34,9 @@ public static class DependencyInjection
         services.TryAddScoped<ITelegramPairingRepository, MissingTelegramPairingRepository>();
         services.TryAddScoped<ITelegramPairingTokenHasher, MissingTelegramPairingTokenHasher>();
         services.TryAddScoped<ITelegramPairingRateLimiter, MissingTelegramPairingRateLimiter>();
+        services.TryAddScoped<ITelegramConversationStateStore, MissingTelegramConversationStateStore>();
+        services.TryAddScoped<ITelegramMenuRegistry, MissingTelegramMenuRegistry>();
+        services.TryAddScoped<ITelegramMenuProvider, MissingTelegramMenuProvider>();
         return services;
     }
 
@@ -103,6 +108,36 @@ internal sealed class MissingTelegramPairingRateLimiter : ITelegramPairingRateLi
 
     public Task<bool> TryAcquireCodeValidateAsync(long chatId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramConversationStateStore : ITelegramConversationStateStore
+{
+    public Task<TelegramConversationState?> GetAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+
+    public Task SetAsync(TelegramConversationState state, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+
+    public Task ClearAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramMenuRegistry : ITelegramMenuRegistry
+{
+    public TelegramMenu GetDefaultMenu()
+        => throw new InvalidOperationException("ITelegramMenuRegistry requires infrastructure registration.");
+
+    public TelegramMenu? Get(string menuId)
+        => throw new InvalidOperationException("ITelegramMenuRegistry requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramMenuProvider : ITelegramMenuProvider
+{
+    public Task<TelegramMenuRenderResult> RenderMenuAsync(TelegramMenu menu, TelegramChatLinkSnapshot link, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramMenuProvider requires infrastructure registration.");
+
+    public Task<TelegramMenuSelectionResult> SelectAsync(string menuId, string optionKey, TelegramChatLinkSnapshot link, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramMenuProvider requires infrastructure registration.");
 }
 
 internal sealed class TelegramWebhookStartupValidator : IHostedService
