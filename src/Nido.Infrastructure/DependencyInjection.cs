@@ -140,6 +140,7 @@ public static class DependencyInjection
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
+        services.AddScoped<IPushNotificationService, PushNotificationService>();
 
         services.AddHttpClient<ITelegramClient, Telegram.TelegramClient>((sp, client) =>
         {
