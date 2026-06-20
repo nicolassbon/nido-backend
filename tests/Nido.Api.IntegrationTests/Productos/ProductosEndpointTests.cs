@@ -37,10 +37,11 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
 
         var codigo = $"779-{Guid.NewGuid():N}";
 
+        var categoriaNombre = $"Despensa-{Guid.NewGuid():N}";
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-            var categoria = new CategoriasProducto { Id = Guid.NewGuid(), Nombre = "Despensa", TtlDias = 10 };
+            var categoria = new CategoriasProducto { Id = Guid.NewGuid(), Nombre = categoriaNombre, TtlDias = 10 };
             var producto = new Producto { Id = Guid.NewGuid(), Nombre = "Fideos", CodigoBarras = codigo, Categoria = categoria };
             db.CategoriasProductos.Add(categoria);
             db.Productos.Add(producto);
@@ -53,7 +54,7 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
         var body = await response.Content.ReadFromJsonAsync<ProductoBody>();
         Assert.NotNull(body);
         Assert.Equal(codigo, body!.CodigoBarras);
-        Assert.Equal("Despensa", body.CategoriaNombre);
+        Assert.Equal(categoriaNombre, body.CategoriaNombre);
     }
 
     [Fact]
@@ -141,7 +142,7 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-            db.CategoriasProductos.Add(new CategoriasProducto { Id = categoryId, Nombre = "Despensa", TtlDias = 30 });
+            db.CategoriasProductos.Add(new CategoriasProducto { Id = categoryId, Nombre = $"Despensa-{Guid.NewGuid():N}", TtlDias = 30 });
             db.Productos.Add(new Producto
             {
                 Id = productId,
@@ -224,7 +225,7 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
             db.CategoriasProductos.Add(new CategoriasProducto
             {
                 Id = categoriaId,
-                Nombre = "Despensa",
+                Nombre = $"Despensa-{Guid.NewGuid():N}",
                 TtlDias = 30
             });
             await db.SaveChangesAsync();
