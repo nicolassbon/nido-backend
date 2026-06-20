@@ -19,7 +19,7 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddScoped(sp => sp.GetRequiredService<IOptions<TelegramOptions>>().Value);
+        services.AddTransient(sp => sp.GetRequiredService<IOptions<TelegramOptions>>().Value);
         services.AddScoped<StartTelegramPairingHandler>();
         services.AddScoped<CompleteTelegramPairingHandler>();
         services.AddScoped<CompleteTelegramPairingByCodeHandler>();

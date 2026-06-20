@@ -166,6 +166,8 @@ public static class DependencyInjection
         services.AddScoped<ITelegramPairingTokenHasher, TelegramPairingTokenHasher>();
         services.AddScoped<ITelegramPairingRateLimiter, TelegramPairingRateLimiter>();
         services.AddScoped<ITelegramOutboxWriter, TelegramOutboxWriter>();
+        services.AddScoped<ITelegramNotificationBatcher, TelegramNotificationBatcher>();
+        services.AddHostedService<TelegramBatchingWorker>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:

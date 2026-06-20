@@ -160,6 +160,21 @@ public sealed class TelegramSenderWorker : BackgroundService
                     {
                         dbMessage.Status = (int)TelegramOutboxStatus.Sent;
                         dbMessage.LockedUntil = null;
+                        if (dbMessage.BatchId != null)
+                        {
+                            var batch = await updateDb.TelegramBatches.FindAsync(dbMessage.BatchId);
+                            if (batch != null)
+                            {
+                                batch.Status = (int)TelegramBatchStatus.Sent;
+                            }
+                            var batchMessages = await updateDb.TelegramOutboxMessages
+                                .Where(m => m.BatchId == dbMessage.BatchId && m.Id != dbMessage.Id)
+                                .ToListAsync(stoppingToken);
+                            foreach (var bm in batchMessages)
+                            {
+                                bm.Status = (int)TelegramOutboxStatus.Sent;
+                            }
+                        }
                         _logger.LogInformation("Telegram message {MessageId} sent successfully.", message.Id);
                     }
                     else if (result is TelegramSendResult.Error errorResult)
@@ -171,6 +186,21 @@ public sealed class TelegramSenderWorker : BackgroundService
                         {
                             dbMessage.Status = (int)TelegramOutboxStatus.Dead;
                             dbMessage.LockedUntil = null;
+                            if (dbMessage.BatchId != null)
+                            {
+                                var batch = await updateDb.TelegramBatches.FindAsync(dbMessage.BatchId);
+                                if (batch != null)
+                                {
+                                    batch.Status = (int)TelegramBatchStatus.Dead;
+                                }
+                                var batchMessages = await updateDb.TelegramOutboxMessages
+                                    .Where(m => m.BatchId == dbMessage.BatchId && m.Id != dbMessage.Id)
+                                    .ToListAsync(stoppingToken);
+                                foreach (var bm in batchMessages)
+                                {
+                                    bm.Status = (int)TelegramOutboxStatus.Dead;
+                                }
+                            }
                             _logger.LogWarning("Telegram message {MessageId} failed permanently: {Error}", message.Id, error.Description);
                         }
                         else if (error is TelegramRateLimitError rateLimitError)
@@ -185,6 +215,21 @@ public sealed class TelegramSenderWorker : BackgroundService
                             if (dbMessage.Attempts >= _options.MaxAttempts)
                             {
                                 dbMessage.Status = (int)TelegramOutboxStatus.Failed;
+                                if (dbMessage.BatchId != null)
+                                {
+                                    var batch = await updateDb.TelegramBatches.FindAsync(dbMessage.BatchId);
+                                    if (batch != null)
+                                    {
+                                        batch.Status = (int)TelegramBatchStatus.Failed;
+                                    }
+                                    var batchMessages = await updateDb.TelegramOutboxMessages
+                                        .Where(m => m.BatchId == dbMessage.BatchId && m.Id != dbMessage.Id)
+                                        .ToListAsync(stoppingToken);
+                                    foreach (var bm in batchMessages)
+                                    {
+                                        bm.Status = (int)TelegramOutboxStatus.Failed;
+                                    }
+                                }
                                 _logger.LogError("Telegram message {MessageId} exceeded max attempts and failed.", message.Id);
                             }
                             else

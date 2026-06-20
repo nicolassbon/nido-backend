@@ -20,6 +20,7 @@ public sealed class TelegramOutboxWakeupService : ITelegramOutboxWakeupService, 
     private readonly CancellationTokenSource _cts;
     private Task? _listenTask;
     private Task? _pollTask;
+    private bool _disposed;
 
     public TelegramOutboxWakeupService(
         IConfiguration configuration,
@@ -72,7 +73,17 @@ public sealed class TelegramOutboxWakeupService : ITelegramOutboxWakeupService, 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Stopping Telegram Outbox Wakeup Service...");
-        _cts.Cancel();
+        try
+        {
+            if (!_disposed)
+            {
+                _cts.Cancel();
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            // Ignore
+        }
 
         if (_listenTask != null)
         {
@@ -185,6 +196,16 @@ public sealed class TelegramOutboxWakeupService : ITelegramOutboxWakeupService, 
 
     public void Dispose()
     {
-        _cts.Dispose();
+        if (!_disposed)
+        {
+            try
+            {
+                _cts.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            _disposed = true;
+        }
     }
 }

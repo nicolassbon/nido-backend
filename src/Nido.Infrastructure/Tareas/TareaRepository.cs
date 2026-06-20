@@ -1,11 +1,13 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Nido.Application.Tareas;
+using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Tareas;
 
-public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
+public sealed class TareaRepository(NidoDbContext db, ITelegramNotificationBatcher batcher) : ITareaRepository
 {
     public async Task<List<TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
     {
@@ -77,6 +79,7 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
 
             var creador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == creadoPor, ct);
             var creadorNombre = creador?.Nombre ?? "Alguien";
+            var messageText = $"{creadorNombre} te asignó la tarea \"{titulo}\"";
 
             db.Notificaciones.Add(new Notificacione
             {
@@ -84,11 +87,25 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
                 Tipo = "asignacion_tarea",
                 ReferenciaTipo = "tarea",
                 ReferenciaId = tarea.Id,
-                Mensaje = $"{creadorNombre} te asignó la tarea \"{titulo}\"",
+                Mensaje = messageText,
                 Leida = false,
                 CreatedAt = DateTime.UtcNow,
             });
             await db.SaveChangesAsync(ct);
+
+            var activeLink = await db.TelegramChatLinks
+                .FirstOrDefaultAsync(x => x.UsuarioId == asignadoA.Value && x.HogarId == hogarId && x.UnpairedAt == null, ct);
+            if (activeLink != null)
+            {
+                var payloadJson = JsonSerializer.Serialize(new { text = messageText });
+                await batcher.EnqueueEventAsync(
+                    hogarId,
+                    activeLink.ChatId,
+                    "asignacion_tarea",
+                    payloadJson,
+                    isCritical: false,
+                    ct);
+            }
         }
 
         return (await GetByIdAsync(tarea.Id, hogarId, ct))!;
@@ -134,6 +151,8 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
 
         db.AsignacionesTareas.RemoveRange(tarea.AsignacionesTareas);
 
+        string? messageText = null;
+
         if (usuarioId.HasValue)
         {
             db.AsignacionesTareas.Add(new AsignacionesTarea
@@ -146,6 +165,7 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
             {
                 var asignador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == asignadoPor, ct);
                 var asignadorNombre = asignador?.Nombre ?? "Alguien";
+                messageText = $"{asignadorNombre} te asignó la tarea \"{tarea.Titulo}\"";
 
                 db.Notificaciones.Add(new Notificacione
                 {
@@ -153,7 +173,7 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
                     Tipo = "asignacion_tarea",
                     ReferenciaTipo = "tarea",
                     ReferenciaId = tarea.Id,
-                    Mensaje = $"{asignadorNombre} te asignó la tarea \"{tarea.Titulo}\"",
+                    Mensaje = messageText,
                     Leida = false,
                     CreatedAt = DateTime.UtcNow,
                 });
@@ -161,6 +181,24 @@ public sealed class TareaRepository(NidoDbContext db) : ITareaRepository
         }
 
         await db.SaveChangesAsync(ct);
+
+        if (usuarioId.HasValue && messageText != null)
+        {
+            var activeLink = await db.TelegramChatLinks
+                .FirstOrDefaultAsync(x => x.UsuarioId == usuarioId.Value && x.HogarId == hogarId && x.UnpairedAt == null, ct);
+            if (activeLink != null)
+            {
+                var payloadJson = JsonSerializer.Serialize(new { text = messageText });
+                await batcher.EnqueueEventAsync(
+                    hogarId,
+                    activeLink.ChatId,
+                    "asignacion_tarea",
+                    payloadJson,
+                    isCritical: false,
+                    ct);
+            }
+        }
+
         return await GetByIdAsync(id, hogarId, ct);
     }
 
