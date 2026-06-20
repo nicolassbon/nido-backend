@@ -113,6 +113,8 @@ public sealed class ListaComprasNamedHandlersTests
             => Task.FromResult<ListaCompraItemResult?>(null);
         public Task<IReadOnlyList<ListaCompraItemResult>> MarkPurchasedByNameAsync(Guid hogarId, Guid usuarioId, string nombre, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ListaCompraItemResult>>(Array.Empty<ListaCompraItemResult>());
+        public Task<bool> MarkAddedToInventoryAsync(Guid id, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(true);
         public Task<bool> RemoveItemAsync(Guid id, Guid hogarId, CancellationToken ct)
             => Task.FromResult(true);
         public Task ClearActiveAsync(Guid hogarId, CancellationToken ct)
