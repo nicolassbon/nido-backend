@@ -22,7 +22,8 @@ public sealed record RecetaResponse(
     bool TieneProductosPorVencer,
     string? FechaVencimientoMasProxima,
     int? DiasHastaVencimiento,
-    IReadOnlyList<RecetaProductoPorVencerResponse> ProductosPorVencer);
+    IReadOnlyList<RecetaProductoPorVencerResponse> ProductosPorVencer,
+    bool Guardada);
 
 public sealed record RecetaProductoPorVencerResponse(
     Guid ProductoId,
@@ -37,6 +38,8 @@ public sealed record RecetaIngredienteResponse(
     string? ProductoNombre,
     decimal? Cantidad,
     string? Unidad,
+    decimal? CantidadCompraEstandar,
+    string? UnidadCompraEstandar,
     bool EnStock,
     IReadOnlyList<string> Alergenos);
 

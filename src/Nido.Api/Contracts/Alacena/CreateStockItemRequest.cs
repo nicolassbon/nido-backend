@@ -2,6 +2,7 @@ namespace Nido.Api.Contracts.Alacena;
 
 public sealed record CreateStockItemRequest(
     string Nombre,
+    Guid? CategoriaId,
     string? CodigoBarras,
     string? Imagen,
     string Ubicacion,
@@ -11,5 +12,6 @@ public sealed record CreateStockItemRequest(
     bool EstaAbierto,
     decimal PorcentajeConsumido,
     // Cantidad de envases idénticos. Default 1.
-    int? CantidadEnvases = 1
+    int? CantidadEnvases = 1,
+    string? OrigenCarga = null
 );

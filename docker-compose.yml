@@ -18,6 +18,7 @@ services:
       start_period: 15s
 
   nido-migrator:
+    image: ${NIDO_MIGRATOR_IMAGE:-nido-migrator:local}
     build:
       context: .
       target: migrator
@@ -31,13 +32,14 @@ services:
         condition: service_healthy
 
   nido-api:
+    image: ${NIDO_API_IMAGE:-nido-api:local}
     build:
       context: .
       target: runtime
     container_name: nido-api
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - RESEND_API_KEY=${RESEND_API_KEY}

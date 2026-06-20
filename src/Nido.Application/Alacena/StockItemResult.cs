@@ -13,5 +13,6 @@ public sealed record StockItemResult(
     string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido,
-    int CantidadEnvases
+    int CantidadEnvases,
+    string OrigenCarga = StockLoadOrigins.Manual
 );

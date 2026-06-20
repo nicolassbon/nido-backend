@@ -47,6 +47,7 @@ public sealed class GetRecetaByIdHandler
             result.TieneProductosPorVencer,
             result.FechaVencimientoMasProxima,
             result.DiasHastaVencimiento,
-            result.ProductosPorVencer);
+            result.ProductosPorVencer,
+            result.Guardada);
     }
 }

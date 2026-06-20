@@ -15,7 +15,6 @@ public sealed class FinanzasController : ControllerBase
     private readonly GetGastosHandler _getGastosHandler;
     private readonly GetBalanceHandler _getBalanceHandler;
     private readonly ToggleModoAhorroHandler _toggleModoAhorroHandler;
-    private readonly GetRecomendacionesHandler _getRecomendacionesHandler;
     private readonly CreateFacturaHandler _createFacturaHandler;
     private readonly GetFacturasHandler _getFacturasHandler;
     private readonly MarcarPagadaHandler _marcarPagadaHandler;
@@ -33,7 +32,6 @@ public sealed class FinanzasController : ControllerBase
         GetGastosHandler getGastosHandler,
         GetBalanceHandler getBalanceHandler,
         ToggleModoAhorroHandler toggleModoAhorroHandler,
-        GetRecomendacionesHandler getRecomendacionesHandler,
         CreateFacturaHandler createFacturaHandler,
         GetFacturasHandler getFacturasHandler,
         MarcarPagadaHandler marcarPagadaHandler,
@@ -50,7 +48,6 @@ public sealed class FinanzasController : ControllerBase
         _getGastosHandler = getGastosHandler;
         _getBalanceHandler = getBalanceHandler;
         _toggleModoAhorroHandler = toggleModoAhorroHandler;
-        _getRecomendacionesHandler = getRecomendacionesHandler;
         _createFacturaHandler = createFacturaHandler;
         _getFacturasHandler = getFacturasHandler;
         _marcarPagadaHandler = marcarPagadaHandler;
@@ -87,23 +84,6 @@ public sealed class FinanzasController : ControllerBase
         if (!activo) return NotFound();
 
         return Ok(new ModoAhorroResponse(request.Activo));
-    }
-
-    [HttpGet("recomendaciones")]
-    public async Task<IActionResult> GetRecomendaciones(
-        [FromServices] ICurrentUserContext currentUser,
-        CancellationToken ct)
-    {
-        var result = await _getRecomendacionesHandler.Handle(currentUser.HogarId, ct);
-
-        return Ok(new RecomendacionesResponse(
-            result.Recetas.Select(r => new RecetaRecomendadaResponse(
-                r.Id,
-                r.Nombre,
-                r.ImagenUrl,
-                r.IngredientesEnStock,
-                r.TotalIngredientes)).ToList(),
-            result.Tips));
     }
 
     [HttpGet("modo-ahorro/potencial")]

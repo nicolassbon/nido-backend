@@ -13,6 +13,139 @@ public sealed class GetListaComprasHandler
         => _repository.GetActiveAsync(hogarId, ct);
 }
 
+public sealed class GetListasCompraHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public GetListasCompraHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<IReadOnlyList<ListaCompraListResult>> Handle(Guid hogarId, CancellationToken ct)
+        => _repository.GetListsAsync(hogarId, ct);
+}
+
+public sealed class CreateListaCompraHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public CreateListaCompraHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<ListaCompraListResult> Handle(CreateListaCompraCommand command, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(command.Nombre))
+        {
+            throw new ArgumentException("El nombre de la lista es obligatorio.", nameof(command.Nombre));
+        }
+
+        return _repository.CreateListAsync(command.HogarId, command.UsuarioId, command.Nombre.Trim(), ct);
+    }
+}
+
+public sealed class UpdateListaCompraHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public UpdateListaCompraHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<ListaCompraListResult?> Handle(UpdateListaCompraCommand command, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(command.Nombre))
+        {
+            throw new ArgumentException("El nombre de la lista es obligatorio.", nameof(command.Nombre));
+        }
+
+        return _repository.UpdateListAsync(command.HogarId, command.ListaId, command.Nombre.Trim(), ct);
+    }
+}
+
+public sealed class DeleteListaCompraHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public DeleteListaCompraHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<bool> Handle(DeleteListaCompraCommand command, CancellationToken ct)
+        => _repository.DeleteListAsync(command.HogarId, command.ListaId, ct);
+}
+
+public sealed class AddListaCompraNamedItemHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public AddListaCompraNamedItemHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<ListaCompraItemResult?> Handle(AddListaCompraNamedItemCommand command, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(command.Nombre))
+        {
+            throw new ArgumentException("El nombre del producto es obligatorio.", nameof(command.Nombre));
+        }
+
+        var unidad = string.IsNullOrWhiteSpace(command.Unidad) ? null : command.Unidad.Trim();
+        return _repository.AddItemToListAsync(
+            command.HogarId,
+            command.ListaId,
+            command.UsuarioId,
+            command.Nombre.Trim(),
+            command.Cantidad,
+            unidad,
+            ct);
+    }
+}
+
+public sealed class UpdateListaCompraItemHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public UpdateListaCompraItemHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<ListaCompraItemResult?> Handle(UpdateListaCompraItemCommand command, CancellationToken ct)
+    {
+        var nombre = string.IsNullOrWhiteSpace(command.Nombre) ? null : command.Nombre.Trim();
+        var unidad = string.IsNullOrWhiteSpace(command.Unidad) ? null : command.Unidad.Trim();
+        return _repository.UpdateItemAsync(
+            command.HogarId,
+            command.ListaId,
+            command.ItemId,
+            nombre,
+            command.Cantidad,
+            unidad,
+            command.Comprado,
+            command.UsuarioId,
+            ct);
+    }
+}
+
+public sealed class RemoveListaCompraNamedItemHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public RemoveListaCompraNamedItemHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<bool> Handle(RemoveListaCompraNamedItemCommand command, CancellationToken ct)
+        => _repository.RemoveItemAsync(command.Id, command.HogarId, command.ListaId, ct);
+}
+
 public sealed class GetListaComprasHistorialHandler
 {
     private readonly IListaComprasRepository _repository;
@@ -130,6 +263,19 @@ public sealed class RemoveListaCompraItemHandler
 
     public Task<bool> Handle(RemoveListaCompraItemCommand command, CancellationToken ct)
         => _repository.RemoveItemAsync(command.Id, command.HogarId, ct);
+}
+
+public sealed class MarkListaCompraItemAgregadoInventarioHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public MarkListaCompraItemAgregadoInventarioHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<bool> Handle(MarkListaCompraItemAgregadoInventarioCommand command, CancellationToken ct)
+        => _repository.MarkAddedToInventoryAsync(command.Id, command.HogarId, ct);
 }
 
 public sealed class ClearListaComprasHandler

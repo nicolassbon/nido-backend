@@ -42,12 +42,22 @@ public sealed class NotHouseholdMemberException : NidoException
     public NotHouseholdMemberException() : base("NOT_HOUSEHOLD_MEMBER", "El usuario no pertenece a ningún hogar.") { }
 }
 
-public sealed class NotSoleOwnerException : NidoException
-{
-    public NotSoleOwnerException() : base("NOT_SOLE_OWNER", "Ya pertenecés a un hogar con otros miembros. No podés unirte a otro hogar.") { }
-}
-
 public sealed class CannotRemoveSelfException : NidoException
 {
     public CannotRemoveSelfException() : base("CANNOT_REMOVE_SELF", "No podés eliminarte a vos mismo del hogar.") { }
+}
+
+public sealed class NotHogarOwnerException : NidoException
+{
+    public NotHogarOwnerException() : base("NOT_HOGAR_OWNER", "Solo el propietario del hogar puede eliminarlo.") { }
+}
+
+public sealed class CannotDeleteActiveHogarException : NidoException
+{
+    public CannotDeleteActiveHogarException() : base("CANNOT_DELETE_ACTIVE_HOGAR", "Primero activá otro hogar antes de eliminar éste.") { }
+}
+
+public sealed class UltimoHogarException : NidoException
+{
+    public UltimoHogarException() : base("ULTIMO_HOGAR", "No podés eliminar tu único hogar.") { }
 }

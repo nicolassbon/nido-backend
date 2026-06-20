@@ -20,10 +20,13 @@ public sealed class CreateStockItemHandler
             throw new InvalidStockItemDateException();
         }
 
+        var origenCarga = StockLoadOrigins.Normalize(command.OrigenCarga, command.CodigoBarras);
+
         var request = new CreateStockItemRequestModel(
             command.HogarId,
             command.UsuarioId,
             command.Nombre,
+            command.CategoriaId,
             command.CodigoBarras,
             command.Imagen,
             command.Ubicacion,
@@ -32,7 +35,8 @@ public sealed class CreateStockItemHandler
             command.FechaVencimiento,
             command.EstaAbierto,
             command.PorcentajeConsumido,
-            command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases);
+            command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases,
+            origenCarga);
 
         return await _repository.CreateAsync(request, ct);
     }

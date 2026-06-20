@@ -9,7 +9,9 @@ public partial class ListaCompra
 
     public Guid HogarId { get; set; }
 
-    public Guid ProductoId { get; set; }
+    public Guid? ProductoId { get; set; }
+
+    public Guid? ListaId { get; set; }
 
     public Guid AgregadoPor { get; set; }
 
@@ -35,11 +37,15 @@ public partial class ListaCompra
 
     public string ProductoNombreSnapshot { get; set; } = null!;
 
+    public string? NombreManual { get; set; }
+
     public virtual Usuario AgregadoPorNavigation { get; set; } = null!;
 
     public virtual Usuario? CompradoPorNavigation { get; set; }
 
     public virtual Hogare Hogar { get; set; } = null!;
 
-    public virtual Producto Producto { get; set; } = null!;
+    public virtual ListaCompraHogar? Lista { get; set; }
+
+    public virtual Producto? Producto { get; set; }
 }

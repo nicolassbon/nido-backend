@@ -27,9 +27,6 @@ jobs:
       - name: Test
         run: dotnet test Nido.slnx --no-build --verbosity normal
 
-      - name: Build Docker image
-        run: docker build -t nido-api:test .
-
   deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -52,7 +49,10 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          target: runtime
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/nido-api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/nido-api:${{ github.sha }}
@@ -64,21 +64,59 @@ jobs:
           file: ./Dockerfile
           target: migrator
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:${{ github.sha }}
+
+      - name: Sync Docker Compose file to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: docker-compose.yml
+          target: /app/nido
+          overwrite: true
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: nido
+          username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            set -e
+            set -euo pipefail
             cd /app/nido
+            umask 077
+            printf '%s' '${{ secrets.ENV_FILE_B64 }}' | base64 -d > .env
+            chmod 600 .env
+            export NIDO_API_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-api:latest'
+            export NIDO_MIGRATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:latest'
+            export ASPNETCORE_ENVIRONMENT=Production
             docker compose pull nido-api nido-migrator
             docker compose run --rm nido-migrator
             docker compose up -d --remove-orphans nido-api
+
+            attempts=10
+            for attempt in $(seq 1 "$attempts"); do
+              if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 http://localhost:8080/health; then
+                echo
+                echo "nido-api is healthy"
+                break
+              fi
+
+              echo "Health check attempt $attempt/$attempts failed"
+              docker compose logs --tail=50 nido-api || true
+
+              if [ "$attempt" -eq "$attempts" ]; then
+                echo "nido-api failed health verification"
+                exit 1
+              fi
+
+              sleep 5
+            done
+
             docker image prune -f
             docker ps

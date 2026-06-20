@@ -12,3 +12,18 @@ public sealed record AddListaCompraItemRequest(
 
 public sealed record MarkListaCompraItemByNameRequest(string Nombre);
 
+public sealed record CreateListaCompraRequest(string Nombre);
+
+public sealed record UpdateListaCompraRequest(string Nombre);
+
+public sealed record AddListaCompraNamedItemRequest(
+    string Nombre,
+    decimal? Cantidad,
+    string? Unidad);
+
+public sealed record UpdateListaCompraItemRequest(
+    string? Nombre,
+    decimal? Cantidad,
+    string? Unidad,
+    bool? Comprado);
+

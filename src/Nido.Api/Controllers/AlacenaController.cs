@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Insights;
+using Nido.Infrastructure.Alacena;
 
 namespace Nido.Api.Controllers;
 
@@ -18,6 +19,7 @@ public sealed class AlacenaController : ControllerBase
     private readonly UpdateStockItemHandler _updateStockItemHandler;
     private readonly DeleteStockItemHandler _deleteStockItemHandler;
     private readonly GetStockMovementsHandler _getStockMovementsHandler;
+    private readonly CatalogoRepository _catalogoRepository;
 
     public AlacenaController(
         GetStockItemsHandler getStockItemsHandler,
@@ -25,7 +27,8 @@ public sealed class AlacenaController : ControllerBase
         CreateStockItemHandler createStockItemHandler,
         UpdateStockItemHandler updateStockItemHandler,
         DeleteStockItemHandler deleteStockItemHandler,
-        GetStockMovementsHandler getStockMovementsHandler)
+        GetStockMovementsHandler getStockMovementsHandler,
+        CatalogoRepository catalogoRepository)
     {
         _getStockItemsHandler = getStockItemsHandler;
         _getStockItemByIdHandler = getStockItemByIdHandler;
@@ -33,6 +36,7 @@ public sealed class AlacenaController : ControllerBase
         _updateStockItemHandler = updateStockItemHandler;
         _deleteStockItemHandler = deleteStockItemHandler;
         _getStockMovementsHandler = getStockMovementsHandler;
+        _catalogoRepository = catalogoRepository;
     }
 
     [HttpGet("productos")]
@@ -71,6 +75,7 @@ public sealed class AlacenaController : ControllerBase
                 currentUser.HogarId,
                 currentUser.UsuarioId,
                 request.Nombre,
+                request.CategoriaId,
                 request.CodigoBarras,
                 request.Imagen,
                 request.Ubicacion,
@@ -79,7 +84,8 @@ public sealed class AlacenaController : ControllerBase
                 request.FechaVencimiento,
                 request.EstaAbierto,
                 request.PorcentajeConsumido,
-                CantidadEnvases: request.CantidadEnvases ?? 1),
+                CantidadEnvases: request.CantidadEnvases ?? 1,
+                OrigenCarga: request.OrigenCarga),
             ct);
 
         return CreatedAtAction(nameof(GetProductos), ToResponse(created));
@@ -184,7 +190,8 @@ public sealed class AlacenaController : ControllerBase
             item.FechaVencimiento,
             item.EstaAbierto,
             item.PorcentajeConsumido,
-            item.CantidadEnvases
+            item.CantidadEnvases,
+            item.OrigenCarga
         );
 
     private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)
@@ -239,6 +246,27 @@ public sealed class AlacenaController : ControllerBase
         return true;
     }
 
+
+    [HttpGet("categorias")]
+    public async Task<IActionResult> GetCategorias(CancellationToken ct)
+    {
+        var result = await _catalogoRepository.GetCategoriasAsync(ct);
+        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias }));
+    }
+
+    [HttpGet("unidades-medida")]
+    public async Task<IActionResult> GetUnidadesMedida(CancellationToken ct)
+    {
+        var result = await _catalogoRepository.GetUnidadesMedidaAsync(ct);
+        return Ok(result.Select(u => new { u.Id, u.Codigo, u.Nombre }));
+    }
+
+    [HttpGet("ubicaciones")]
+    public async Task<IActionResult> GetUbicaciones(CancellationToken ct)
+    {
+        var result = await _catalogoRepository.GetUbicacionesAsync(ct);
+        return Ok(result.Select(u => new { u.Id, u.Nombre, u.Icono, u.Color }));
+    }
     private static StockMovementResponse ToMovementResponse(StockMovementResult item) =>
         new(
             item.Id,
@@ -250,3 +278,4 @@ public sealed class AlacenaController : ControllerBase
             item.FechaConsumo,
             item.UsuarioId);
 }
+

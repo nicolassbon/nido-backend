@@ -95,10 +95,12 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         InvitationExpiredException => (StatusCodes.Status410Gone, "Gone"),
         MaxMembersExceededException => (StatusCodes.Status409Conflict, "Conflict"),
         AlreadyMemberException => (StatusCodes.Status409Conflict, "Conflict"),
-        NotSoleOwnerException => (StatusCodes.Status409Conflict, "Conflict"),
         NotHouseholdOwnerException => (StatusCodes.Status403Forbidden, "Forbidden"),
         NotHouseholdMemberException => (StatusCodes.Status404NotFound, "Not found"),
         CannotRemoveSelfException => (StatusCodes.Status400BadRequest, "Validation error"),
+        NotHogarOwnerException => (StatusCodes.Status403Forbidden, "Forbidden"),
+        CannotDeleteActiveHogarException => (StatusCodes.Status409Conflict, "Conflict"),
+        UltimoHogarException => (StatusCodes.Status409Conflict, "Conflict"),
 
         // Alacena exceptions
         InvalidStockItemDateException => (StatusCodes.Status400BadRequest, "Validation error"),

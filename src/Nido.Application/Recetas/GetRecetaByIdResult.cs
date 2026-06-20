@@ -22,4 +22,5 @@ public sealed record GetRecetaByIdResult(
     bool TieneProductosPorVencer,
     string? FechaVencimientoMasProxima,
     int? DiasHastaVencimiento,
-    IReadOnlyList<RecetaProductoPorVencerResult> ProductosPorVencer);
+    IReadOnlyList<RecetaProductoPorVencerResult> ProductosPorVencer,
+    bool Guardada = false);
