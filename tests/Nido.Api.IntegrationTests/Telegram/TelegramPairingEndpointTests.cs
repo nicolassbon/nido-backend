@@ -7,13 +7,15 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Nido.Application.Common.Security;
 using Nido.Application.Telegram;
-using Nido.Application.Telegram.Client;
+using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
+using Nido.Infrastructure.Telegram.Outbox;
 using Nido.Tests.Shared;
 using Xunit;
 
@@ -93,12 +95,7 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
     [Fact]
     public async Task WebhookStart_WithValidToken_CreatesChatLink_AndSendsConfirmation()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _baseFactory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        }).WithTelegramWebhookConfig("default-test-webhook-secret");
+        using var factory = CreateEnqueueOnlyFactory().WithTelegramWebhookConfig("default-test-webhook-secret");
 
         var (tokenHash, rawToken) = await SeedTokenAsync(factory, activeMembership: true);
 
@@ -113,7 +110,8 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 55);
         Assert.NotNull(token.ConsumedAt);
         Assert.Null(link.UnpairedAt);
-        Assert.Contains(sentMessages.Messages, message => message.ChatId == 55);
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 55);
+        Assert.Contains("quedó vinculado", payload.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -132,12 +130,7 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
     [Fact]
     public async Task WebhookUnlink_DeactivatesActiveChatLink()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _baseFactory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        }).WithTelegramWebhookConfig("default-test-webhook-secret");
+        using var factory = CreateEnqueueOnlyFactory().WithTelegramWebhookConfig("default-test-webhook-secret");
 
         await SeedActiveLinkAsync(factory, 77);
 
@@ -150,18 +143,14 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
         var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 77);
         Assert.NotNull(link.UnpairedAt);
-        Assert.Contains(sentMessages.Messages, message => message.ChatId == 77);
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 77);
+        Assert.Contains("quedó desvinculado", payload.Text, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task WebhookPair_WithValidCode_CreatesChatLink_AndSendsConfirmation()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _baseFactory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        }).WithTelegramWebhookConfig("default-test-webhook-secret");
+        using var factory = CreateEnqueueOnlyFactory().WithTelegramWebhookConfig("default-test-webhook-secret");
 
         var (codeHash, rawCode) = await SeedCodeAsync(factory, activeMembership: true);
 
@@ -176,7 +165,8 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 66);
         Assert.NotNull(code.ConsumedAt);
         Assert.Null(link.UnpairedAt);
-        Assert.Contains(sentMessages.Messages, message => message.ChatId == 66);
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 66);
+        Assert.Contains("quedó vinculado", payload.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -653,16 +643,28 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         await db.SaveChangesAsync();
     }
 
-    private sealed record FakeCurrentUserContext(Guid UsuarioId, Guid HogarId) : ICurrentUserContext;
-
-    private sealed class FakeTelegramClient : ITelegramClient
+    private static async Task<TelegramOutboxPayload> AssertSingleOutboxPayloadAsync(NidoTestWebAppFactory factory, long chatId)
     {
-        public List<(long ChatId, string Text)> Messages { get; } = [];
-
-        public Task<TelegramSendResult> SendMessageAsync(long chatId, string text, string? parseMode = null, TelegramInlineKeyboardMarkup? replyMarkup = null, CancellationToken ct = default)
-        {
-            Messages.Add((chatId, text));
-            return Task.FromResult<TelegramSendResult>(new TelegramSendResult.Success(new TelegramMessageSent(1)));
-        }
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var row = await db.TelegramOutboxMessages.AsNoTracking().SingleAsync(x => x.ChatId == chatId);
+        return JsonSerializer.Deserialize<TelegramOutboxPayload>(row.PayloadJson)
+            ?? throw new InvalidOperationException("Telegram outbox payload could not be deserialized.");
     }
+
+    private NidoTestWebAppFactory CreateEnqueueOnlyFactory()
+        => _baseFactory.WithStorageOverride(services =>
+        {
+            var senderWorkerRegistrations = services
+                .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                    && descriptor.ImplementationType == typeof(TelegramSenderWorker))
+                .ToList();
+
+            foreach (var descriptor in senderWorkerRegistrations)
+            {
+                services.Remove(descriptor);
+            }
+        });
+
+    private sealed record FakeCurrentUserContext(Guid UsuarioId, Guid HogarId) : ICurrentUserContext;
 }

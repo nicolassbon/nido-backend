@@ -10,6 +10,12 @@ public sealed class TelegramOptions
 
     public string? WebhookSecretToken { get; init; }
 
+    public bool HasBotToken => !string.IsNullOrWhiteSpace(BotToken);
+
+    public bool HasWebhookSecretToken => !string.IsNullOrWhiteSpace(WebhookSecretToken);
+
+    public bool IsWebhookConfigured => HasBotToken && HasWebhookSecretToken;
+
     public string BotUsername { get; set; } = string.Empty;
 
     [Required]
@@ -23,8 +29,14 @@ public sealed class TelegramOptions
     [Range(1, 86_400, ErrorMessage = "OutboxPollIntervalSeconds must be between 1 and 86400.")]
     public int OutboxPollIntervalSeconds { get; init; } = 30;
 
+    [Range(1, 86_400, ErrorMessage = "InteractiveOutboxPollIntervalSeconds must be between 1 and 86400.")]
+    public int InteractiveOutboxPollIntervalSeconds { get; init; } = 2;
+
     [Range(1, 1_000, ErrorMessage = "OutboxMaxBatchSize must be between 1 and 1000.")]
     public int OutboxMaxBatchSize { get; init; } = 50;
+
+    [Range(1, 100, ErrorMessage = "OutboxMaxInteractiveAttempts must be between 1 and 100.")]
+    public int OutboxMaxInteractiveAttempts { get; init; } = 3;
 
     [Range(1, 100, ErrorMessage = "MaxAttempts must be between 1 and 100.")]
     public int MaxAttempts { get; init; } = 5;

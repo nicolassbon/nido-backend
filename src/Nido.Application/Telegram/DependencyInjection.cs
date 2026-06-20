@@ -2,7 +2,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Messaging;
+using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Exceptions;
@@ -32,14 +36,18 @@ public static class DependencyInjection
         services.TryAddScoped<ITelegramPairingRepository, MissingTelegramPairingRepository>();
         services.TryAddScoped<ITelegramPairingTokenHasher, MissingTelegramPairingTokenHasher>();
         services.TryAddScoped<ITelegramPairingRateLimiter, MissingTelegramPairingRateLimiter>();
+        services.TryAddScoped<ITelegramConversationStateStore, MissingTelegramConversationStateStore>();
+        services.TryAddScoped<ITelegramOutboxWriter, MissingTelegramOutboxWriter>();
+        services.TryAddScoped<ITelegramOutboxReader, MissingTelegramOutboxReader>();
+        services.TryAddScoped<ITelegramMenuRegistry, MissingTelegramMenuRegistry>();
+        services.TryAddScoped<ITelegramMenuProvider, MissingTelegramMenuProvider>();
         return services;
     }
 
     public static IServiceCollection AddTelegramWebhook(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddTelegramModule(configuration);
-
-        services.AddHostedService<TelegramWebhookStartupValidator>();
+        services.AddHostedService<TelegramWebhookConfigurationMonitor>();
         return services;
     }
 }
@@ -105,34 +113,93 @@ internal sealed class MissingTelegramPairingRateLimiter : ITelegramPairingRateLi
         => throw new InvalidOperationException("ITelegramPairingRateLimiter requires infrastructure registration.");
 }
 
-internal sealed class TelegramWebhookStartupValidator : IHostedService
+internal sealed class MissingTelegramConversationStateStore : ITelegramConversationStateStore
+{
+    public Task<TelegramConversationState?> GetAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+
+    public Task SetAsync(TelegramConversationState state, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+
+    public Task ClearAsync(long chatId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramOutboxWriter : ITelegramOutboxWriter
+{
+    public Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxWriter requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramOutboxReader : ITelegramOutboxReader
+{
+    public Task<IReadOnlyList<TelegramOutboxMessageLease>> DequeuePendingAsync(int batchSize, DateTime utcNow, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+
+    public Task MarkSentAsync(Guid messageId, int attempts, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+
+    public Task MarkRetryAsync(Guid messageId, DateTime nextAttemptAt, int attempts, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+
+    public Task MarkFailedAsync(Guid messageId, TelegramOutboxStatus status, int attempts, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramMenuRegistry : ITelegramMenuRegistry
+{
+    public TelegramMenu GetDefaultMenu()
+        => throw new InvalidOperationException("ITelegramMenuRegistry requires infrastructure registration.");
+
+    public TelegramMenu? Get(string menuId)
+        => throw new InvalidOperationException("ITelegramMenuRegistry requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramMenuProvider : ITelegramMenuProvider
+{
+    public Task<TelegramMenuRenderResult> RenderMenuAsync(TelegramMenu menu, TelegramChatLinkSnapshot link, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramMenuProvider requires infrastructure registration.");
+
+    public Task<TelegramMenuSelectionResult> SelectAsync(string menuId, string optionKey, TelegramChatLinkSnapshot link, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramMenuProvider requires infrastructure registration.");
+}
+
+internal sealed class TelegramWebhookConfigurationMonitor : IHostedService
 {
     private readonly TelegramOptions _options;
+    private readonly ILogger<TelegramWebhookConfigurationMonitor> _logger;
 
-    public TelegramWebhookStartupValidator(IOptions<TelegramOptions> options)
+    public TelegramWebhookConfigurationMonitor(
+        IOptions<TelegramOptions> options,
+        ILogger<TelegramWebhookConfigurationMonitor> logger)
     {
         _options = options.Value;
+        _logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        if (_options.IsWebhookConfigured)
+        {
+            _logger.LogInformation("Telegram webhook feature enabled.");
+            return Task.CompletedTask;
+        }
+
         var missing = new List<string>(capacity: 2);
 
-        if (string.IsNullOrWhiteSpace(_options.BotToken))
+        if (!_options.HasBotToken)
         {
             missing.Add("Telegram:BotToken");
         }
 
-        if (string.IsNullOrWhiteSpace(_options.WebhookSecretToken))
+        if (!_options.HasWebhookSecretToken)
         {
             missing.Add("Telegram:WebhookSecretToken");
         }
 
-        if (missing.Count > 0)
-        {
-            throw new TelegramConfigurationException(
-                $"The following Telegram configuration value(s) are required when the webhook is registered: {string.Join(", ", missing)}.");
-        }
+        _logger.LogWarning(
+            "Telegram webhook feature disabled because required configuration is missing: {MissingKeys}",
+            string.Join(", ", missing));
 
         return Task.CompletedTask;
     }

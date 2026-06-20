@@ -32,6 +32,7 @@ using Nido.Infrastructure.Estadisticas;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
+using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.UsuariosPerfil;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.PublicAssets;
@@ -50,11 +51,16 @@ using Nido.Application.Notificaciones;
 using Nido.Application.Telegram.Client;
 using Nido.Application.Telegram.Idempotency;
 using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Webhook;
 using Nido.Infrastructure.Notificaciones;
 using Nido.Infrastructure.Telegram.Idempotency;
 using Nido.Infrastructure.Telegram.Authorization;
+using Nido.Infrastructure.Telegram.Conversation;
+using Nido.Infrastructure.Telegram.Outbox;
+using Nido.Infrastructure.Telegram.Menu;
 using Nido.Infrastructure.Telegram.Pairing;
 using Nido.Infrastructure.Telegram.Webhook;
 using Resend;
@@ -159,6 +165,11 @@ public static class DependencyInjection
         services.AddScoped<ITelegramPairingRepository, TelegramPairingRepository>();
         services.AddScoped<ITelegramPairingTokenHasher, TelegramPairingTokenHasher>();
         services.AddScoped<ITelegramPairingRateLimiter, TelegramPairingRateLimiter>();
+        services.AddScoped<ITelegramConversationStateStore, PostgresTelegramConversationStateStore>();
+        services.AddScoped<ITelegramOutboxWriter, TelegramOutboxWriter>();
+        services.AddScoped<ITelegramOutboxReader, TelegramOutboxReader>();
+        services.AddScoped<ITelegramMenuRegistry, InMemoryTelegramMenuRegistry>();
+        services.AddScoped<ITelegramMenuProvider, TelegramMenuProvider>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:
@@ -180,6 +191,25 @@ public static class DependencyInjection
                 sp.GetRequiredService<OpenFoodFactsLookupService>(),
                 sp.GetRequiredService<IMemoryCache>(),
                 sp.GetRequiredService<IOptions<ExternalLookupOptions>>()));
+
+        return services;
+    }
+
+    public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services)
+    {
+        throw new NotSupportedException("Use the AddTelegramSenderWorker(IServiceCollection, IConfiguration) overload.");
+    }
+
+    public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services, IConfiguration configuration)
+    {
+        var options = configuration.GetSection(Application.Telegram.TelegramOptions.SectionName)
+            .Get<Application.Telegram.TelegramOptions>()
+            ?? new Application.Telegram.TelegramOptions();
+
+        if (options.HasBotToken)
+        {
+            services.AddHostedService<TelegramSenderWorker>();
+        }
 
         return services;
     }

@@ -13,6 +13,7 @@ public partial class NidoDbContext
     public virtual DbSet<TelegramChatLink> TelegramChatLinks { get; set; } = null!;
     public virtual DbSet<ProcessedTelegramUpdate> ProcessedTelegramUpdates { get; set; } = null!;
     public virtual DbSet<TelegramOutboxMessage> TelegramOutboxMessages { get; set; } = null!;
+    public virtual DbSet<TelegramConversationStateEntity> TelegramConversationStates { get; set; } = null!;
     public virtual DbSet<TelegramBatch> TelegramBatches { get; set; } = null!;
     public virtual DbSet<TelegramPairingToken> TelegramPairingTokens { get; set; } = null!;
     public virtual DbSet<TelegramPairingCode> TelegramPairingCodes { get; set; } = null!;
@@ -22,6 +23,7 @@ public partial class NidoDbContext
         modelBuilder.ApplyConfiguration(new TelegramChatLinkConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessedTelegramUpdateConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramOutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new TelegramConversationStateConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramBatchConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramPairingTokenConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramPairingCodeConfiguration());

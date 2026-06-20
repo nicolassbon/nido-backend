@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Nido.Application.Telegram;
-using Nido.Application.Telegram.Exceptions;
 using Xunit;
 
 namespace Nido.Application.Tests.Telegram;
@@ -93,7 +92,7 @@ public sealed class TelegramWebhookOptionsTests
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_Startup_FailsWithTelegramConfigurationException_WhenSecretTokenEmpty()
+    public async Task AddTelegramWebhook_Startup_AllowsHost_WhenSecretTokenEmpty()
     {
         using var host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((_, config) =>
@@ -110,14 +109,12 @@ public sealed class TelegramWebhookOptionsTests
             })
             .Build();
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => host.StartAsync());
-        Assert.Equal("TELEGRAM_CONFIGURATION", exception.Code);
-        Assert.Contains("WebhookSecretToken", exception.Message);
-        Assert.DoesNotContain("BotToken", exception.Message);
+        await host.StartAsync();
+        await host.StopAsync();
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_Startup_FailsWithTelegramConfigurationException_WhenSecretTokenMissing()
+    public async Task AddTelegramWebhook_Startup_AllowsHost_WhenSecretTokenMissing()
     {
         using var host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((_, config) =>
@@ -134,12 +131,12 @@ public sealed class TelegramWebhookOptionsTests
             })
             .Build();
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => host.StartAsync());
-        Assert.Contains("WebhookSecretToken", exception.Message);
+        await host.StartAsync();
+        await host.StopAsync();
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_Startup_FailsWithTelegramConfigurationException_WhenBotTokenEmpty()
+    public async Task AddTelegramWebhook_Startup_AllowsHost_WhenBotTokenEmpty()
     {
         using var host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((_, config) =>
@@ -156,14 +153,12 @@ public sealed class TelegramWebhookOptionsTests
             })
             .Build();
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => host.StartAsync());
-        Assert.Equal("TELEGRAM_CONFIGURATION", exception.Code);
-        Assert.Contains("BotToken", exception.Message);
-        Assert.DoesNotContain("WebhookSecretToken", exception.Message);
+        await host.StartAsync();
+        await host.StopAsync();
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_Startup_FailsWithTelegramConfigurationException_WhenBotTokenWhitespace()
+    public async Task AddTelegramWebhook_Startup_AllowsHost_WhenBotTokenWhitespace()
     {
         using var host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((_, config) =>
@@ -180,12 +175,12 @@ public sealed class TelegramWebhookOptionsTests
             })
             .Build();
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => host.StartAsync());
-        Assert.Contains("BotToken", exception.Message);
+        await host.StartAsync();
+        await host.StopAsync();
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_Startup_FailsWithTelegramConfigurationException_WhenBotTokenMissing()
+    public async Task AddTelegramWebhook_Startup_AllowsHost_WhenBotTokenMissing()
     {
         using var host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((_, config) =>
@@ -202,12 +197,12 @@ public sealed class TelegramWebhookOptionsTests
             })
             .Build();
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => host.StartAsync());
-        Assert.Contains("BotToken", exception.Message);
+        await host.StartAsync();
+        await host.StopAsync();
     }
 
     [Fact]
-    public async Task AddTelegramWebhook_Startup_ListsBothMissingKeys_WhenBothCredentialsAbsent()
+    public async Task AddTelegramWebhook_Startup_AllowsHost_WhenBothCredentialsAbsent()
     {
         using var host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((_, config) =>
@@ -220,9 +215,8 @@ public sealed class TelegramWebhookOptionsTests
             })
             .Build();
 
-        var exception = await Assert.ThrowsAsync<TelegramConfigurationException>(() => host.StartAsync());
-        Assert.Contains("BotToken", exception.Message);
-        Assert.Contains("WebhookSecretToken", exception.Message);
+        await host.StartAsync();
+        await host.StopAsync();
     }
 
     [Fact]
