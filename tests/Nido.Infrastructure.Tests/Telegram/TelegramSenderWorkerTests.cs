@@ -1,9 +1,14 @@
+using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Client;
 using Nido.Application.Telegram.Messaging;
-using Nido.Infrastructure.Telegram.Outbox;
+using Nido.Infrastructure.Telegram.Messaging;
+using Xunit;
 
 namespace Nido.Infrastructure.Tests.Telegram;
 
@@ -54,9 +59,9 @@ public sealed class TelegramSenderWorkerTests
     }
 
     [Fact]
-    public async Task ProcessPendingAsync_WhenTransientFailureExhaustsAttempts_DeadLetters()
+    public async Task ProcessPendingAsync_WhenTransientFailureExhaustsAttempts_MarksFailed()
     {
-        var options = new TelegramOptions { OutboxMaxInteractiveAttempts = 3 };
+        var options = new TelegramOptions { MaxAttempts = 3 };
         var reader = new FakeOutboxReader(
             new TelegramOutboxMessageLease(Guid.NewGuid(), Guid.NewGuid(), 304, "interactive.menu", Payload("retry"), 2, DateTime.UtcNow));
         var worker = CreateWorker(reader, new TelegramSendResult.Error(new TelegramTransientError("timeout")), options: options);
@@ -64,7 +69,35 @@ public sealed class TelegramSenderWorkerTests
         await worker.ProcessPendingAsync(CancellationToken.None);
 
         Assert.Equal(reader.Lease.MessageId, reader.FailedMessageId);
-        Assert.Equal(TelegramOutboxStatus.Dead, reader.FailedStatus);
+        Assert.Equal(TelegramOutboxStatus.Failed, reader.FailedStatus);
+    }
+
+    [Fact]
+    public async Task ProcessPendingAsync_WhenPayloadUsesPascalCase_UsesPayloadTextAndParseMode()
+    {
+        var reader = new FakeOutboxReader(
+            new TelegramOutboxMessageLease(Guid.NewGuid(), Guid.NewGuid(), 305, "interactive.menu", JsonSerializer.Serialize(new { Text = "menu", ParseMode = "HTML" }), 0, DateTime.UtcNow));
+        var client = new FakeTelegramClient(new TelegramSendResult.Success(new TelegramMessageSent(42)));
+        var worker = CreateWorker(reader, client);
+
+        await worker.ProcessPendingAsync(CancellationToken.None);
+
+        Assert.Equal("menu", client.LastText);
+        Assert.Equal("HTML", client.LastParseMode);
+    }
+
+    [Fact]
+    public async Task ProcessPendingAsync_WhenInteractiveFailure_ReachesInteractiveAttemptLimit()
+    {
+        var options = new TelegramOptions { MaxAttempts = 5, OutboxMaxInteractiveAttempts = 2 };
+        var reader = new FakeOutboxReader(
+            new TelegramOutboxMessageLease(Guid.NewGuid(), Guid.NewGuid(), 306, "interactive.menu", Payload("retry"), 1, DateTime.UtcNow));
+        var worker = CreateWorker(reader, new TelegramSendResult.Error(new TelegramTransientError("timeout")), options: options);
+
+        await worker.ProcessPendingAsync(CancellationToken.None);
+
+        Assert.Equal(reader.Lease.MessageId, reader.FailedMessageId);
+        Assert.Equal(TelegramOutboxStatus.Failed, reader.FailedStatus);
     }
 
     private static TelegramSenderWorker CreateWorker(
@@ -75,12 +108,26 @@ public sealed class TelegramSenderWorkerTests
         => new(
             reader,
             new FakeTelegramClient(sendResult),
-            options ?? new TelegramOptions { InteractiveOutboxPollIntervalSeconds = 2, OutboxMaxInteractiveAttempts = 3 },
+            new FakeTelegramOutboxWakeupService(),
+            options ?? new TelegramOptions { InteractiveOutboxPollIntervalSeconds = 2, MaxAttempts = 3 },
+            NullLogger<TelegramSenderWorker>.Instance,
+            timeProvider ?? new FakeTimeProvider(DateTimeOffset.UtcNow));
+
+    private static TelegramSenderWorker CreateWorker(
+        FakeOutboxReader reader,
+        FakeTelegramClient client,
+        FakeTimeProvider? timeProvider = null,
+        TelegramOptions? options = null)
+        => new(
+            reader,
+            client,
+            new FakeTelegramOutboxWakeupService(),
+            options ?? new TelegramOptions { InteractiveOutboxPollIntervalSeconds = 2, MaxAttempts = 3 },
             NullLogger<TelegramSenderWorker>.Instance,
             timeProvider ?? new FakeTimeProvider(DateTimeOffset.UtcNow));
 
     private static string Payload(string text)
-        => JsonSerializer.Serialize(new TelegramOutboxPayload(text, "MarkdownV2"));
+        => JsonSerializer.Serialize(new { text = text, parseMode = "MarkdownV2" });
 
     private sealed class FakeOutboxReader(TelegramOutboxMessageLease lease) : ITelegramOutboxReader
     {
@@ -119,8 +166,21 @@ public sealed class TelegramSenderWorkerTests
 
     private sealed class FakeTelegramClient(TelegramSendResult result) : ITelegramClient
     {
+        public string? LastText { get; private set; }
+        public string? LastParseMode { get; private set; }
+
         public Task<TelegramSendResult> SendMessageAsync(long chatId, string text, string? parseMode = null, TelegramInlineKeyboardMarkup? replyMarkup = null, CancellationToken ct = default)
-            => Task.FromResult(result);
+        {
+            LastText = text;
+            LastParseMode = parseMode;
+            return Task.FromResult(result);
+        }
+    }
+
+    private sealed class FakeTelegramOutboxWakeupService : ITelegramOutboxWakeupService
+    {
+        public void TriggerWakeup() { }
+        public Task WaitForMessageAsync(CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider

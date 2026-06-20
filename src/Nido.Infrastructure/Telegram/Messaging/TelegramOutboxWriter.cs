@@ -7,16 +7,36 @@ using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 using Npgsql;
 
-namespace Nido.Infrastructure.Telegram.Outbox;
+namespace Nido.Infrastructure.Telegram.Messaging;
 
-public sealed class TelegramOutboxWriter(NidoDbContext db, ILogger<TelegramOutboxWriter> logger) : ITelegramOutboxWriter
+public sealed class TelegramOutboxWriter(
+    NidoDbContext db,
+    ITelegramOutboxWakeupService wakeupService,
+    TelegramOptions options,
+    ILogger<TelegramOutboxWriter> logger) : ITelegramOutboxWriter
 {
     private static readonly Meter Meter = new("Nido.Telegram.Outbox");
     private static readonly Counter<long> EnqueuedCounter = Meter.CreateCounter<long>("telegram_outbox_enqueued");
     private static readonly Counter<long> DeduplicatedCounter = Meter.CreateCounter<long>("telegram_outbox_deduplicated");
 
-    public async Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
+    public async Task<TelegramMessageResult> EnqueueAsync(
+        EnqueueTelegramMessageRequest request,
+        CancellationToken ct = default)
     {
+        if (!options.HasBotToken)
+        {
+            logger.LogWarning("Telegram bot token is not configured. Ignoring outbox message.");
+            return new TelegramMessageResult(
+                Guid.Empty,
+                request.ChatId,
+                request.MessageType,
+                request.PayloadJson,
+                TelegramOutboxStatus.Failed,
+                0,
+                DateTime.UtcNow,
+                DateTime.UtcNow);
+        }
+
         var entity = new TelegramOutboxMessage
         {
             Id = Guid.NewGuid(),
@@ -26,7 +46,7 @@ public sealed class TelegramOutboxWriter(NidoDbContext db, ILogger<TelegramOutbo
             PayloadJson = request.PayloadJson,
             Status = (int)TelegramOutboxStatus.Pending,
             Attempts = 0,
-            NextAttemptAt = request.ScheduledFor,
+            NextAttemptAt = request.ScheduledFor ?? DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -54,6 +74,13 @@ public sealed class TelegramOutboxWriter(NidoDbContext db, ILogger<TelegramOutbo
 
             return Map(existing);
         }
+
+        if (db.Database.IsNpgsql())
+        {
+            await db.Database.ExecuteSqlRawAsync("NOTIFY telegram_outbox_channel", ct);
+        }
+
+        wakeupService.TriggerWakeup();
 
         EnqueuedCounter.Add(1);
         logger.LogInformation(

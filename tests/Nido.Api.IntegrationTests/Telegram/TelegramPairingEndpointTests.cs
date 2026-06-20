@@ -4,10 +4,12 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Nido.Application.Common.Security;
@@ -15,7 +17,7 @@ using Nido.Application.Telegram;
 using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
-using Nido.Infrastructure.Telegram.Outbox;
+using Nido.Infrastructure.Telegram.Messaging;
 using Nido.Tests.Shared;
 using Xunit;
 
@@ -115,6 +117,35 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
     }
 
     [Fact]
+    public async Task WebhookStart_WhenConfirmationEnqueueFails_RetryStillSendsConfirmation()
+    {
+        using var factory = CreateEnqueueOnlyFactory()
+            .WithTelegramWebhookConfig("default-test-webhook-secret")
+            .WithStorageOverride(services =>
+            {
+                services.RemoveAll<ITelegramOutboxWriter>();
+                services.AddScoped<ITelegramOutboxWriter, FlakyTelegramOutboxWriter>();
+            });
+
+        var (tokenHash, rawToken) = await SeedTokenAsync(factory, activeMembership: true);
+
+        using var client = factory.CreateClient();
+        var first = await PostWebhookAsync(client, 30_003, 57, $"/start {rawToken}");
+        var retry = await PostWebhookAsync(client, 30_003, 57, $"/start {rawToken}");
+
+        Assert.NotEqual(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var token = await db.TelegramPairingTokens.SingleAsync(x => x.TokenHash == tokenHash);
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 57);
+
+        Assert.NotNull(token.ConsumedAt);
+        Assert.Contains("quedó vinculado", payload.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WebhookStart_WithUnknownToken_Returns404NotFound()
     {
         using var factory = _baseFactory.WithTelegramWebhookConfig("default-test-webhook-secret");
@@ -166,6 +197,35 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         Assert.NotNull(code.ConsumedAt);
         Assert.Null(link.UnpairedAt);
         var payload = await AssertSingleOutboxPayloadAsync(factory, 66);
+        Assert.Contains("quedó vinculado", payload.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WebhookPair_WhenConfirmationEnqueueFails_RetryStillSendsConfirmation()
+    {
+        using var factory = CreateEnqueueOnlyFactory()
+            .WithTelegramWebhookConfig("default-test-webhook-secret")
+            .WithStorageOverride(services =>
+            {
+                services.RemoveAll<ITelegramOutboxWriter>();
+                services.AddScoped<ITelegramOutboxWriter, FlakyTelegramOutboxWriter>();
+            });
+
+        var (codeHash, rawCode) = await SeedCodeAsync(factory, activeMembership: true);
+
+        using var client = factory.CreateClient();
+        var first = await PostWebhookAsync(client, 40_003, 67, $"/pair {rawCode}");
+        var retry = await PostWebhookAsync(client, 40_003, 67, $"/pair {rawCode}");
+
+        Assert.NotEqual(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var code = await db.TelegramPairingCodes.SingleAsync(x => x.CodeHash == codeHash);
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 67);
+
+        Assert.NotNull(code.ConsumedAt);
         Assert.Contains("quedó vinculado", payload.Text, StringComparison.Ordinal);
     }
 
@@ -511,7 +571,7 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
 
         var usuarioId = Guid.NewGuid();
         var hogarId = Guid.NewGuid();
-        var rawToken = "abcd1234";
+        var rawToken = $"token-{Guid.NewGuid():N}";
         var tokenHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(rawToken))).ToLowerInvariant();
 
         db.Usuarios.Add(new Usuario
@@ -665,6 +725,24 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
                 services.Remove(descriptor);
             }
         });
+
+    private sealed class FlakyTelegramOutboxWriter(NidoDbContext db, ITelegramOutboxWakeupService wakeupService) : ITelegramOutboxWriter
+    {
+        private static readonly HashSet<long> FailedChats = [];
+
+        public Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
+        {
+            lock (FailedChats)
+            {
+                if (FailedChats.Add(request.ChatId))
+                {
+                    throw new InvalidOperationException("Simulated outbox failure.");
+                }
+            }
+
+            return new TelegramOutboxWriter(db, wakeupService, new TelegramOptions { BotToken = "test_token" }, NullLogger<TelegramOutboxWriter>.Instance).EnqueueAsync(request, ct);
+        }
+    }
 
     private sealed record FakeCurrentUserContext(Guid UsuarioId, Guid HogarId) : ICurrentUserContext;
 }

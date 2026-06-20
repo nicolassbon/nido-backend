@@ -111,7 +111,8 @@ public sealed class TelegramPairingRepository(
 
         if (token.ConsumedAt.HasValue || token.Status == (int)TelegramPairingStatus.Consumed)
         {
-            throw new TelegramPairingTokenAlreadyConsumedException();
+            return await TryReturnExistingCompletionAsync(token.UsuarioId, token.HogarId, chatId, token.ConsumedAt, ct)
+                ?? throw new TelegramPairingTokenAlreadyConsumedException();
         }
 
         if (token.ExpiresAt <= now || token.Status == (int)TelegramPairingStatus.Expired)
@@ -191,7 +192,8 @@ public sealed class TelegramPairingRepository(
 
         if (code.Status == (int)TelegramPairingStatus.Consumed || code.ConsumedAt.HasValue)
         {
-            throw new TelegramPairingCodeRevokedException();
+            return await TryReturnExistingCompletionAsync(code.UsuarioId, code.HogarId, chatId, code.ConsumedAt, ct)
+                ?? throw new TelegramPairingCodeRevokedException();
         }
 
         if (code.ExpiresAt <= now || code.Status == (int)TelegramPairingStatus.Expired)
@@ -356,6 +358,25 @@ public sealed class TelegramPairingRepository(
             sibling.RevokedAt = revokedAt;
             sibling.Status = (int)TelegramPairingStatus.Revoked;
         }
+    }
+
+    private async Task<CompleteTelegramPairingResult?> TryReturnExistingCompletionAsync(
+        Guid usuarioId,
+        Guid hogarId,
+        long chatId,
+        DateTime? pairedAt,
+        CancellationToken ct)
+    {
+        var activeLink = await dbContext.TelegramChatLinks
+            .AsNoTracking()
+            .SingleOrDefaultAsync(link => link.ChatId == chatId
+                && link.UsuarioId == usuarioId
+                && link.HogarId == hogarId
+                && link.UnpairedAt == null, ct);
+
+        return activeLink is null
+            ? null
+            : new CompleteTelegramPairingResult(chatId, hogarId, usuarioId, pairedAt ?? activeLink.PairedAt);
     }
 
     private async Task AcquireIssuanceLockAsync(

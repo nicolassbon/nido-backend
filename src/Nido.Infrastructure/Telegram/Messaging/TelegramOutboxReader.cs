@@ -3,7 +3,7 @@ using Nido.Application.Telegram;
 using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Persistence;
 
-namespace Nido.Infrastructure.Telegram.Outbox;
+namespace Nido.Infrastructure.Telegram.Messaging;
 
 public sealed class TelegramOutboxReader(NidoDbContext db, TelegramOptions options) : ITelegramOutboxReader
 {
@@ -15,7 +15,6 @@ public sealed class TelegramOutboxReader(NidoDbContext db, TelegramOptions optio
                     SELECT id
                     FROM telegram_outbox_messages
                     WHERE status = {(int)TelegramOutboxStatus.Pending}
-                      AND message_type LIKE 'interactive.%'
                       AND (next_attempt_at IS NULL OR next_attempt_at <= {utcNow})
                       AND (locked_until IS NULL OR locked_until <= {utcNow})
                     ORDER BY created_at
@@ -64,6 +63,34 @@ public sealed class TelegramOutboxReader(NidoDbContext db, TelegramOptions optio
         if (attempts.HasValue)
         {
             entity.Attempts = attempts.Value;
+        }
+
+        if (entity.BatchId.HasValue)
+        {
+            var batchStatus = status switch
+            {
+                (int)TelegramOutboxStatus.Sent => (int)TelegramBatchStatus.Sent,
+                (int)TelegramOutboxStatus.Failed => (int)TelegramBatchStatus.Failed,
+                (int)TelegramOutboxStatus.Dead => (int)TelegramBatchStatus.Dead,
+                _ => (int?)null
+            };
+
+            if (batchStatus.HasValue)
+            {
+                var batch = await db.TelegramBatches.FindAsync([entity.BatchId.Value], ct);
+                if (batch != null)
+                {
+                    batch.Status = batchStatus.Value;
+                }
+
+                var batchMessages = await db.TelegramOutboxMessages
+                    .Where(m => m.BatchId == entity.BatchId.Value && m.Id != messageId)
+                    .ToListAsync(ct);
+                foreach (var bm in batchMessages)
+                {
+                    bm.Status = status;
+                }
+            }
         }
 
         await db.SaveChangesAsync(ct);

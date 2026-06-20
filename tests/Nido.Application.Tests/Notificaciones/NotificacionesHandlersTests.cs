@@ -94,9 +94,53 @@ public sealed class NotificacionesHandlersTests
         Assert.False(result);
     }
 
+    // ── SSRF guard: SubscribePushHandler.ValidateEndpoint ──────────────────
+
+    [Theory]
+    [InlineData("not-a-uri")]
+    [InlineData("ftp://push.googleapis.com/sub/abc")]
+    [InlineData("http://fcm.googleapis.com/sub/abc")]
+    [InlineData("https://internal.company.local/hook")]
+    [InlineData("https://169.254.169.254/metadata")]
+    [InlineData("https://attacker.example.com/exfil")]
+    public void ValidateEndpoint_InvalidOrForbiddenEndpoint_Throws(string endpoint)
+    {
+        Assert.Throws<InvalidPushEndpointException>(() => SubscribePushHandler.ValidateEndpoint(endpoint));
+    }
+
+    [Theory]
+    [InlineData("https://fcm.googleapis.com/fcm/send/sub:abc")]
+    [InlineData("https://updates.push.services.mozilla.com/wpush/v2/token")]
+    [InlineData("https://web.push.apple.com/QAmMw9D")]
+    [InlineData("https://notify.windows.com/platform/0")]
+    [InlineData("https://fcm.googleapis.com/sub/anything")]
+    public void ValidateEndpoint_KnownPushServiceEndpoint_DoesNotThrow(string endpoint)
+    {
+        var ex = Record.Exception(() => SubscribePushHandler.ValidateEndpoint(endpoint));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task SubscribePushHandler_InvalidEndpoint_ThrowsBeforeCallingRepository()
+    {
+        var repo = new FakeNotificacionesRepository();
+        var handler = new SubscribePushHandler(repo);
+        var command = new SubscribePushCommand(
+            Guid.NewGuid(),
+            "https://attacker.evil.corp/steal-data",
+            "p256dh",
+            "auth");
+
+        await Assert.ThrowsAsync<InvalidPushEndpointException>(
+            () => handler.Handle(command, CancellationToken.None));
+
+        Assert.False(repo.SubscribePushWasCalled);
+    }
+
     private sealed class FakeNotificacionesRepository : INotificacionesRepository
     {
         public List<NotificacionResult> Notifications { get; set; } = [];
+        public bool SubscribePushWasCalled { get; private set; }
 
         public Task<List<NotificacionResult>> GetByUsuarioAsync(Guid usuarioId, CancellationToken ct)
         {
@@ -133,6 +177,12 @@ public sealed class NotificacionesHandlersTests
 
             Notifications.Remove(notif);
             return Task.FromResult(true);
+        }
+
+        public Task SubscribePushAsync(Guid usuarioId, string endpoint, string p256dh, string auth, CancellationToken ct)
+        {
+            SubscribePushWasCalled = true;
+            return Task.CompletedTask;
         }
     }
 }

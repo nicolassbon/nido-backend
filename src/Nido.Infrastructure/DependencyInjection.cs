@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nido.Infrastructure.Persistence;
 using Nido.Domain.Electrodomesticos;
@@ -59,10 +60,11 @@ using Nido.Infrastructure.Notificaciones;
 using Nido.Infrastructure.Telegram.Idempotency;
 using Nido.Infrastructure.Telegram.Authorization;
 using Nido.Infrastructure.Telegram.Conversation;
-using Nido.Infrastructure.Telegram.Outbox;
 using Nido.Infrastructure.Telegram.Menu;
 using Nido.Infrastructure.Telegram.Pairing;
+using Nido.Infrastructure.Telegram;
 using Nido.Infrastructure.Telegram.Webhook;
+using Nido.Infrastructure.Telegram.Messaging;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -144,21 +146,34 @@ public static class DependencyInjection
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
+        services.AddScoped<IPushNotificationService, PushNotificationService>();
 
-        services.AddHttpClient<ITelegramClient, Telegram.TelegramClient>((sp, client) =>
+        services.AddHttpClient("TelegramClient", (sp, client) =>
         {
             var opts = sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>().Value;
-            if (string.IsNullOrWhiteSpace(opts.BotToken))
+
+            if (opts.HasBotToken)
             {
-                throw new InvalidOperationException(
-                    "Telegram BotToken is not configured. Set Telegram:BotToken in configuration.");
+                client.BaseAddress = new Uri($"https://api.telegram.org/bot{opts.BotToken}/");
             }
 
-            client.BaseAddress = new Uri($"https://api.telegram.org/bot{opts.BotToken}/");
             client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+        });
+        services.AddScoped<ITelegramClient>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>().Value;
+            if (!opts.HasBotToken)
+            {
+                return new DisabledTelegramClient(sp.GetRequiredService<ILogger<DisabledTelegramClient>>());
+            }
+
+            var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TelegramClient");
+            return new Telegram.TelegramClient(httpClient, sp.GetRequiredService<ILogger<Telegram.TelegramClient>>());
         });
 
         services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
+        services.AddSingleton<ITelegramOutboxWakeupService, TelegramOutboxWakeupService>();
+        services.AddHostedService(sp => (TelegramOutboxWakeupService)sp.GetRequiredService<ITelegramOutboxWakeupService>());
         services.AddScoped<ITelegramUpdateIdempotencyService, TelegramUpdateIdempotencyService>();
         services.AddScoped<ITelegramWebhookHandler, TelegramWebhookHandler>();
         services.AddScoped<ITelegramHogarAccess, TelegramHogarAccessRepository>();
@@ -170,6 +185,7 @@ public static class DependencyInjection
         services.AddScoped<ITelegramOutboxReader, TelegramOutboxReader>();
         services.AddScoped<ITelegramMenuRegistry, InMemoryTelegramMenuRegistry>();
         services.AddScoped<ITelegramMenuProvider, TelegramMenuProvider>();
+        services.AddScoped<ITelegramNotificationBatcher, TelegramNotificationBatcher>();
 
         // ── Lookup externo de productos por barcode ────────────────────────
         // Pipeline:
@@ -208,6 +224,7 @@ public static class DependencyInjection
 
         if (options.HasBotToken)
         {
+            services.AddHostedService<TelegramBatchingWorker>();
             services.AddHostedService<TelegramSenderWorker>();
         }
 

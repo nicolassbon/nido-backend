@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Client;
 using Nido.Infrastructure.Telegram;
-using Nido.Infrastructure.Telegram.Outbox;
+using Nido.Infrastructure.Telegram.Messaging;
 
 namespace Nido.Infrastructure.Tests.Telegram;
 
@@ -34,7 +34,7 @@ public sealed class TelegramClientDiTests
     }
 
     [Fact]
-    public void AddNidoInfrastructure_MissingBotToken_ThrowsOnResolve()
+    public void AddNidoInfrastructure_MissingBotToken_ResolvesDisabledClient()
     {
         var services = new ServiceCollection();
         var config = CreateMinimalConfiguration();
@@ -46,8 +46,9 @@ public sealed class TelegramClientDiTests
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ITelegramClient>());
-        Assert.Contains("BotToken is not configured", ex.Message);
+        var client = provider.GetRequiredService<ITelegramClient>();
+
+        Assert.IsType<DisabledTelegramClient>(client);
     }
 
     [Fact]
@@ -114,7 +115,21 @@ public sealed class TelegramClientDiTests
     }
 
     [Fact]
-    public void AddTelegramSenderWorker_WithBotToken_RegistersHostedService()
+    public void AddTelegramSenderWorker_WithoutBotToken_DoesNotRegisterBatchingWorker()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration();
+
+        services.AddTelegramSenderWorker(config);
+
+        Assert.DoesNotContain(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TelegramBatchingWorker));
+    }
+
+    [Fact]
+    public void AddTelegramSenderWorker_WithBotToken_RegistersSenderWorker()
     {
         var services = new ServiceCollection();
         var config = CreateMinimalConfiguration(new Dictionary<string, string?>
@@ -128,6 +143,63 @@ public sealed class TelegramClientDiTests
             services,
             descriptor => descriptor.ServiceType == typeof(IHostedService)
                 && descriptor.ImplementationType == typeof(TelegramSenderWorker));
+    }
+
+    [Fact]
+    public void AddTelegramSenderWorker_WithBotToken_RegistersBatchingWorker()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration(new Dictionary<string, string?>
+        {
+            ["Telegram:BotToken"] = "my-token"
+        });
+
+        services.AddTelegramSenderWorker(config);
+
+        Assert.Contains(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TelegramBatchingWorker));
+    }
+
+    [Fact]
+    public void AddNidoInfrastructure_DoesNotRegisterTelegramSenderWorker()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration(new Dictionary<string, string?>
+        {
+            ["Telegram:BotToken"] = "my-token"
+        });
+
+        services.AddOptions<TelegramOptions>()
+            .Bind(config.GetSection(TelegramOptions.SectionName));
+
+        services.AddNidoInfrastructure(config);
+
+        Assert.DoesNotContain(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TelegramSenderWorker));
+    }
+
+    [Fact]
+    public void AddNidoInfrastructure_DoesNotRegisterTelegramBatchingWorker()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration(new Dictionary<string, string?>
+        {
+            ["Telegram:BotToken"] = "my-token"
+        });
+
+        services.AddOptions<TelegramOptions>()
+            .Bind(config.GetSection(TelegramOptions.SectionName));
+
+        services.AddNidoInfrastructure(config);
+
+        Assert.DoesNotContain(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TelegramBatchingWorker));
     }
 
     private static IConfiguration CreateMinimalConfiguration(Dictionary<string, string?>? extra = null)

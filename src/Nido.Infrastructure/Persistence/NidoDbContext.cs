@@ -1,15 +1,75 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Persistence;
 
 public partial class NidoDbContext : DbContext
 {
-    public NidoDbContext(DbContextOptions<NidoDbContext> options)
+    private readonly IServiceProvider? _serviceProvider;
+
+    public NidoDbContext(DbContextOptions<NidoDbContext> options, IServiceProvider? serviceProvider = null)
         : base(options)
     {
+        _serviceProvider = serviceProvider;
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var addedNotifications = ChangeTracker.Entries<Notificacione>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .ToList();
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (addedNotifications.Count > 0 && _serviceProvider != null)
+        {
+            foreach (var notif in addedNotifications)
+            {
+                var title = notif.Tipo switch
+                {
+                    "tarea_vencida" => "Tarea Vencida",
+                    "producto_vencido" => "Producto Vencido",
+                    "producto_por_vencer" => "Producto por Vencer",
+                    "stock_bajo" => "Stock Bajo",
+                    "asignacion_tarea" => "Aviso de tareas asignadas",
+                    _ => "Nueva Notificación"
+                };
+
+                var redirectUrl = notif.ReferenciaTipo switch
+                {
+                    "tarea" => "/tareas",
+                    "alacena" => "/alacena",
+                    _ => "/"
+                };
+
+                // Capture required values before starting the background thread
+                var targetUsuarioId = notif.UsuarioId;
+                var targetMensaje = notif.Mensaje ?? string.Empty;
+
+                // Send push notification in background using an isolated DI scope
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using (var scope = _serviceProvider.CreateScope())
+                        {
+                            var pushService = scope.ServiceProvider.GetRequiredService<Nido.Application.Common.Notifications.IPushNotificationService>();
+                            await pushService.SendNotificationAsync(targetUsuarioId, title, targetMensaje, redirectUrl, CancellationToken.None);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error sending background push notification: {ex.Message}");
+                    }
+                }, CancellationToken.None);
+            }
+        }
+
+        return result;
     }
 
     public virtual DbSet<AsignacionesTarea> AsignacionesTareas { get; set; }
@@ -79,6 +139,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<Tarea> Tareas { get; set; }
 
     public virtual DbSet<Usuario> Usuarios { get; set; }
+
+    public virtual DbSet<SuscripcionPush> SuscripcionesPush { get; set; }
 
 
 
@@ -1089,6 +1151,35 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("password_reset_tokens_usuario_id_fkey");
+        });
+
+        modelBuilder.Entity<SuscripcionPush>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("suscripciones_push_pkey");
+
+            entity.ToTable("suscripciones_push");
+
+            entity.HasIndex(e => e.UsuarioId, "idx_suscripciones_push_usuario");
+
+            entity.HasIndex(e => new { e.UsuarioId, e.Endpoint }, "ux_suscripciones_push_usuario_endpoint")
+                .IsUnique();
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.Property(e => e.Endpoint).HasColumnName("endpoint");
+            entity.Property(e => e.P256dh).HasColumnName("p256dh");
+            entity.Property(e => e.Auth).HasColumnName("auth");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Usuario).WithMany()
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("suscripciones_push_usuario_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

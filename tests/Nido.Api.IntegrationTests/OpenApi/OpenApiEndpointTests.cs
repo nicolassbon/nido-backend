@@ -39,4 +39,19 @@ public class OpenApiEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(document["info"]);
         Assert.Equal("Nido.Api | v1", document["info"]?["title"]?.ToString());
     }
+
+    [Fact]
+    public async Task GetOpenApiJson_DescribesPushSubscriptionEndpointContract()
+    {
+        var response = await _client.GetAsync("/openapi/v1.json");
+        var document = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>();
+
+        var operation = document?["paths"]?["/api/notificaciones/suscripciones"]?["post"];
+
+        Assert.NotNull(operation);
+        Assert.Equal("true", operation?["requestBody"]?["required"]?.ToString());
+        Assert.NotNull(operation?["responses"]?["204"]);
+        Assert.NotNull(operation?["responses"]?["400"]);
+        Assert.NotNull(operation?["security"]);
+    }
 }

@@ -118,7 +118,7 @@ public sealed class TelegramPairingRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CompletePairingAsync_WhenSameTokenCompletesConcurrently_ReturnsAlreadyConsumedInsteadOfDbFailure()
+    public async Task CompletePairingAsync_WhenSameTokenCompletesConcurrently_IsIdempotentAndAvoidsDbFailure()
     {
         var seeded = await SeedTokenAsync();
         await using var db1 = CreateDbContext();
@@ -149,8 +149,8 @@ public sealed class TelegramPairingRepositoryTests : IAsyncLifetime
 
         var outcomes = await Task.WhenAll(firstTask, secondTask);
 
-        Assert.Equal(1, outcomes.Count(static outcome => outcome is CompleteTelegramPairingResult));
-        Assert.Equal(1, outcomes.Count(static outcome => outcome is TelegramPairingTokenAlreadyConsumedException));
+        Assert.Equal(2, outcomes.Count(static outcome => outcome is CompleteTelegramPairingResult));
+        Assert.DoesNotContain(outcomes, static outcome => outcome is TelegramPairingTokenAlreadyConsumedException);
         Assert.DoesNotContain(outcomes, static outcome => outcome is DbUpdateException);
 
         var activeLinks = await _db.TelegramChatLinks.CountAsync(x => x.ChatId == 9_999 && x.UnpairedAt == null);

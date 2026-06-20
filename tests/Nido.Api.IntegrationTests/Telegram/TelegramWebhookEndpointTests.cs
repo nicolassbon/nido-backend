@@ -6,12 +6,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using Nido.Application.Telegram;
 using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Menu;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
-using Nido.Infrastructure.Telegram.Outbox;
+using Nido.Infrastructure.Telegram.Messaging;
 using Xunit;
 
 namespace Nido.Api.IntegrationTests.Telegram;
@@ -449,7 +450,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
             }
         });
 
-    private sealed class FlakyTelegramOutboxWriter(NidoDbContext db) : ITelegramOutboxWriter
+    private sealed class FlakyTelegramOutboxWriter(NidoDbContext db, ITelegramOutboxWakeupService wakeupService) : ITelegramOutboxWriter
     {
         private static int _attempts;
 
@@ -460,7 +461,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
                 throw new InvalidOperationException("Simulated outbox failure.");
             }
 
-            return new TelegramOutboxWriter(db, NullLogger<TelegramOutboxWriter>.Instance).EnqueueAsync(request, ct);
+            return new TelegramOutboxWriter(db, wakeupService, new TelegramOptions { BotToken = "test_token" }, NullLogger<TelegramOutboxWriter>.Instance).EnqueueAsync(request, ct);
         }
     }
 }
