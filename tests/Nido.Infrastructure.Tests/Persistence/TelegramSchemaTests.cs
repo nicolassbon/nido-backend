@@ -54,6 +54,13 @@ public sealed class TelegramSchemaTests
     }
 
     [Fact]
+    public void Model_HasTelegramConversationStateEntity()
+    {
+        using var db = new NidoDbContext(CreateOptions());
+        Assert.NotNull(db.Model.FindEntityType("Nido.Infrastructure.Persistence.Entities.TelegramConversationStateEntity"));
+    }
+
+    [Fact]
     public void TelegramChatLink_HasUniqueActiveChatIdIndex()
     {
         using var db = new NidoDbContext(CreateOptions());
@@ -133,6 +140,33 @@ public sealed class TelegramSchemaTests
             fk.PrincipalEntityType.Name == "Nido.Infrastructure.Persistence.Entities.TelegramBatch");
 
         Assert.NotNull(fkBatch);
+    }
+
+    [Fact]
+    public void TelegramConversationState_HasPrimaryKeyOnChatId()
+    {
+        using var db = new NidoDbContext(CreateOptions());
+        var entity = db.Model.FindEntityType("Nido.Infrastructure.Persistence.Entities.TelegramConversationStateEntity");
+        Assert.NotNull(entity);
+
+        var primaryKey = entity.FindPrimaryKey();
+        Assert.NotNull(primaryKey);
+        Assert.Single(primaryKey.Properties);
+        Assert.Equal("ChatId", primaryKey.Properties[0].Name);
+    }
+
+    [Fact]
+    public void TelegramConversationState_HasExpiresAtIndex()
+    {
+        using var db = new NidoDbContext(CreateOptions());
+        var entity = db.Model.FindEntityType("Nido.Infrastructure.Persistence.Entities.TelegramConversationStateEntity");
+        Assert.NotNull(entity);
+
+        var index = entity.GetIndexes().FirstOrDefault(i =>
+            i.Properties.Count == 1 &&
+            i.Properties[0].Name == "ExpiresAtUtc");
+
+        Assert.NotNull(index);
     }
 
     [Fact]

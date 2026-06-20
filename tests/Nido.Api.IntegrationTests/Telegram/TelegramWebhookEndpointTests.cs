@@ -4,11 +4,13 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Nido.Application.Telegram.Client;
+using Microsoft.Extensions.Hosting;
 using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Menu;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
+using Nido.Infrastructure.Telegram.Outbox;
 using Xunit;
 
 namespace Nido.Api.IntegrationTests.Telegram;
@@ -146,12 +148,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     [Fact]
     public async Task Post_MenuCommand_WithLinkedMember_SendsMainMenu_AndStoresConversationState()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _factory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        });
+        using var factory = CreateEnqueueOnlyFactory();
 
         await SeedLinkedCurrentMemberAsync(factory, 301);
 
@@ -159,10 +156,9 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         var response = await PostMessageAsync(client, 12_001, 301, "/menu");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains(sentMessages.Messages, message =>
-            message.ChatId == 301
-            && message.Text.Contains("Elegí una opción respondiendo con un número", StringComparison.Ordinal)
-            && message.Text.Contains("Ver productos por vencer", StringComparison.Ordinal));
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 301);
+        Assert.Contains("Elegí una opción respondiendo con un número", payload.Text, StringComparison.Ordinal);
+        Assert.Contains("Ver productos por vencer", payload.Text, StringComparison.Ordinal);
 
         using var scope = factory.Services.CreateScope();
         var stateStore = scope.ServiceProvider.GetRequiredService<ITelegramConversationStateStore>();
@@ -174,12 +170,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     [Fact]
     public async Task Post_DigitSelection_AfterMenu_RoutesToProviderPlaceholder()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _factory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        });
+        using var factory = CreateEnqueueOnlyFactory();
 
         await SeedLinkedCurrentMemberAsync(factory, 302);
 
@@ -189,20 +180,23 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
 
         Assert.Equal(HttpStatusCode.OK, menuResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, digitResponse.StatusCode);
-        Assert.Contains(sentMessages.Messages, message =>
-            message.ChatId == 302
-            && message.Text.Contains("Placeholder for option 2", StringComparison.Ordinal));
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var payloads = await db.TelegramOutboxMessages.AsNoTracking()
+            .Where(x => x.ChatId == 302)
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => x.PayloadJson)
+            .ToListAsync();
+
+        Assert.Equal(2, payloads.Count);
+        Assert.Contains("Placeholder for option 2", DeserializePayload(payloads[1]).Text, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Post_DigitSelection_WithoutState_SendsRecoveryMainMenu()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _factory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        });
+        using var factory = CreateEnqueueOnlyFactory();
 
         await SeedLinkedCurrentMemberAsync(factory, 303);
 
@@ -210,40 +204,50 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         var response = await PostMessageAsync(client, 12_201, 303, "2");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains(sentMessages.Messages, message =>
-            message.ChatId == 303
-            && message.Text.Contains("ya no está disponible", StringComparison.Ordinal)
-            && message.Text.Contains("Ver productos por vencer", StringComparison.Ordinal));
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 303);
+        Assert.Contains("ya no está disponible", payload.Text, StringComparison.Ordinal);
+        Assert.Contains("Ver productos por vencer", payload.Text, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Post_MenuCommand_WhenChatNotLinked_Returns200_AndSendsPairingRecovery()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _factory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        });
+        using var factory = CreateEnqueueOnlyFactory();
 
         using var client = factory.CreateClient();
         var response = await PostMessageAsync(client, 12_251, 399, "/menu");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains(sentMessages.Messages, message =>
-            message.ChatId == 399
-            && message.Text.Contains("no está vinculado", StringComparison.Ordinal));
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 399);
+        Assert.Contains("no está vinculado", payload.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Post_MenuCommand_WhenOutboxEnqueueFails_DoesNotReturn200()
+    {
+        using var factory = CreateEnqueueOnlyFactory().WithStorageOverride(services =>
+        {
+            services.RemoveAll<ITelegramOutboxWriter>();
+            services.AddSingleton<ITelegramOutboxWriter>(new ThrowingTelegramOutboxWriter());
+        });
+
+        await SeedLinkedCurrentMemberAsync(factory, 397);
+
+        using var client = factory.CreateClient();
+        var response = await PostMessageAsync(client, 12_253, 397, "/menu");
+
+        Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var outboxCount = await db.TelegramOutboxMessages.AsNoTracking().CountAsync(x => x.ChatId == 397);
+        Assert.Equal(0, outboxCount);
     }
 
     [Fact]
     public async Task Post_MenuCommand_WhenMembershipIsStale_Returns200_UnlinksChat_AndSendsRecovery()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _factory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        });
+        using var factory = CreateEnqueueOnlyFactory();
 
         await SeedLinkedCurrentMemberAsync(factory, 398);
         await RemoveMembershipAsync(factory, 398);
@@ -252,9 +256,8 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         var response = await PostMessageAsync(client, 12_252, 398, "/menu");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains(sentMessages.Messages, message =>
-            message.ChatId == 398
-            && message.Text.Contains("ya no está disponible", StringComparison.Ordinal));
+        var payload = await AssertSingleOutboxPayloadAsync(factory, 398);
+        Assert.Contains("ya no está disponible", payload.Text, StringComparison.Ordinal);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
@@ -265,12 +268,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     [Fact]
     public async Task Post_Unlink_ClearsConversationState()
     {
-        var sentMessages = new FakeTelegramClient();
-        using var factory = _factory.WithStorageOverride(services =>
-        {
-            services.RemoveAll<ITelegramClient>();
-            services.AddSingleton<ITelegramClient>(sentMessages);
-        });
+        using var factory = CreateEnqueueOnlyFactory();
 
         await SeedLinkedCurrentMemberAsync(factory, 304);
         using (var scope = factory.Services.CreateScope())
@@ -419,14 +417,35 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         await db.SaveChangesAsync();
     }
 
-    private sealed class FakeTelegramClient : ITelegramClient
+    private static async Task<TelegramOutboxPayload> AssertSingleOutboxPayloadAsync(NidoTestWebAppFactory factory, long chatId)
     {
-        public List<(long ChatId, string Text)> Messages { get; } = [];
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var row = await db.TelegramOutboxMessages.AsNoTracking().SingleAsync(x => x.ChatId == chatId);
+        return DeserializePayload(row.PayloadJson);
+    }
 
-        public Task<TelegramSendResult> SendMessageAsync(long chatId, string text, string? parseMode = null, TelegramInlineKeyboardMarkup? replyMarkup = null, CancellationToken ct = default)
+    private static TelegramOutboxPayload DeserializePayload(string payloadJson)
+        => System.Text.Json.JsonSerializer.Deserialize<TelegramOutboxPayload>(payloadJson)
+           ?? throw new InvalidOperationException("Telegram outbox payload could not be deserialized.");
+
+    private NidoTestWebAppFactory CreateEnqueueOnlyFactory()
+        => _factory.WithStorageOverride(services =>
         {
-            Messages.Add((chatId, text));
-            return Task.FromResult<TelegramSendResult>(new TelegramSendResult.Success(new TelegramMessageSent(1)));
-        }
+            var senderWorkerRegistrations = services
+                .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                    && descriptor.ImplementationType == typeof(TelegramSenderWorker))
+                .ToList();
+
+            foreach (var descriptor in senderWorkerRegistrations)
+            {
+                services.Remove(descriptor);
+            }
+        });
+
+    private sealed class ThrowingTelegramOutboxWriter : ITelegramOutboxWriter
+    {
+        public Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
+            => throw new InvalidOperationException("Simulated outbox failure.");
     }
 }

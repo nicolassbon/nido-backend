@@ -54,9 +54,9 @@ public sealed partial class TelegramUpdateDispatcher(
 
         if (string.Equals(command, "/start", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
         {
-            await completePairingHandler.HandleAsync(new CompleteTelegramPairingCommand(chatId.Value, parts[1]), ct);
+            var pairing = await completePairingHandler.HandleAsync(new CompleteTelegramPairingCommand(chatId.Value, parts[1]), ct);
             await conversationStateStore.ClearAsync(chatId.Value, ct);
-            return new TelegramDispatchResult(chatId.Value, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.");
+            return new TelegramDispatchResult(chatId.Value, pairing.HogarId, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.", "interactive.pairing.complete");
         }
 
         if (string.Equals(command, "/pair", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
@@ -67,15 +67,15 @@ public sealed partial class TelegramUpdateDispatcher(
                 return null;
             }
 
-            await completePairingByCodeHandler.HandleAsync(new CompleteTelegramPairingByCodeCommand(chatId.Value, code), ct);
+            var pairing = await completePairingByCodeHandler.HandleAsync(new CompleteTelegramPairingByCodeCommand(chatId.Value, code), ct);
             await conversationStateStore.ClearAsync(chatId.Value, ct);
-            return new TelegramDispatchResult(chatId.Value, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.");
+            return new TelegramDispatchResult(chatId.Value, pairing.HogarId, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.", "interactive.pairing.complete");
         }
 
         if (string.Equals(command, "/unlink", StringComparison.OrdinalIgnoreCase))
         {
-            await unlinkTelegramChatHandler.HandleAsync(new UnlinkTelegramChatCommand(chatId.Value), ct);
-            return new TelegramDispatchResult(chatId.Value, "Listo. Este chat quedó desvinculado de tu hogar en Nido.");
+            var unlink = await unlinkTelegramChatHandler.HandleAsync(new UnlinkTelegramChatCommand(chatId.Value), ct);
+            return new TelegramDispatchResult(chatId.Value, unlink.HogarId, "Listo. Este chat quedó desvinculado de tu hogar en Nido.", "interactive.unlink");
         }
 
         if (IsMenuCommand(command))
@@ -105,16 +105,16 @@ public sealed partial class TelegramUpdateDispatcher(
             var menu = menuRegistry.GetDefaultMenu();
             var render = await menuProvider.RenderMenuAsync(menu, link, ct);
             await conversationStateStore.SetAsync(new TelegramConversationState(chatId, menu.Id, DateTime.UtcNow, null), ct);
-            return new TelegramDispatchResult(chatId, render.Text);
+            return new TelegramDispatchResult(chatId, link.HogarId, render.Text, "interactive.menu");
         }
         catch (TelegramChatNotLinkedException)
         {
             await ClearStateBestEffortAsync(chatId, ct);
-            return new TelegramDispatchResult(chatId, TelegramMenuCopy.ChatNotLinkedText);
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.ChatNotLinkedText, "interactive.menu.recovery");
         }
         catch (TelegramHogarAccessDeniedException)
         {
-            return new TelegramDispatchResult(chatId, TelegramMenuCopy.AccessRevokedText);
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.AccessRevokedText, "interactive.menu.recovery");
         }
     }
 
@@ -135,7 +135,7 @@ public sealed partial class TelegramUpdateDispatcher(
             {
                 var render = await menuProvider.RenderMenuAsync(menu, link, ct);
                 await conversationStateStore.SetAsync(new TelegramConversationState(chatId, menu.Id, DateTime.UtcNow, state.PayloadJson), ct);
-                return new TelegramDispatchResult(chatId, TelegramMenuCopy.BuildRecoveryText(TelegramMenuCopy.InvalidSelectionPrefix, render.Text));
+                return new TelegramDispatchResult(chatId, link.HogarId, TelegramMenuCopy.BuildRecoveryText(TelegramMenuCopy.InvalidSelectionPrefix, render.Text), "interactive.menu.recovery");
             }
 
             var selection = await menuProvider.SelectAsync(menu.Id, text, link, ct);
@@ -153,16 +153,16 @@ public sealed partial class TelegramUpdateDispatcher(
                 await conversationStateStore.SetAsync(new TelegramConversationState(chatId, selection.NextMenuId ?? menu.Id, DateTime.UtcNow, state.PayloadJson), ct);
             }
 
-            return new TelegramDispatchResult(chatId, selection.Text);
+            return new TelegramDispatchResult(chatId, link.HogarId, selection.Text, $"interactive.{menu.Id}.{text}");
         }
         catch (TelegramChatNotLinkedException)
         {
             await ClearStateBestEffortAsync(chatId, ct);
-            return new TelegramDispatchResult(chatId, TelegramMenuCopy.ChatNotLinkedText);
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.ChatNotLinkedText, "interactive.menu.recovery");
         }
         catch (TelegramHogarAccessDeniedException)
         {
-            return new TelegramDispatchResult(chatId, TelegramMenuCopy.AccessRevokedText);
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.AccessRevokedText, "interactive.menu.recovery");
         }
     }
 
@@ -185,7 +185,7 @@ public sealed partial class TelegramUpdateDispatcher(
         var menu = menuRegistry.GetDefaultMenu();
         var render = await menuProvider.RenderMenuAsync(menu, link, ct);
         await conversationStateStore.SetAsync(new TelegramConversationState(chatId, menu.Id, DateTime.UtcNow, null), ct);
-        return new TelegramDispatchResult(chatId, TelegramMenuCopy.BuildRecoveryText(prefix, render.Text));
+        return new TelegramDispatchResult(chatId, link.HogarId, TelegramMenuCopy.BuildRecoveryText(prefix, render.Text), "interactive.menu.recovery");
     }
 
     private async Task ClearStateBestEffortAsync(long chatId, CancellationToken ct)
@@ -207,4 +207,10 @@ public sealed partial class TelegramUpdateDispatcher(
     private static partial Regex GetMenuSelectionRegex();
 }
 
-public sealed record TelegramDispatchResult(long ChatId, string ConfirmationText);
+public sealed record TelegramDispatchResult(long ChatId, Guid HogarId, string ConfirmationText, string MessageType)
+{
+    public TelegramDispatchResult(long chatId, string confirmationText)
+        : this(chatId, Guid.Empty, confirmationText, "interactive.message")
+    {
+    }
+}

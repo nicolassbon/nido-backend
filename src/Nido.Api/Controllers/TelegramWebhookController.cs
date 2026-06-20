@@ -12,6 +12,7 @@ using Nido.Api.Middleware;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Client;
 using Nido.Application.Telegram.Formatting;
+using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Webhook;
 using Nido.Infrastructure.Telegram.Webhook;
 
@@ -33,7 +34,7 @@ public sealed class TelegramWebhookController : ControllerBase
     private readonly ITelegramWebhookHandler _handler;
     private readonly ITelegramWebhookTelemetry _telemetry;
     private readonly TelegramUpdateDispatcher _dispatcher;
-    private readonly ITelegramClient _telegramClient;
+    private readonly ITelegramOutboxWriter _outboxWriter;
     private readonly TelegramOptions _telegramOptions;
     private readonly ILogger<TelegramWebhookController> _logger;
 
@@ -41,14 +42,14 @@ public sealed class TelegramWebhookController : ControllerBase
         ITelegramWebhookHandler handler,
         ITelegramWebhookTelemetry telemetry,
         TelegramUpdateDispatcher dispatcher,
-        ITelegramClient telegramClient,
+        ITelegramOutboxWriter outboxWriter,
         TelegramOptions telegramOptions,
         ILogger<TelegramWebhookController> logger)
     {
         _handler = handler;
         _telemetry = telemetry;
         _dispatcher = dispatcher;
-        _telegramClient = telegramClient;
+        _outboxWriter = outboxWriter;
         _telegramOptions = telegramOptions;
         _logger = logger;
     }
@@ -91,7 +92,7 @@ public sealed class TelegramWebhookController : ControllerBase
         switch (result)
         {
             case TelegramWebhookResult.Accepted:
-                await TrySendConfirmationAsync(dispatchResult, ct);
+                await EnqueueConfirmationAsync(dispatchResult, ct);
                 _telemetry.RecordAccepted(elapsed);
                 return Ok();
             case TelegramWebhookResult.Duplicate:
@@ -118,22 +119,31 @@ public sealed class TelegramWebhookController : ControllerBase
             : null;
     }
 
-    private async Task TrySendConfirmationAsync(TelegramDispatchResult? dispatchResult, CancellationToken ct)
+    private async Task EnqueueConfirmationAsync(TelegramDispatchResult? dispatchResult, CancellationToken ct)
     {
         if (dispatchResult is null)
         {
             return;
         }
 
-        var response = await _telegramClient.SendMessageAsync(
-            dispatchResult.ChatId,
+        var payloadJson = JsonSerializer.Serialize(new TelegramOutboxPayload(
             MarkdownV2Escaper.Escape(dispatchResult.ConfirmationText),
-            _telegramOptions.DefaultParseMode,
-            ct: ct);
+            _telegramOptions.DefaultParseMode));
 
-        if (response is not TelegramSendResult.Success)
+        try
         {
-            _logger.LogWarning("Telegram confirmation message could not be delivered for chat {ChatId}.", dispatchResult.ChatId);
+            await _outboxWriter.EnqueueAsync(
+                new EnqueueTelegramMessageRequest(
+                    dispatchResult.HogarId,
+                    dispatchResult.ChatId,
+                    dispatchResult.MessageType,
+                    payloadJson),
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Telegram confirmation message could not be enqueued for chat {ChatId}.", dispatchResult.ChatId);
+            throw;
         }
     }
 }

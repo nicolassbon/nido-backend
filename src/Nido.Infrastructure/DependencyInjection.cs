@@ -32,6 +32,7 @@ using Nido.Infrastructure.Estadisticas;
 using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
+using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.UsuariosPerfil;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.PublicAssets;
@@ -58,6 +59,7 @@ using Nido.Infrastructure.Notificaciones;
 using Nido.Infrastructure.Telegram.Idempotency;
 using Nido.Infrastructure.Telegram.Authorization;
 using Nido.Infrastructure.Telegram.Conversation;
+using Nido.Infrastructure.Telegram.Outbox;
 using Nido.Infrastructure.Telegram.Menu;
 using Nido.Infrastructure.Telegram.Pairing;
 using Nido.Infrastructure.Telegram.Webhook;
@@ -163,7 +165,9 @@ public static class DependencyInjection
         services.AddScoped<ITelegramPairingRepository, TelegramPairingRepository>();
         services.AddScoped<ITelegramPairingTokenHasher, TelegramPairingTokenHasher>();
         services.AddScoped<ITelegramPairingRateLimiter, TelegramPairingRateLimiter>();
-        services.AddScoped<ITelegramConversationStateStore, MemoryTelegramConversationStateStore>();
+        services.AddScoped<ITelegramConversationStateStore, PostgresTelegramConversationStateStore>();
+        services.AddScoped<ITelegramOutboxWriter, TelegramOutboxWriter>();
+        services.AddScoped<ITelegramOutboxReader, TelegramOutboxReader>();
         services.AddScoped<ITelegramMenuRegistry, InMemoryTelegramMenuRegistry>();
         services.AddScoped<ITelegramMenuProvider, TelegramMenuProvider>();
 
@@ -188,6 +192,12 @@ public static class DependencyInjection
                 sp.GetRequiredService<IMemoryCache>(),
                 sp.GetRequiredService<IOptions<ExternalLookupOptions>>()));
 
+        return services;
+    }
+
+    public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services)
+    {
+        services.AddHostedService<TelegramSenderWorker>();
         return services;
     }
 }

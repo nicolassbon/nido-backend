@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Authorization;
@@ -35,6 +36,8 @@ public static class DependencyInjection
         services.TryAddScoped<ITelegramPairingTokenHasher, MissingTelegramPairingTokenHasher>();
         services.TryAddScoped<ITelegramPairingRateLimiter, MissingTelegramPairingRateLimiter>();
         services.TryAddScoped<ITelegramConversationStateStore, MissingTelegramConversationStateStore>();
+        services.TryAddScoped<ITelegramOutboxWriter, MissingTelegramOutboxWriter>();
+        services.TryAddScoped<ITelegramOutboxReader, MissingTelegramOutboxReader>();
         services.TryAddScoped<ITelegramMenuRegistry, MissingTelegramMenuRegistry>();
         services.TryAddScoped<ITelegramMenuProvider, MissingTelegramMenuProvider>();
         return services;
@@ -120,6 +123,27 @@ internal sealed class MissingTelegramConversationStateStore : ITelegramConversat
 
     public Task ClearAsync(long chatId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramConversationStateStore requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramOutboxWriter : ITelegramOutboxWriter
+{
+    public Task<TelegramMessageResult> EnqueueAsync(EnqueueTelegramMessageRequest request, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxWriter requires infrastructure registration.");
+}
+
+internal sealed class MissingTelegramOutboxReader : ITelegramOutboxReader
+{
+    public Task<IReadOnlyList<TelegramOutboxMessageLease>> DequeuePendingAsync(int batchSize, DateTime utcNow, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+
+    public Task MarkSentAsync(Guid messageId, int attempts, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+
+    public Task MarkRetryAsync(Guid messageId, DateTime nextAttemptAt, int attempts, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
+
+    public Task MarkFailedAsync(Guid messageId, TelegramOutboxStatus status, int attempts, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramOutboxReader requires infrastructure registration.");
 }
 
 internal sealed class MissingTelegramMenuRegistry : ITelegramMenuRegistry
