@@ -31,7 +31,7 @@ public sealed class GetInsightsHandler
         var primerDiaMesActual = new DateOnly(now.Year, now.Month, 1);
         var ultimoDiaMesActual = primerDiaMesActual.AddMonths(1).AddDays(-1);
 
-        // Load current month and 3 previous months
+        // Carga los gastos del mes actual y los 3 meses anteriores para detectar tendencias.
         var gastosMesActual = await _repo.GetGastosAsync(
             new GetGastosQuery(hogarId, primerDiaMesActual.ToString("yyyy-MM-dd"), ultimoDiaMesActual.ToString("yyyy-MM-dd"), null), ct);
 
@@ -66,7 +66,7 @@ public sealed class GetInsightsHandler
             var emoji  = CatEmoji.GetValueOrDefault(cat, "📋");
             CatAccion.TryGetValue(cat, out var accion);
 
-            // Check growth trend across 3 months
+            // Verifica si el gasto fue aumentando cada mes comparado con el anterior. 3 meses de crecimiento consecutivo es una señal fuerte de tendencia.
             var tendenciaMeses = 0;
             decimal prev = montoAnterior;
             foreach (var mes in mesesAnteriores.Skip(1))
@@ -129,7 +129,7 @@ public sealed class GetInsightsHandler
             }
         }
 
-        // Prioritize: alerta > tendencia > positivo, max 3 total
+        // Prioriza: alerta > tendencia > positivo, max 3 total
         var insights = alertas
             .OrderByDescending(i => i.VariacionPct)
             .Concat(tendencias.OrderByDescending(i => i.TendenciaMeses))

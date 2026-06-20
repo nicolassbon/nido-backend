@@ -10,8 +10,7 @@ public static class DependencyInjection
         services.AddScoped<GetGastosHandler>();
         services.AddScoped<GetBalanceHandler>();
         services.AddScoped<ToggleModoAhorroHandler>();
-        services.AddScoped<GetRecomendacionesHandler>();
-        services.AddScoped<CreateFacturaHandler>();
+services.AddScoped<CreateFacturaHandler>();
         services.AddScoped<GetFacturasHandler>();
         services.AddScoped<MarcarPagadaHandler>();
         services.AddScoped<DeleteFacturaHandler>();

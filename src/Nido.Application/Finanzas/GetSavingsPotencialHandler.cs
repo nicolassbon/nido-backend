@@ -26,13 +26,13 @@ public sealed class GetSavingsPotencialHandler
         var gastosMesActual = await _repo.GetGastosAsync(
             new GetGastosQuery(hogarId, primerDiaMesActual.ToString("yyyy-MM-dd"), ultimoDiaMesActual.ToString("yyyy-MM-dd"), null), ct);
 
-        // Query the last 3 complete months and split by month in memory
+        // Query para los ultimos 3 meses completos y luego agrupar por mes en memoria, para evitar problemas con meses que no tengan datos completos
         var inicioHistorico = primerDiaMesActual.AddMonths(-3);
         var finHistorico    = primerDiaMesActual.AddDays(-1);
         var gastosHistoricos = await _repo.GetGastosAsync(
             new GetGastosQuery(hogarId, inicioHistorico.ToString("yyyy-MM-dd"), finHistorico.ToString("yyyy-MM-dd"), null), ct);
 
-        // Group historic gastos by (year, month) then by category
+        // Agrupa por mes para luego sacar una media mensual por categoria.
         var porMesPorCat = gastosHistoricos.Gastos
             .GroupBy(g => (g.Fecha[..7])) // "yyyy-MM"
             .Select(mesGroup => mesGroup
@@ -40,7 +40,7 @@ public sealed class GetSavingsPotencialHandler
                 .ToDictionary(cg => cg.Key, cg => cg.Sum(x => x.Monto)))
             .ToList();
 
-        // Average per category across available historic months
+        // Promedio por categoria a lo largo de los meses disponibles. Si hay meses sin datos, se ignoran para el calculo del promedio.
         var mesesConDatos = porMesPorCat.Count;
         var mediaHistoricaPorCat = new Dictionary<string, decimal>();
         foreach (var mesDict in porMesPorCat)
