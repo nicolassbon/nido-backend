@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Common.Assets;
 using Nido.Application.Planificador;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -8,8 +9,13 @@ namespace Nido.Infrastructure.Planificador;
 public sealed class PlanificadorRepository : IPlanificadorRepository
 {
     private readonly NidoDbContext _db;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public PlanificadorRepository(NidoDbContext db) => _db = db;
+    public PlanificadorRepository(NidoDbContext db, IPublicAssetUrlResolver assetUrlResolver)
+    {
+        _db = db;
+        _assetUrlResolver = assetUrlResolver;
+    }
 
     public async Task<PlanificadorSemanaResult> GetOrCreateSemanaAsync(
         Guid hogarId, DateOnly fechaInicio, CancellationToken ct)
@@ -95,7 +101,7 @@ public sealed class PlanificadorRepository : IPlanificadorRepository
 
         return new PlanificadorItemResult(
             item.Id, item.Fecha, item.TipoComida,
-            item.RecetaId, recetaNombre, imagenUrl,
+            item.RecetaId, recetaNombre, ResolveImageUrl(imagenUrl),
             item.TituloLibre, item.Hora, item.Orden, item.CreadoPor);
     }
 
@@ -162,7 +168,7 @@ public sealed class PlanificadorRepository : IPlanificadorRepository
         return new PlanificadorItemResult(
             item.Id, item.Fecha, item.TipoComida,
             item.RecetaId, recetaNombre ?? item.Receta?.Nombre,
-            imagenUrl ?? item.ImagenUrl ?? item.Receta?.ImagenUrl,
+            ResolveImageUrl(imagenUrl ?? item.ImagenUrl ?? item.Receta?.ImagenUrl),
             item.TituloLibre, item.Hora, item.Orden, item.CreadoPor);
     }
 
@@ -173,7 +179,7 @@ public sealed class PlanificadorRepository : IPlanificadorRepository
         return fecha.AddDays(-offset);
     }
 
-    private static PlanificadorSemanaResult ToResult(PlanificadorSemana semana)
+    private PlanificadorSemanaResult ToResult(PlanificadorSemana semana)
         => new(
             semana.Id,
             semana.FechaInicio,
@@ -183,7 +189,10 @@ public sealed class PlanificadorRepository : IPlanificadorRepository
                 .Select(i => new PlanificadorItemResult(
                     i.Id, i.Fecha, i.TipoComida,
                     i.RecetaId, i.Receta?.Nombre,
-                    i.ImagenUrl ?? i.Receta?.ImagenUrl,
+                    ResolveImageUrl(i.ImagenUrl ?? i.Receta?.ImagenUrl),
                     i.TituloLibre, i.Hora, i.Orden, i.CreadoPor))
                 .ToList());
+
+    private string? ResolveImageUrl(string? imageUrl)
+        => _assetUrlResolver.Resolve(imageUrl) ?? imageUrl;
 }

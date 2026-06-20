@@ -31,6 +31,52 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetCategorias_ReturnsSplitCategoriesWithoutCombinedNames()
+    {
+        await RegisterAndAuthenticateAsync(_client, "alacena-categorias");
+
+        var response = await _client.GetAsync("/api/alacena/categorias");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var categorias = await response.Content.ReadFromJsonAsync<List<CategoriaBody>>();
+        Assert.NotNull(categorias);
+
+        var nombres = categorias!.Select(c => c.Nombre).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Arroces", nombres);
+        Assert.Contains("Pastas", nombres);
+        Assert.DoesNotContain("Arroces y pastas", nombres);
+        Assert.DoesNotContain("Aceites y condimentos", nombres);
+    }
+
+    [Fact]
+    public async Task GetUnidadesMedida_ReturnsReferenceCookingUnits()
+    {
+        await RegisterAndAuthenticateAsync(_client, "alacena-unidades");
+
+        var response = await _client.GetAsync("/api/alacena/unidades-medida");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var unidades = await response.Content.ReadFromJsonAsync<List<UnidadMedidaBody>>();
+        Assert.NotNull(unidades);
+
+        var codigos = unidades!.Select(u => u.Codigo).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("g", codigos);
+        Assert.Contains("kg", codigos);
+        Assert.Contains("ml", codigos);
+        Assert.Contains("lt", codigos);
+        Assert.Contains("cdita", codigos);
+        Assert.Contains("cda", codigos);
+        Assert.Contains("taza", codigos);
+        Assert.Contains("vaso", codigos);
+        Assert.Contains("pizca", codigos);
+        Assert.Contains("1/2_cdita", codigos);
+        Assert.Contains("1/2_cda", codigos);
+        Assert.Contains("1/4_taza", codigos);
+        Assert.Contains("1/2_taza", codigos);
+        Assert.Contains("3/4_taza", codigos);
+    }
+
+    [Fact]
     public async Task CrudProductoStock_PreservesHttpContract()
     {
         var email = $"alacena-{Guid.NewGuid():N}@test.com";
@@ -583,6 +629,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record AuthenticatedUser(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
+    private sealed record CategoriaBody(Guid Id, string Nombre, int? TtlDias);
+    private sealed record UnidadMedidaBody(Guid Id, string Codigo, string Nombre);
     private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
     private sealed record StockMovementBody(Guid Id, Guid? ProductoId, string ProductoNombre, decimal Cantidad, string? UnidadMedida, string Motivo, DateTime FechaConsumo, Guid? UsuarioId);
 }

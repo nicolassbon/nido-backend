@@ -36,6 +36,8 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
 
     private const decimal GenericGramsPerCup = 100m;
     private const decimal MillilitersPerCup = 240m;
+    private const decimal MillilitersPerGlass = 250m;
+    private const decimal MillilitersPerPinch = 0.3m;
     private const decimal GenericGramsPerUnit = 100m;
     private const decimal GenericMillilitersPerUnit = 100m;
 
@@ -624,7 +626,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             "kg" or "kilo" or "kilos" or "kilogramo" or "kilogramos" => new UnitInfo("mass", 1000m),
             "oz" or "onza" or "onzas" => new UnitInfo("mass", 28.3495m),
             "lb" or "lbs" or "libra" or "libras" => new UnitInfo("mass", 453.592m),
-            "pizca" or "pizcas" or "pinch" => new UnitInfo("mass", 0.5m),
+            "pizca" or "pizcas" or "pinch" => new UnitInfo("volume", MillilitersPerPinch),
             "ml" or "mililitro" or "mililitros" or "cc" or "cm3" => new UnitInfo("volume", 1m),
             "cl" or "centilitro" or "centilitros" => new UnitInfo("volume", 10m),
             "dl" or "decilitro" or "decilitros" => new UnitInfo("volume", 100m),
@@ -635,6 +637,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 or "tbsp" or "tablespoon" or "tablespoons" => new UnitInfo("volume", 15m),
             "chorrito" or "chorritos" or "splash" => new UnitInfo("volume", 15m),
             "taza" or "tazas" or "cup" or "cups" => new UnitInfo("volume", MillilitersPerCup),
+            "vaso" or "vasos" or "glass" or "glasses" => new UnitInfo("volume", MillilitersPerGlass),
             _ => new UnitInfo($"custom:{normalized}", 1m)
         };
 
