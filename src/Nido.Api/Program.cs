@@ -136,6 +136,14 @@ if (!app.Environment.IsProduction())
     app.MapScalarApiReference();
 }
 
+app.MapGet("/health", async (NidoDbContext dbContext, CancellationToken ct) =>
+{
+    var canConnect = await dbContext.Database.CanConnectAsync(ct);
+    return canConnect
+        ? Results.Ok(new { status = "healthy" })
+        : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+});
+
 app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseCookiePolicy();
