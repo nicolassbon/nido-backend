@@ -44,7 +44,8 @@ public sealed class ProductRepository : IProductManualRepository
                     : null,
                 stock.EstaAbierto,
                 stock.PorcentajeConsumido,
-                stock.CantidadEnvases
+                stock.CantidadEnvases,
+                stock.Producto.Categoria != null ? stock.Producto.Categoria.IconoSvg : null
             ))
             .ToListAsync(cancellationToken);
     }

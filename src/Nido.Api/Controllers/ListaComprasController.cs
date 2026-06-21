@@ -318,9 +318,8 @@ public sealed class ListaComprasController : ControllerBase
         => new(list.Id, list.Nombre, list.CreatedAt, list.UpdatedAt, list.Items.Select(ToResponse).ToList());
 
     private static ListaCompraItemResponse ToResponse(ListaCompraItemResult item)
-        => new(item.Id, item.ProductoId, item.Nombre, item.Cantidad, item.Unidad, item.Comprado, item.CompradoEn, item.Orden);
+        => new(item.Id, item.ProductoId, item.Nombre, item.Cantidad, item.Unidad, item.Comprado, item.CompradoEn, item.Orden, item.CategoriaNombre, item.IconoSvg);
 
     private static ListaCompraHistorialItemResponse ToResponse(ListaCompraHistorialItemResult item)
-        => new(item.Id, item.ProductoId, item.Nombre, item.Cantidad, item.Unidad, item.GrupoNombre, item.CompradoEn, item.CompradoPor);
+        => new(item.Id, item.ProductoId, item.Nombre, item.Cantidad, item.Unidad, item.GrupoNombre, item.CompradoEn, item.CompradoPor, item.AgregadoAlInventario, item.CategoriaNombre, item.IconoSvg);
 }
-

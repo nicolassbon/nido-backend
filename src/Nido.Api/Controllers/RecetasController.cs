@@ -251,6 +251,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.Unidad,
                 ingrediente.CantidadCompraEstandar,
                 ingrediente.UnidadCompraEstandar,
+                ingrediente.CantidadListaCompras,
+                ingrediente.UnidadListaCompras,
                 ingrediente.EnStock,
                 ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(
@@ -298,6 +300,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.Unidad,
                 ingrediente.CantidadCompraEstandar,
                 ingrediente.UnidadCompraEstandar,
+                ingrediente.CantidadListaCompras,
+                ingrediente.UnidadListaCompras,
                 ingrediente.EnStock,
                 ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(

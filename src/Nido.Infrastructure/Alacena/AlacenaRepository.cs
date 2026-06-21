@@ -176,7 +176,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.EstaAbierto,
             stock.PorcentajeConsumido,
             stock.CantidadEnvases,
-            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga);
+            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga,
+            producto.Categoria?.IconoSvg);
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();

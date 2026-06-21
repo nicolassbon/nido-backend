@@ -15,5 +15,6 @@ public sealed record StockItemResponse(
     decimal PorcentajeConsumido,
     // Cantidad de envases idénticos del mismo producto.
     int CantidadEnvases,
-    string OrigenCarga
+    string OrigenCarga,
+    string? IconoSvg = null
 );

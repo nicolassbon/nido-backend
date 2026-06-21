@@ -526,6 +526,58 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetById_DevuelveCantidadYUnidadParaListaDeCompras()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Panqueques",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.AddRange(
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = null,
+                    NombreIngrediente = "Agua",
+                    Cantidad = 2m,
+                    Unidad = "taza"
+                },
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = null,
+                    NombreIngrediente = "Harina",
+                    Cantidad = 1m,
+                    Unidad = "taza"
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var agua = body!.Ingredientes.Single(i => i.Nombre == "Agua");
+        var harina = body.Ingredientes.Single(i => i.Nombre == "Harina");
+        Assert.Equal(480m, agua.CantidadListaCompras);
+        Assert.Equal("ml", agua.UnidadListaCompras);
+        Assert.Equal(120m, harina.CantidadListaCompras);
+        Assert.Equal("g", harina.UnidadListaCompras);
+    }
+
+    [Fact]
     public async Task GetById_CuandoIngredienteNoTieneProductoId_PeroMatcheaPorNombre_DevuelveCompraEstandar()
     {
         await AuthenticateAsync();
@@ -1592,8 +1644,11 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record IngredienteDetalleBody(Guid Id, bool EnStock, List<string> Alergenos);
     private sealed record IngredienteDetalleCompraBody(
         Guid Id,
+        string Nombre,
         decimal? CantidadCompraEstandar,
         string? UnidadCompraEstandar,
+        decimal? CantidadListaCompras,
+        string? UnidadListaCompras,
         bool EnStock,
         List<string> Alergenos);
     private sealed record CocinarBody(Guid RecetaId, int VecesCocinada);

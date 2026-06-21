@@ -14,5 +14,6 @@ public sealed record StockItemResult(
     bool EstaAbierto,
     decimal PorcentajeConsumido,
     int CantidadEnvases,
-    string OrigenCarga = StockLoadOrigins.Manual
+    string OrigenCarga = StockLoadOrigins.Manual,
+    string? IconoSvg = null
 );

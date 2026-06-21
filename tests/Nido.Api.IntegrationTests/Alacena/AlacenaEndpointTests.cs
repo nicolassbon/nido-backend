@@ -42,8 +42,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(categorias);
 
         var nombres = categorias!.Select(c => c.Nombre).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("Arroces", nombres);
-        Assert.Contains("Pastas", nombres);
+        Assert.Contains("Almacén", nombres);
+        Assert.Contains("Lácteos", nombres);
         Assert.DoesNotContain("Arroces y pastas", nombres);
         Assert.DoesNotContain("Aceites y condimentos", nombres);
     }

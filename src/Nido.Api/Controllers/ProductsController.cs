@@ -56,7 +56,8 @@ public sealed class ProductsController : ControllerBase
             product.FechaVencimiento,
             product.EstaAbierto,
             product.PorcentajeConsumido,
-            product.CantidadEnvases
+            product.CantidadEnvases,
+            product.IconoSvg
         ));
 
         return Ok(response);

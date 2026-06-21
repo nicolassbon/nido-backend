@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Application.Alacena;
@@ -191,7 +191,8 @@ public sealed class AlacenaController : ControllerBase
             item.EstaAbierto,
             item.PorcentajeConsumido,
             item.CantidadEnvases,
-            item.OrigenCarga
+            item.OrigenCarga,
+            item.IconoSvg
         );
 
     private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)
@@ -251,7 +252,7 @@ public sealed class AlacenaController : ControllerBase
     public async Task<IActionResult> GetCategorias(CancellationToken ct)
     {
         var result = await _catalogoRepository.GetCategoriasAsync(ct);
-        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias }));
+        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias, c.IconoSvg }));
     }
 
     [HttpGet("unidades-medida")]

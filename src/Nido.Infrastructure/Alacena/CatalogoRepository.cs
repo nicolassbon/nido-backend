@@ -15,7 +15,7 @@ public sealed class CatalogoRepository
         var categorias = await _db.CategoriasProductos
             .AsNoTracking()
             .OrderBy(c => c.Nombre)
-            .Select(c => new CategoriaResult(c.Id, c.Nombre, c.TtlDias))
+            .Select(c => new CategoriaResult(c.Id, c.Nombre, c.TtlDias, c.IconoSvg))
             .ToListAsync(ct);
 
         return categorias
