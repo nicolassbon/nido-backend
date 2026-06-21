@@ -108,7 +108,7 @@ public sealed class TelegramNotificationBatcher : ITelegramNotificationBatcher
 
         var elapsedMinutes = (DateTime.UtcNow - activeBatch.CreatedAt).TotalMinutes;
         var threshold = _options.GroupingEarlySendThreshold <= 0 ? 5 : _options.GroupingEarlySendThreshold;
-        var window = _options.GroupingWindowMinutes <= 0 ? 15 : _options.GroupingWindowMinutes;
+        var window = _options.GroupingWindowMinutes <= 0 ? 5 : _options.GroupingWindowMinutes;
 
         var shouldClose = messageCount >= threshold || elapsedMinutes >= window;
 
@@ -122,7 +122,7 @@ public sealed class TelegramNotificationBatcher : ITelegramNotificationBatcher
 
     public async Task ProcessExpiredBatchesAsync(CancellationToken ct = default)
     {
-        var window = _options.GroupingWindowMinutes <= 0 ? 15 : _options.GroupingWindowMinutes;
+        var window = _options.GroupingWindowMinutes <= 0 ? 5 : _options.GroupingWindowMinutes;
         var cutoff = DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(window));
 
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
@@ -157,38 +157,109 @@ public sealed class TelegramNotificationBatcher : ITelegramNotificationBatcher
             return;
         }
 
-        var texts = new List<string>();
-        foreach (var msg in batchMessages)
-        {
-            string? text = null;
-            try
-            {
-                using var doc = JsonDocument.Parse(msg.PayloadJson);
-                if (doc.RootElement.TryGetProperty("text", out var textProp))
-                {
-                    text = textProp.GetString();
-                }
-            }
-            catch
-            {
-                // Fallback to raw json
-            }
-
-            text ??= msg.PayloadJson;
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                texts.Add(text);
-            }
-        }
+        // Check if there is at least one target message type in the batch to apply new templating/grouping
+        var targetTypes = new[] { "asignacion_tarea", "tarea_vencida", "producto_vencido", "producto_por_vencer", "stock_bajo" };
+        bool hasTargetTypes = batchMessages.Any(m => targetTypes.Contains(m.MessageType));
 
         string consolidatedText;
-        if (texts.Count == 1)
+        if (hasTargetTypes)
         {
-            consolidatedText = texts[0];
+            var grouped = batchMessages
+                .GroupBy(m => m.MessageType)
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            var sections = new List<string>();
+            foreach (var group in grouped)
+            {
+                var type = group.Key;
+                var msgs = group.ToList();
+                var texts = new List<string>();
+                foreach (var msg in msgs)
+                {
+                    string? text = null;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(msg.PayloadJson);
+                        if (doc.RootElement.TryGetProperty("text", out var textProp))
+                        {
+                            text = textProp.GetString();
+                        }
+                    }
+                    catch
+                    {
+                        // Fallback to raw json
+                    }
+
+                    text ??= msg.PayloadJson;
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        texts.Add(text);
+                    }
+                }
+
+                if (texts.Count == 0) continue;
+
+                string? header = type switch
+                {
+                    "asignacion_tarea" => texts.Count == 1 ? "📋 Se te ha asignado la siguiente tarea:" : "📋 Se te han asignado las siguientes tareas:",
+                    "tarea_vencida" => texts.Count == 1 ? "⏰ Tienes la siguiente tarea vencida:" : "⏰ Tienes las siguientes tareas vencidas:",
+                    "producto_vencido" => texts.Count == 1 ? "❌ Se ha vencido el siguiente producto:" : "❌ Se han vencido los siguientes productos:",
+                    "producto_por_vencer" => texts.Count == 1 ? "⚠️ El siguiente producto está por vencer:" : "⚠️ Los siguientes productos están por vencer:",
+                    "stock_bajo" => texts.Count == 1 ? "📉 El siguiente producto tiene stock bajo:" : "📉 Los siguientes productos tienen stock bajo:",
+                    _ => null
+                };
+
+                string sectionContent;
+                if (header != null)
+                {
+                    var body = string.Join("\n", texts.Select(t => $"• {t}"));
+                    sectionContent = $"{header}\n{body}";
+                }
+                else
+                {
+                    sectionContent = string.Join("\n", texts.Select(t => $"• {t}"));
+                }
+                sections.Add(sectionContent);
+            }
+
+            consolidatedText = string.Join("\n\n", sections);
         }
         else
         {
-            consolidatedText = string.Join("\n", texts.Select(t => $"• {t}"));
+            // Legacy / fallback grouping for backward compatibility and generic tests
+            var texts = new List<string>();
+            foreach (var msg in batchMessages)
+            {
+                string? text = null;
+                try
+                {
+                    using var doc = JsonDocument.Parse(msg.PayloadJson);
+                    if (doc.RootElement.TryGetProperty("text", out var textProp))
+                    {
+                        text = textProp.GetString();
+                    }
+                }
+                catch
+                {
+                    // Fallback to raw json
+                }
+
+                text ??= msg.PayloadJson;
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    texts.Add(text);
+                }
+            }
+
+            if (texts.Count == 1)
+            {
+                consolidatedText = texts[0];
+            }
+            else
+            {
+                consolidatedText = string.Join("\n", texts.Select(t => $"• {t}"));
+            }
         }
 
         var payloadJson = JsonSerializer.Serialize(new { text = consolidatedText }, JsonOptions);

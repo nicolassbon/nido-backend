@@ -42,10 +42,10 @@ public sealed class TelegramOptions
     public int MaxAttempts { get; init; } = 5;
 
     [Range(1, 240, ErrorMessage = "GroupingWindowMinutes must be between 1 and 240.")]
-    public int GroupingWindowMinutes { get; init; } = 15;
+    public int GroupingWindowMinutes { get; init; } = 5;
 
     [Range(1, 100, ErrorMessage = "GroupingEarlySendThreshold must be between 1 and 100.")]
-    public int GroupingEarlySendThreshold { get; init; } = 5;
+    public int GroupingEarlySendThreshold { get; set; } = 5;
 
     [Range(1, 1440, ErrorMessage = "ConversationStateTtlMinutes must be between 1 and 1440.")]
     public int ConversationStateTtlMinutes { get; init; } = 30;
