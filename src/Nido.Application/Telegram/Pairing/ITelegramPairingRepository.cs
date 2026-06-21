@@ -33,4 +33,6 @@ public interface ITelegramPairingRepository
     Task<UnlinkTelegramChatResult> UnlinkActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct);
 
     Task<TelegramChatLinkResult?> GetActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct);
+
+    Task<TelegramChatLinkResult?> GetActiveLinkForCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct);
 }

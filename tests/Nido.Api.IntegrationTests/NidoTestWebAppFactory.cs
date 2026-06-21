@@ -55,6 +55,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testDatabase.ConnectionString);
 
         builder.UseSetting("Jwt:Key", "integration-test-jwt-key-minimum-32-bytes-long!!");

@@ -93,6 +93,9 @@ internal sealed class MissingTelegramPairingRepository : ITelegramPairingReposit
 
     public Task<TelegramChatLinkResult?> GetActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
+
+    public Task<TelegramChatLinkResult?> GetActiveLinkForCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramPairingRepository requires infrastructure registration.");
 }
 
 internal sealed class MissingTelegramPairingTokenHasher : ITelegramPairingTokenHasher

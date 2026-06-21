@@ -301,6 +301,32 @@ public sealed class TelegramPairingRepository(
             : new TelegramChatLinkResult(link.ChatId, link.UsuarioId, link.HogarId, link.PairedAt);
     }
 
+    public async Task<TelegramChatLinkResult?> GetActiveLinkForCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+    {
+        var link = await dbContext.TelegramChatLinks
+            .SingleOrDefaultAsync(currentLink => currentLink.UsuarioId == usuarioId
+                && currentLink.HogarId == hogarId
+                && currentLink.UnpairedAt == null, ct);
+
+        if (link is null)
+        {
+            return null;
+        }
+
+        var hasActiveMembership = await dbContext.MiembrosHogars
+            .AnyAsync(member => member.UsuarioId == usuarioId && member.HogarId == hogarId, ct);
+
+        if (hasActiveMembership)
+        {
+            return new TelegramChatLinkResult(link.ChatId, link.UsuarioId, link.HogarId, link.PairedAt);
+        }
+
+        link.UnpairedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(ct);
+
+        return null;
+    }
+
     private static TelegramPairingTokenResult MapToken(TelegramPairingToken entity)
         => new(
             entity.Id,

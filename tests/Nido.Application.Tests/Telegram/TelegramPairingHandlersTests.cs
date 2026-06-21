@@ -358,6 +358,9 @@ public sealed class TelegramPairingHandlersTests
 
         public Task<TelegramChatLinkResult?> GetActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
             => Task.FromResult(ActiveLink);
+
+        public Task<TelegramChatLinkResult?> GetActiveLinkForCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(ActiveLink);
     }
 
     private sealed class FakeHasher : ITelegramPairingTokenHasher

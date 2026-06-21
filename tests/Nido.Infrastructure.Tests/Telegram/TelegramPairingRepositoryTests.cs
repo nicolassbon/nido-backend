@@ -211,6 +211,23 @@ public sealed class TelegramPairingRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetActiveLinkForCurrentMemberAsync_WhenMembershipMissing_UnpairsStaleLinkAndReturnsNull()
+    {
+        var seeded = await SeedTokenAsync();
+        await _sut.CompletePairingAsync(seeded.TokenHash, 77_777, CancellationToken.None);
+
+        var membership = await _db.MiembrosHogars.SingleAsync(x => x.UsuarioId == seeded.UsuarioId && x.HogarId == seeded.HogarId);
+        _db.MiembrosHogars.Remove(membership);
+        await _db.SaveChangesAsync();
+
+        var result = await _sut.GetActiveLinkForCurrentMemberAsync(seeded.UsuarioId, seeded.HogarId, CancellationToken.None);
+
+        Assert.Null(result);
+        var link = await _db.TelegramChatLinks.SingleAsync(x => x.ChatId == 77_777);
+        Assert.NotNull(link.UnpairedAt);
+    }
+
+    [Fact]
     public async Task CreatePairingArtifactsAsync_CreatesTokenAndCodeWithDistinctExpirations()
     {
         var usuarioId = Guid.NewGuid();

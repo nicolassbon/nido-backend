@@ -60,3 +60,5 @@ public sealed record MarkListaCompraItemAgregadoInventarioCommand(Guid Id, Guid 
 public sealed record RemoveListaCompraItemCommand(Guid Id, Guid HogarId);
 
 public sealed record ClearListaComprasCommand(Guid HogarId);
+
+public sealed record SendListaCompraToTelegramCommand(Guid HogarId, Guid UsuarioId, Guid? ListaId);
