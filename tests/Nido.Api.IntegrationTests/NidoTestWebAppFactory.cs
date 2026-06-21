@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 using Nido.Tests.Shared;
@@ -19,6 +20,8 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly Action<IServiceCollection>? _configureStorage;
     private readonly Action<IApplicationBuilder>? _configureAfterApp;
+    private readonly IReadOnlyDictionary<string, string?>? _extraConfiguration;
+    private readonly TestLogCapture? _logCapture;
     private readonly PostgresTestDatabase _testDatabase;
     private readonly bool _ownsTestDatabase;
 
@@ -26,6 +29,8 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
         : this(
             configureStorage: null,
             configureAfterApp: null,
+            extraConfiguration: null,
+            logCapture: null,
             testDatabase: CreateDatabase("api_factory"),
             ownsTestDatabase: true)
     {
@@ -34,11 +39,15 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
     private NidoTestWebAppFactory(
         Action<IServiceCollection>? configureStorage,
         Action<IApplicationBuilder>? configureAfterApp,
+        IReadOnlyDictionary<string, string?>? extraConfiguration,
+        TestLogCapture? logCapture,
         PostgresTestDatabase testDatabase,
         bool ownsTestDatabase)
     {
         _configureStorage = configureStorage;
         _configureAfterApp = configureAfterApp;
+        _extraConfiguration = extraConfiguration;
+        _logCapture = logCapture;
         _testDatabase = testDatabase;
         _ownsTestDatabase = ownsTestDatabase;
     }
@@ -46,6 +55,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testDatabase.ConnectionString);
 
         builder.UseSetting("Jwt:Key", "integration-test-jwt-key-minimum-32-bytes-long!!");
@@ -53,9 +63,20 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Audience", "nido-clients-tests");
         builder.UseSetting("Google:ClientId", "test-google-client-id.apps.googleusercontent.com");
 
+        builder.UseSetting("Telegram:BotToken", "default-test-bot-token");
+        builder.UseSetting("Telegram:WebhookSecretToken", "default-test-webhook-secret");
+
+        if (_extraConfiguration is not null)
+        {
+            foreach (var (key, value) in _extraConfiguration)
+            {
+                builder.UseSetting(key, value);
+            }
+        }
+
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            var values = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = _testDatabase.ConnectionString,
                 ["Jwt:Key"] = "integration-test-jwt-key-minimum-32-bytes-long!!",
@@ -68,7 +89,17 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 ["ProfileImages:MaxDimension"] = "512",
                 ["ProfileImages:WebpQuality"] = "80",
                 ["ProfileImages:PublicBaseUrl"] = "https://cdn.test.local"
-            });
+            };
+
+            if (_extraConfiguration is not null)
+            {
+                foreach (var (key, value) in _extraConfiguration)
+                {
+                    values[key] = value;
+                }
+            }
+
+            config.AddInMemoryCollection(values);
         });
 
         builder.ConfigureTestServices(services =>
@@ -90,6 +121,11 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 options.UseNpgsql(_testDatabase.ConnectionString)
                     .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
+            if (_logCapture is not null)
+            {
+                services.AddLogging(logging => logging.AddProvider(_logCapture));
+            }
+
             _configureStorage?.Invoke(services);
 
             if (_configureAfterApp is not null)
@@ -107,10 +143,36 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
 
     public NidoTestWebAppFactory WithStorageOverride(Action<IServiceCollection> configureStorage)
-        => new(configureStorage, _configureAfterApp, _testDatabase, ownsTestDatabase: false);
+        => new(configureStorage, _configureAfterApp, _extraConfiguration, _logCapture, _testDatabase, ownsTestDatabase: false);
 
     public NidoTestWebAppFactory WithAfterAppConfiguration(Action<IApplicationBuilder> configureAfterApp)
-        => new(_configureStorage, configureAfterApp, _testDatabase, ownsTestDatabase: false);
+        => new(_configureStorage, configureAfterApp, _extraConfiguration, _logCapture, _testDatabase, ownsTestDatabase: false);
+
+    public NidoTestWebAppFactory WithTelegramWebhookConfig(
+        string secret,
+        int? maxPayloadBytes = null,
+        int? rateLimitPermitPerWindow = null,
+        int? rateLimitWindowSeconds = null)
+    {
+        var merged = new Dictionary<string, string?>(_extraConfiguration ?? new Dictionary<string, string?>())
+        {
+            ["Telegram:WebhookSecretToken"] = secret
+        };
+        if (maxPayloadBytes.HasValue) merged["Telegram:WebhookMaxPayloadBytes"] = maxPayloadBytes.Value.ToString();
+        if (rateLimitPermitPerWindow.HasValue) merged["Telegram:WebhookRateLimitPermitPerWindow"] = rateLimitPermitPerWindow.Value.ToString();
+        if (rateLimitWindowSeconds.HasValue) merged["Telegram:WebhookRateLimitWindowSeconds"] = rateLimitWindowSeconds.Value.ToString();
+
+        return new NidoTestWebAppFactory(
+            configureStorage: _configureStorage,
+            configureAfterApp: _configureAfterApp,
+            extraConfiguration: merged,
+            logCapture: _logCapture,
+            testDatabase: _testDatabase,
+            ownsTestDatabase: false);
+    }
+
+    public NidoTestWebAppFactory WithLogCapture(TestLogCapture capture)
+        => new(_configureStorage, _configureAfterApp, _extraConfiguration, capture, _testDatabase, ownsTestDatabase: false);
 
     protected override void Dispose(bool disposing)
     {

@@ -286,4 +286,3 @@ public sealed class AlacenaController : ControllerBase
             item.FechaConsumo,
             item.UsuarioId);
 }
-

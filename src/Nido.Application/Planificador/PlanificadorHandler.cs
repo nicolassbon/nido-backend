@@ -1,11 +1,18 @@
+using Nido.Application.Common.Security;
+using Nido.Application.Hogares.Exceptions;
+
 namespace Nido.Application.Planificador;
 
 public sealed class PlanificadorHandler
 {
     private readonly IPlanificadorRepository _repository;
+    private readonly IHouseholdMembershipService _membershipService;
 
-    public PlanificadorHandler(IPlanificadorRepository repository)
-        => _repository = repository;
+    public PlanificadorHandler(IPlanificadorRepository repository, IHouseholdMembershipService membershipService)
+    {
+        _repository = repository;
+        _membershipService = membershipService;
+    }
 
     /// <summary>Devuelve (o crea) la semana a partir del lunes indicado.</summary>
     public Task<PlanificadorSemanaResult> GetSemana(Guid hogarId, DateOnly fechaInicio, CancellationToken ct)
@@ -17,11 +24,25 @@ public sealed class PlanificadorHandler
         return _repository.GetOrCreateSemanaAsync(hogarId, lunes, ct);
     }
 
-    public Task<PlanificadorItemResult> AddItem(AddPlanificadorItemCommand command, CancellationToken ct)
-        => _repository.AddItemAsync(command, ct);
+    public async Task<PlanificadorItemResult> AddItem(AddPlanificadorItemCommand command, CancellationToken ct)
+    {
+        if (command.AsignadoA.HasValue)
+        {
+            await _membershipService.EnsureMemberAsync(command.AsignadoA.Value, command.HogarId, ct);
+        }
 
-    public Task<PlanificadorItemResult?> UpdateItem(UpdatePlanificadorItemCommand command, CancellationToken ct)
-        => _repository.UpdateItemAsync(command, ct);
+        return await _repository.AddItemAsync(command, ct);
+    }
+
+    public async Task<PlanificadorItemResult?> UpdateItem(UpdatePlanificadorItemCommand command, CancellationToken ct)
+    {
+        if (command.AsignadoA.HasValue)
+        {
+            await _membershipService.EnsureMemberAsync(command.AsignadoA.Value, command.HogarId, ct);
+        }
+
+        return await _repository.UpdateItemAsync(command, ct);
+    }
 
     public Task<bool> DeleteItem(DeletePlanificadorItemCommand command, CancellationToken ct)
         => _repository.DeleteItemAsync(command, ct);

@@ -28,6 +28,19 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return ToGroups(items);
     }
 
+    public async Task<IReadOnlyList<ListaCompraGrupoResult>> GetActiveByListAsync(Guid hogarId, Guid listaId, CancellationToken ct)
+    {
+        var items = await QueryActive(hogarId)
+            .Where(item => item.ListaId == listaId)
+            .AsNoTracking()
+            .OrderBy(item => item.CreatedAt)
+            .ThenBy(item => item.GrupoNombre)
+            .ThenBy(item => item.Orden)
+            .ToListAsync(ct);
+
+        return ToGroups(items);
+    }
+
     public async Task<IReadOnlyList<ListaCompraListResult>> GetListsAsync(Guid hogarId, CancellationToken ct)
     {
         var listas = await _db.ListasCompraHogar
@@ -527,4 +540,3 @@ public sealed class ListaComprasRepository : IListaComprasRepository
     }
 
 }
-

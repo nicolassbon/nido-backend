@@ -208,27 +208,12 @@ public sealed class NotificacionesRepository(NidoDbContext db) : INotificaciones
 
     public async Task SubscribePushAsync(Guid usuarioId, string endpoint, string p256dh, string auth, CancellationToken ct)
     {
-        var existing = await db.SuscripcionesPush
-            .FirstOrDefaultAsync(s => s.UsuarioId == usuarioId && s.Endpoint == endpoint, ct);
-
-        if (existing is null)
-        {
-            db.SuscripcionesPush.Add(new SuscripcionPush
-            {
-                Id = Guid.NewGuid(),
-                UsuarioId = usuarioId,
-                Endpoint = endpoint,
-                P256dh = p256dh,
-                Auth = auth,
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            existing.P256dh = p256dh;
-            existing.Auth = auth;
-        }
-
-        await db.SaveChangesAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO suscripciones_push (id, usuario_id, endpoint, p256dh, auth, created_at)
+            VALUES ({Guid.NewGuid()}, {usuarioId}, {endpoint}, {p256dh}, {auth}, {DateTime.UtcNow})
+            ON CONFLICT (usuario_id, endpoint)
+            DO UPDATE SET
+                p256dh = EXCLUDED.p256dh,
+                auth = EXCLUDED.auth", ct);
     }
 }

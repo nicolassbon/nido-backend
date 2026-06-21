@@ -1,4 +1,5 @@
 using Nido.Application.Common.Notifications;
+using Nido.Application.Tests.Common.Security;
 using Nido.Application.Hogares;
 using Nido.Application.Hogares.Exceptions;
 
@@ -10,8 +11,9 @@ public sealed class InvitarIntegranteHandlerTests
     public async Task Handle_HappyPath_RetornaTokenYEnviaEmail()
     {
         var repo = new FakeInvitacionRepository();
+        var membershipService = new RecordingHouseholdMembershipService();
         var email = new FakeEmailService();
-        var handler = new InvitarIntegranteHandler(repo, email);
+        var handler = new InvitarIntegranteHandler(repo, membershipService, email);
 
         var token = await handler.Handle(
             new InvitarIntegranteCommand(repo.OwnerId, repo.HogarId, "invitado@mail.com"),
@@ -19,13 +21,14 @@ public sealed class InvitarIntegranteHandlerTests
 
         Assert.False(string.IsNullOrEmpty(token));
         Assert.Equal("invitado@mail.com", email.UltimoDestinatario);
+        Assert.Single(membershipService.OwnerChecks);
     }
 
     [Fact]
     public async Task Handle_EmailVacio_LanzaMissingInvitationToken()
     {
         var repo = new FakeInvitacionRepository();
-        var handler = new InvitarIntegranteHandler(repo, new FakeEmailService());
+        var handler = new InvitarIntegranteHandler(repo, new RecordingHouseholdMembershipService(), new FakeEmailService());
 
         await Assert.ThrowsAsync<MissingInvitationTokenException>(() =>
             handler.Handle(
@@ -36,12 +39,15 @@ public sealed class InvitarIntegranteHandlerTests
     [Fact]
     public async Task Handle_UsuarioNoEsOwner_LanzaNotHouseholdOwner()
     {
-        var repo = new FakeInvitacionRepository { EsOwner = false };
-        var handler = new InvitarIntegranteHandler(repo, new FakeEmailService());
+        var membershipService = new RecordingHouseholdMembershipService
+        {
+            OwnerExceptionToThrow = new NotHouseholdOwnerException()
+        };
+        var handler = new InvitarIntegranteHandler(new FakeInvitacionRepository(), membershipService, new FakeEmailService());
 
         await Assert.ThrowsAsync<NotHouseholdOwnerException>(() =>
             handler.Handle(
-                new InvitarIntegranteCommand(repo.OwnerId, repo.HogarId, "invitado@mail.com"),
+                new InvitarIntegranteCommand(Guid.NewGuid(), Guid.NewGuid(), "invitado@mail.com"),
                 CancellationToken.None));
     }
 
@@ -49,7 +55,7 @@ public sealed class InvitarIntegranteHandlerTests
     public async Task Handle_HogarLleno_LanzaMaxMembersExceeded()
     {
         var repo = new FakeInvitacionRepository { CantidadMiembros = 6 };
-        var handler = new InvitarIntegranteHandler(repo, new FakeEmailService());
+        var handler = new InvitarIntegranteHandler(repo, new RecordingHouseholdMembershipService(), new FakeEmailService());
 
         await Assert.ThrowsAsync<MaxMembersExceededException>(() =>
             handler.Handle(
@@ -63,11 +69,7 @@ public sealed class InvitarIntegranteHandlerTests
     {
         public Guid OwnerId { get; } = Guid.NewGuid();
         public Guid HogarId { get; } = Guid.NewGuid();
-        public bool EsOwner { get; set; } = true;
         public int CantidadMiembros { get; set; } = 2;
-
-        public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-            => Task.FromResult(EsOwner);
 
         public Task<int> CountRealMembersAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult(CantidadMiembros);
@@ -83,9 +85,10 @@ public sealed class InvitarIntegranteHandlerTests
 
         // Los métodos de abajo no se usan en InvitarIntegranteHandler
         public Task<bool> IsUserInAnyHouseholdAsync(Guid usuarioId, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => Task.FromResult(false);
         public Task AddUserToHouseholdAsync(Guid usuarioId, Guid toHogarId, string token, CancellationToken ct) => Task.CompletedTask;
         public Task<List<MiembroInfo>> GetMiembrosAsync(Guid hogarId, CancellationToken ct) => Task.FromResult(new List<MiembroInfo>());
-        public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => Task.FromResult(false);
         public Task RemoveMiembroAsync(Guid hogarId, Guid targetUsuarioId, CancellationToken ct) => Task.CompletedTask;
     }
 

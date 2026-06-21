@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nido.Infrastructure.Persistence;
 using Nido.Domain.Electrodomesticos;
@@ -21,6 +22,7 @@ using Nido.Application.Common.Assets;
 using Nido.Application.Common.Images;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Security;
 using Nido.Application.Common.Storage;
 using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Productos;
@@ -33,6 +35,7 @@ using Nido.Infrastructure.Alacena;
 using Nido.Infrastructure.ListaCompras;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
+using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.UsuariosPerfil;
 using Nido.Infrastructure.ProfileImages;
 using Nido.Infrastructure.PublicAssets;
@@ -48,9 +51,24 @@ using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Application.Tareas;
 using Nido.Infrastructure.Tareas;
 using Nido.Application.Notificaciones;
+using Nido.Application.Telegram.Client;
+using Nido.Application.Telegram.Idempotency;
+using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Menu;
+using Nido.Application.Telegram.Pairing;
+using Nido.Application.Telegram.Webhook;
 using Nido.Infrastructure.Notificaciones;
 using Nido.Application.Planificador;
 using Nido.Infrastructure.Planificador;
+using Nido.Infrastructure.Telegram.Idempotency;
+using Nido.Infrastructure.Telegram.Authorization;
+using Nido.Infrastructure.Telegram.Conversation;
+using Nido.Infrastructure.Telegram.Menu;
+using Nido.Infrastructure.Telegram.Pairing;
+using Nido.Infrastructure.Telegram;
+using Nido.Infrastructure.Telegram.Webhook;
+using Nido.Infrastructure.Telegram.Messaging;
 using Resend;
 
 namespace Nido.Infrastructure;
@@ -84,6 +102,7 @@ public static class DependencyInjection
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddScoped<IInvitacionRepository, InvitacionRepository>();
         services.AddScoped<IHogarRepository, HogarRepository>();
+        services.AddScoped<IHogarMembershipRepository, HogarMembershipRepository>();
         services.AddOptions();
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>
@@ -134,11 +153,50 @@ public static class DependencyInjection
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
         services.AddScoped<IPushNotificationService, PushNotificationService>();
 
-        // â”€â”€ Lookup externo de productos por barcode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        services.AddHttpClient("TelegramClient", (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>().Value;
+
+            if (opts.HasBotToken)
+            {
+                client.BaseAddress = new Uri($"https://api.telegram.org/bot{opts.BotToken}/");
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+        });
+        services.AddScoped<ITelegramClient>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>().Value;
+            if (!opts.HasBotToken)
+            {
+                return new DisabledTelegramClient(sp.GetRequiredService<ILogger<DisabledTelegramClient>>());
+            }
+
+            var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TelegramClient");
+            return new Telegram.TelegramClient(httpClient, sp.GetRequiredService<ILogger<Telegram.TelegramClient>>());
+        });
+
+        services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
+        services.AddSingleton<ITelegramOutboxWakeupService, TelegramOutboxWakeupService>();
+        services.AddHostedService(sp => (TelegramOutboxWakeupService)sp.GetRequiredService<ITelegramOutboxWakeupService>());
+        services.AddScoped<ITelegramUpdateIdempotencyService, TelegramUpdateIdempotencyService>();
+        services.AddScoped<ITelegramWebhookHandler, TelegramWebhookHandler>();
+        services.AddScoped<ITelegramHogarAccess, TelegramHogarAccessRepository>();
+        services.AddScoped<ITelegramPairingRepository, TelegramPairingRepository>();
+        services.AddScoped<ITelegramPairingTokenHasher, TelegramPairingTokenHasher>();
+        services.AddScoped<ITelegramPairingRateLimiter, TelegramPairingRateLimiter>();
+        services.AddScoped<ITelegramConversationStateStore, PostgresTelegramConversationStateStore>();
+        services.AddScoped<ITelegramOutboxWriter, TelegramOutboxWriter>();
+        services.AddScoped<ITelegramOutboxReader, TelegramOutboxReader>();
+        services.AddScoped<ITelegramMenuRegistry, InMemoryTelegramMenuRegistry>();
+        services.AddScoped<ITelegramMenuProvider, TelegramMenuProvider>();
+        services.AddScoped<ITelegramNotificationBatcher, TelegramNotificationBatcher>();
+
+        // ── Lookup externo de productos por barcode ───────────────────────────────────────────
         // Pipeline:
         //   IExternalProductLookupService
-        //     â†’ CachedExternalProductLookupService   (decorator: cache en memoria)
-        //         â†’ OpenFoodFactsLookupService        (consulta OFF + UPC Item DB)
+        //     → CachedExternalProductLookupService   (decorator: cache en memoria)
+        //         → OpenFoodFactsLookupService        (consulta OFF + UPC Item DB)
         services.AddOptions<ExternalLookupOptions>()
             .Bind(configuration.GetSection(ExternalLookupOptions.SectionName));
         services.AddMemoryCache();
@@ -161,5 +219,24 @@ public static class DependencyInjection
 
         return services;
     }
-}
 
+    public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services)
+    {
+        throw new NotSupportedException("Use the AddTelegramSenderWorker(IServiceCollection, IConfiguration) overload.");
+    }
+
+    public static IServiceCollection AddTelegramSenderWorker(this IServiceCollection services, IConfiguration configuration)
+    {
+        var options = configuration.GetSection(Application.Telegram.TelegramOptions.SectionName)
+            .Get<Application.Telegram.TelegramOptions>()
+            ?? new Application.Telegram.TelegramOptions();
+
+        if (options.HasBotToken)
+        {
+            services.AddHostedService<TelegramBatchingWorker>();
+            services.AddHostedService<TelegramSenderWorker>();
+        }
+
+        return services;
+    }
+}

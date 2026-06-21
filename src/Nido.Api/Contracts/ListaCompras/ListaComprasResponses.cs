@@ -30,4 +30,3 @@ public sealed record ListaCompraHistorialItemResponse(
     string GrupoNombre,
     DateTime CompradoEn,
     Guid? CompradoPor);
-
