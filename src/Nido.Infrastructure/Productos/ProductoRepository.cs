@@ -64,7 +64,14 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
         return products.FirstOrDefault(producto => NormalizeName(producto.Nombre) == normalizedName);
     }
 
-    public async Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+    public async Task<GetProductByNameResult> CreateAsync(
+        string nombre,
+        Guid? categoriaId,
+        CancellationToken ct,
+        decimal? calorias = null,
+        decimal? proteinas = null,
+        decimal? carbohidratos = null,
+        decimal? grasas = null)
     {
         var nuevo = new Nido.Infrastructure.Persistence.Entities.Producto
         {
@@ -75,6 +82,22 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
         };
 
         _db.Productos.Add(nuevo);
+
+        // Información nutricional (del escaneo a Open Food Facts).
+        if (calorias.HasValue || proteinas.HasValue || carbohidratos.HasValue || grasas.HasValue)
+        {
+            _db.Set<Nido.Infrastructure.Persistence.Entities.InfoNutricionalProducto>().Add(
+                new Nido.Infrastructure.Persistence.Entities.InfoNutricionalProducto
+                {
+                    Id = Guid.NewGuid(),
+                    ProductoId = nuevo.Id,
+                    Calorias = calorias,
+                    Proteinas = proteinas,
+                    Carbohidratos = carbohidratos,
+                    Grasas = grasas,
+                });
+        }
+
         await _db.SaveChangesAsync(ct);
 
         return new GetProductByNameResult(nuevo.Id, nuevo.Nombre, nuevo.CategoriaId, nuevo.ImagenUrl);

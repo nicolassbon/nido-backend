@@ -26,6 +26,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             .Where(stock => stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
             .ToListAsync(ct);
 
         return items.Select(stock => ToResult(stock, stock.Producto)).ToList();
@@ -38,6 +40,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             .Where(stock => stock.Id == id && stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
             .FirstOrDefaultAsync(ct);
 
         return item is null ? null : ToResult(item, item.Producto);
@@ -50,6 +54,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
         {
             producto = await _db.Productos.FirstOrDefaultAsync(p => p.CodigoBarras == request.CodigoBarras, ct);
         }
+
+        var isNewProducto = producto is null;
 
         if (producto is null)
         {
@@ -71,6 +77,30 @@ public sealed class AlacenaRepository : IAlacenaRepository
                 producto.CategoriaId = request.CategoriaId;
             if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
                 producto.ImagenUrl = request.Imagen;
+        }
+
+        // Información nutricional (del escaneo). Se guarda a nivel Producto.
+        // Para un producto existente, sólo se completa si todavía no la tiene.
+        var hasNutrition = request.Calorias.HasValue || request.Proteinas.HasValue
+            || request.Carbohidratos.HasValue || request.Grasas.HasValue;
+        if (hasNutrition)
+        {
+            var alreadyHasNutrition = !isNewProducto
+                && await _db.Set<InfoNutricionalProducto>().AnyAsync(n => n.ProductoId == producto.Id, ct);
+            if (!alreadyHasNutrition)
+            {
+                var nutri = new InfoNutricionalProducto
+                {
+                    Id = Guid.NewGuid(),
+                    ProductoId = producto.Id,
+                    Calorias = request.Calorias,
+                    Proteinas = request.Proteinas,
+                    Carbohidratos = request.Carbohidratos,
+                    Grasas = request.Grasas
+                };
+                _db.Set<InfoNutricionalProducto>().Add(nutri);
+                producto.InfoNutricionalProductos.Add(nutri);
+            }
         }
 
         DateOnly? fechaVencimiento = null;
@@ -107,6 +137,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
         var item = await _db.StockHogars
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
             .FirstOrDefaultAsync(stock => stock.Id == request.Id && stock.HogarId == request.HogarId, ct);
 
         if (item is null)
@@ -155,7 +187,9 @@ public sealed class AlacenaRepository : IAlacenaRepository
     }
 
     private StockItemResult ToResult(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Producto producto)
-        => new(
+    {
+        var nutri = producto.InfoNutricionalProductos?.FirstOrDefault();
+        return new(
             stock.Id,
             stock.ProductoId,
             producto.Nombre,
@@ -169,7 +203,12 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.EstaAbierto,
             stock.PorcentajeConsumido,
             stock.CantidadEnvases,
-            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga);
+            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga,
+            nutri?.Calorias,
+            nutri?.Proteinas,
+            nutri?.Carbohidratos,
+            nutri?.Grasas);
+    }
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();

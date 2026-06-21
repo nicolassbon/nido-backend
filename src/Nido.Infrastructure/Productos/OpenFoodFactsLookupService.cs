@@ -68,13 +68,22 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
 
             var p           = res.Product;
             var categories  = p.CategoriesTags ?? Array.Empty<string>();
+            var n           = p.Nutriments;
+            var sanitized   = SanitizeName(p.ProductNameEs ?? p.ProductName ?? p.ProductNameEn ?? string.Empty);
+            var (cleanName, gramaje) = ExtractGramaje(sanitized);
+
             return new LookupExternalProductoResult(
-                Name:              SanitizeName(p.ProductNameEs ?? p.ProductName ?? p.ProductNameEn ?? string.Empty),
+                Name:              cleanName,
                 Image:             p.ImageFrontUrl ?? p.ImageUrl ?? string.Empty,
                 Brands:            p.Brands ?? string.Empty,
                 CategoriesTags:    categories,
                 CategoriaSugerida: _categoryMapper.Map(categories),
-                FoundInDb:         true
+                FoundInDb:         true,
+                Calorias:          n?.EnergyKcal100g,
+                Proteinas:         n?.Proteins100g,
+                Carbohidratos:     n?.Carbohydrates100g,
+                Grasas:            n?.Fat100g,
+                GramajeExtraido:   gramaje
             );
         }
         catch (Exception ex)
@@ -96,13 +105,17 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
 
             var item        = res.Items[0];
             var categories  = ParseCategoryString(item.Category ?? string.Empty);
+            var sanitized   = SanitizeName(item.Title ?? string.Empty);
+            var (cleanName, gramaje) = ExtractGramaje(sanitized);
+
             return new LookupExternalProductoResult(
-                Name:              SanitizeName(item.Title ?? string.Empty),
+                Name:              cleanName,
                 Image:             item.Images?.FirstOrDefault() ?? string.Empty,
                 Brands:            item.Brand ?? string.Empty,
                 CategoriesTags:    categories,
                 CategoriaSugerida: _categoryMapper.Map(categories),
-                FoundInDb:         true
+                FoundInDb:         true,
+                GramajeExtraido:   gramaje
             );
         }
         catch (Exception ex)
@@ -125,6 +138,28 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
     }
 
     /// <summary>
+    /// Extrae el gramaje del final del nombre (ej: "Producto 290g" → (name: "Producto", gramaje: 290m))
+    /// Si no encuentra gramaje, devuelve (name, null)
+    /// </summary>
+    private static (string cleanName, decimal? gramaje) ExtractGramaje(string name)
+    {
+        var trimmed = name.Trim();
+        var match = Regex.Match(trimmed, @"^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:gr|g|gramos)?$", RegexOptions.IgnoreCase);
+
+        if (!match.Success) return (trimmed, null);
+
+        var cleanName = match.Groups[1].Value.Trim();
+        var gramStr = match.Groups[2].Value.Replace(",", ".");
+
+        if (decimal.TryParse(gramStr, System.Globalization.CultureInfo.InvariantCulture, out var gramaje))
+        {
+            return (cleanName, gramaje);
+        }
+
+        return (trimmed, null);
+    }
+
+    /// <summary>
     /// "Food &amp; Grocery > Dairy > Spreads" → ["en:food-grocery", "en:dairy", "en:spreads"]
     /// </summary>
     private static string[] ParseCategoryString(string category)
@@ -140,7 +175,7 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
     }
 
     private static LookupExternalProductoResult Empty() =>
-        new(string.Empty, string.Empty, string.Empty, Array.Empty<string>(), ProductCategoryMapper.General, false);
+        new(string.Empty, string.Empty, string.Empty, Array.Empty<string>(), ProductCategoryMapper.General, false, null, null, null, null, null);
 
     // ── DTOs de las APIs externas ────────────────────────────────────────────
 
@@ -159,6 +194,21 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
         [JsonPropertyName("image_url")]        public string?   ImageUrl       { get; set; }
         [JsonPropertyName("brands")]           public string?   Brands         { get; set; }
         [JsonPropertyName("categories_tags")]  public string[]? CategoriesTags { get; set; }
+        [JsonPropertyName("nutriments")]       public OffNutriments? Nutriments { get; set; }
+    }
+
+    // Los valores "*_100g" vienen como número en la API de OFF. Permitimos
+    // leerlos desde string por robustez ante variaciones del dato.
+    private sealed class OffNutriments
+    {
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("energy-kcal_100g")]   public decimal? EnergyKcal100g    { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("proteins_100g")]      public decimal? Proteins100g      { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("carbohydrates_100g")] public decimal? Carbohydrates100g { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("fat_100g")]           public decimal? Fat100g           { get; set; }
     }
 
     private sealed class UpcItemDbResponse

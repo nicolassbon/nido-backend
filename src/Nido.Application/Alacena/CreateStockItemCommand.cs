@@ -14,5 +14,9 @@ public sealed record CreateStockItemCommand(
     bool EstaAbierto,
     decimal PorcentajeConsumido,
     int CantidadEnvases = 1,
-    string? OrigenCarga = null
+    string? OrigenCarga = null,
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null
 );
