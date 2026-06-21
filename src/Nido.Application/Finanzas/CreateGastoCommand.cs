@@ -6,5 +6,6 @@ public sealed record CreateGastoCommand(
     decimal Monto,
     string? Descripcion,
     string? Categoria,
-    string Fecha
+    string Fecha,
+    Guid? FacturaId = null
 );

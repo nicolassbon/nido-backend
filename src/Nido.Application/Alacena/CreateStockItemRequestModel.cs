@@ -4,6 +4,7 @@ public sealed record CreateStockItemRequestModel(
     Guid HogarId,
     Guid UsuarioId,
     string Nombre,
+    Guid? CategoriaId,
     string? CodigoBarras,
     string? Imagen,
     string Ubicacion,
@@ -12,5 +13,6 @@ public sealed record CreateStockItemRequestModel(
     string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido,
-    int CantidadEnvases = 1
+    int CantidadEnvases = 1,
+    string OrigenCarga = StockLoadOrigins.Manual
 );

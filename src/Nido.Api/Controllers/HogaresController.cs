@@ -119,4 +119,79 @@ public sealed class HogaresController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpPost]
+    public async Task<IActionResult> CrearHogar(
+        [FromBody] CrearHogarRequest request,
+        [FromServices] CrearHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new CrearHogarCommand(
+            currentUser.UsuarioId,
+            request.Nombre), cancellationToken);
+
+        return Created(string.Empty, new CrearHogarResponse(result.HogarId, result.HogarNombre, result.NuevoToken));
+    }
+
+    [HttpGet("mis-hogares")]
+    public async Task<IActionResult> GetMisHogares(
+        [FromServices] GetHogaresHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var hogares = await handler.Handle(new GetHogaresQuery(currentUser.UsuarioId), cancellationToken);
+        return Ok(hogares.Select(h => new HogarResumenResponse(h.Id, h.Nombre, h.Rol)));
+    }
+
+    [HttpPatch("{hogarId:guid}")]
+    public async Task<IActionResult> RenombrarHogar(
+        [FromRoute] Guid hogarId,
+        [FromBody] UpdateHogarRequest request,
+        [FromServices] UpdateHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var updated = await handler.Handle(
+                new UpdateHogarCommand(currentUser.UsuarioId, hogarId, request.Nombre),
+                cancellationToken);
+
+            return Ok(new HogarResponse(updated.Id, updated.Nombre));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{hogarId:guid}")]
+    public async Task<IActionResult> EliminarHogar(
+        [FromRoute] Guid hogarId,
+        [FromServices] EliminarHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        await handler.Handle(new EliminarHogarCommand(
+            currentUser.UsuarioId,
+            hogarId,
+            currentUser.HogarId), cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpPost("{hogarId:guid}/activar")]
+    public async Task<IActionResult> CambiarHogar(
+        [FromRoute] Guid hogarId,
+        [FromServices] CambiarHogarHandler handler,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new CambiarHogarCommand(
+            currentUser.UsuarioId,
+            hogarId), cancellationToken);
+
+        return Ok(new CambiarHogarResponse(result.HogarId, result.HogarNombre, result.NuevoToken));
+    }
 }

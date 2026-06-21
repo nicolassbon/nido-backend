@@ -44,4 +44,6 @@ public partial class StockHogar
     /// "2 paquetes de 100g cada uno" (total disponible: 200g menos lo consumido del abierto).
     /// </summary>
     public int CantidadEnvases { get; set; } = 1;
+
+    public string OrigenCarga { get; set; } = "manual";
 }

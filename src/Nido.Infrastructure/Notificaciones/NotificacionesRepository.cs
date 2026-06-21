@@ -47,6 +47,7 @@ public sealed class NotificacionesRepository(NidoDbContext db) : INotificaciones
             }
         }
 
+        // Generar notificaciones para stock bajo y vencimiento de productos en los hogares del usuario
         var hogaresUsuario = await db.MiembrosHogars
             .Where(m => m.UsuarioId == usuarioId)
             .Select(m => m.HogarId)

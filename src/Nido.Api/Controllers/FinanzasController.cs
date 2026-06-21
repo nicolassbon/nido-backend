@@ -15,7 +15,6 @@ public sealed class FinanzasController : ControllerBase
     private readonly GetGastosHandler _getGastosHandler;
     private readonly GetBalanceHandler _getBalanceHandler;
     private readonly ToggleModoAhorroHandler _toggleModoAhorroHandler;
-    private readonly GetRecomendacionesHandler _getRecomendacionesHandler;
     private readonly CreateFacturaHandler _createFacturaHandler;
     private readonly GetFacturasHandler _getFacturasHandler;
     private readonly MarcarPagadaHandler _marcarPagadaHandler;
@@ -23,26 +22,32 @@ public sealed class FinanzasController : ControllerBase
     private readonly GetSavingsPotencialHandler _getSavingsPotencialHandler;
     private readonly GetInsightsHandler _getInsightsHandler;
     private readonly GetAlacenaOportunidadesHandler _getAlacenaOportunidadesHandler;
+    private readonly GetPresupuestoHandler _getPresupuestoHandler;
+    private readonly SetPresupuestoHandler _setPresupuestoHandler;
+    private readonly UpdateGastoHandler _updateGastoHandler;
+    private readonly DeleteGastoHandler _deleteGastoHandler;
 
     public FinanzasController(
         CreateGastoHandler createGastoHandler,
         GetGastosHandler getGastosHandler,
         GetBalanceHandler getBalanceHandler,
         ToggleModoAhorroHandler toggleModoAhorroHandler,
-        GetRecomendacionesHandler getRecomendacionesHandler,
         CreateFacturaHandler createFacturaHandler,
         GetFacturasHandler getFacturasHandler,
         MarcarPagadaHandler marcarPagadaHandler,
         DeleteFacturaHandler deleteFacturaHandler,
         GetSavingsPotencialHandler getSavingsPotencialHandler,
         GetInsightsHandler getInsightsHandler,
-        GetAlacenaOportunidadesHandler getAlacenaOportunidadesHandler)
+        GetAlacenaOportunidadesHandler getAlacenaOportunidadesHandler,
+        GetPresupuestoHandler getPresupuestoHandler,
+        SetPresupuestoHandler setPresupuestoHandler,
+        UpdateGastoHandler updateGastoHandler,
+        DeleteGastoHandler deleteGastoHandler)
     {
         _createGastoHandler = createGastoHandler;
         _getGastosHandler = getGastosHandler;
         _getBalanceHandler = getBalanceHandler;
         _toggleModoAhorroHandler = toggleModoAhorroHandler;
-        _getRecomendacionesHandler = getRecomendacionesHandler;
         _createFacturaHandler = createFacturaHandler;
         _getFacturasHandler = getFacturasHandler;
         _marcarPagadaHandler = marcarPagadaHandler;
@@ -50,6 +55,10 @@ public sealed class FinanzasController : ControllerBase
         _getSavingsPotencialHandler = getSavingsPotencialHandler;
         _getInsightsHandler = getInsightsHandler;
         _getAlacenaOportunidadesHandler = getAlacenaOportunidadesHandler;
+        _getPresupuestoHandler = getPresupuestoHandler;
+        _setPresupuestoHandler = setPresupuestoHandler;
+        _updateGastoHandler = updateGastoHandler;
+        _deleteGastoHandler = deleteGastoHandler;
     }
 
     [HttpGet("modo-ahorro")]
@@ -75,23 +84,6 @@ public sealed class FinanzasController : ControllerBase
         if (!activo) return NotFound();
 
         return Ok(new ModoAhorroResponse(request.Activo));
-    }
-
-    [HttpGet("recomendaciones")]
-    public async Task<IActionResult> GetRecomendaciones(
-        [FromServices] ICurrentUserContext currentUser,
-        CancellationToken ct)
-    {
-        var result = await _getRecomendacionesHandler.Handle(currentUser.HogarId, ct);
-
-        return Ok(new RecomendacionesResponse(
-            result.Recetas.Select(r => new RecetaRecomendadaResponse(
-                r.Id,
-                r.Nombre,
-                r.ImagenUrl,
-                r.IngredientesEnStock,
-                r.TotalIngredientes)).ToList(),
-            result.Tips));
     }
 
     [HttpGet("modo-ahorro/potencial")]
@@ -130,6 +122,28 @@ public sealed class FinanzasController : ControllerBase
             result.RecetasSugeridas.Select(r => new RecetaRecomendadaResponse(
                 r.Id, r.Nombre, r.ImagenUrl, r.IngredientesEnStock, r.TotalIngredientes)).ToList(),
             result.TotalProductosEnCasa));
+    }
+
+    [HttpGet("presupuesto")]
+    public async Task<IActionResult> GetPresupuesto(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getPresupuestoHandler.Handle(currentUser.HogarId, ct);
+        return Ok(new PresupuestoResponse(result.Monto, result.GastoActual, result.Restante, result.Anio, result.Mes));
+    }
+
+    [HttpPut("presupuesto")]
+    public async Task<IActionResult> SetPresupuesto(
+        [FromBody] SetPresupuestoRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var result = await _setPresupuestoHandler.Handle(
+            new SetPresupuestoCommand(currentUser.HogarId, request.Monto, now.Year, now.Month),
+            ct);
+        return Ok(new PresupuestoResponse(result.Monto, result.GastoActual, result.Restante, result.Anio, result.Mes));
     }
 
     [HttpGet("balance")]
@@ -190,6 +204,32 @@ public sealed class FinanzasController : ControllerBase
             ct);
 
         return CreatedAtAction(nameof(CreateGasto), ToResponse(result));
+    }
+
+    [HttpPatch("gastos/{id:guid}")]
+    public async Task<IActionResult> UpdateGasto(
+        Guid id,
+        [FromBody] UpdateGastoRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var pagadoPorId = request.PagadoPorId ?? currentUser.UsuarioId;
+
+        var result = await _updateGastoHandler.Handle(
+            new UpdateGastoCommand(id, currentUser.HogarId, request.Monto, request.Descripcion, request.Categoria, request.Fecha, pagadoPorId),
+            ct);
+
+        return Ok(ToResponse(result));
+    }
+
+    [HttpDelete("gastos/{id:guid}")]
+    public async Task<IActionResult> DeleteGasto(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _deleteGastoHandler.Handle(id, currentUser.HogarId, ct);
+        return Ok(new DeleteGastoResponse(result.FacturaRevertida, result.FacturaId));
     }
 
     [HttpGet("facturas")]
@@ -280,6 +320,7 @@ public sealed class FinanzasController : ControllerBase
         result.Fecha,
         result.PagadoPorId,
         result.PagadoPorNombre,
-        result.CreatedAt
+        result.CreatedAt,
+        result.FacturaId
     );
 }

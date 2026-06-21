@@ -105,10 +105,10 @@ public sealed class CocinarRecetaHandlerTests
         public int CocinarCalls { get; private set; }
         public CocinarRecetaCommand? LastCommand { get; private set; }
 
-        public Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct)
+        public Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<RecetaResult>>(Array.Empty<RecetaResult>());
 
-        public Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+        public Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, Guid usuarioId, CancellationToken ct)
             => Task.FromResult<RecetaResult?>(null);
 
         public Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct)
@@ -144,6 +144,10 @@ public sealed class CocinarRecetaHandlerTests
         public Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ConsumoPorProducto>>(Array.Empty<ConsumoPorProducto>());
+
+        public Task<IReadOnlyList<ConsumoMovimiento>> GetMovimientosAsync(
+            Guid hogarId, ConsumoMovimientosFiltro filtro, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ConsumoMovimiento>>(Array.Empty<ConsumoMovimiento>());
 
         public Task<IReadOnlyList<ComprasPorProducto>> GetComprasPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)

@@ -1,4 +1,4 @@
-using Amazon.Runtime;
+﻿using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -29,8 +29,10 @@ using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
 using Nido.Application.Estadisticas;
+using Nido.Application.ListaCompras;
 using Nido.Infrastructure.Estadisticas;
 using Nido.Infrastructure.Alacena;
+using Nido.Infrastructure.ListaCompras;
 using Nido.Infrastructure.Productos;
 using Nido.Application.UsuariosPerfil;
 using Nido.Application.Telegram.Messaging;
@@ -57,6 +59,8 @@ using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Webhook;
 using Nido.Infrastructure.Notificaciones;
+using Nido.Application.Planificador;
+using Nido.Infrastructure.Planificador;
 using Nido.Infrastructure.Telegram.Idempotency;
 using Nido.Infrastructure.Telegram.Authorization;
 using Nido.Infrastructure.Telegram.Conversation;
@@ -109,6 +113,7 @@ public static class DependencyInjection
         services.AddTransient<IResend, ResendClient>();
         services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
+        services.AddScoped<IListaComprasRepository, ListaComprasRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IResenaRecetaRepository, ResenaRecetaRepository>();
@@ -187,7 +192,7 @@ public static class DependencyInjection
         services.AddScoped<ITelegramMenuProvider, TelegramMenuProvider>();
         services.AddScoped<ITelegramNotificationBatcher, TelegramNotificationBatcher>();
 
-        // ── Lookup externo de productos por barcode ────────────────────────
+        // ── Lookup externo de productos por barcode ───────────────────────────────────────────
         // Pipeline:
         //   IExternalProductLookupService
         //     → CachedExternalProductLookupService   (decorator: cache en memoria)
@@ -207,6 +212,10 @@ public static class DependencyInjection
                 sp.GetRequiredService<OpenFoodFactsLookupService>(),
                 sp.GetRequiredService<IMemoryCache>(),
                 sp.GetRequiredService<IOptions<ExternalLookupOptions>>()));
+
+        services.AddScoped<CatalogoRepository>();
+        services.AddScoped<IPlanificadorRepository, PlanificadorRepository>();
+        services.AddScoped<PlanificadorHandler>();
 
         return services;
     }

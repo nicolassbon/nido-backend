@@ -38,6 +38,26 @@ public sealed class UsuarioRepository : IUsuarioRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<PerfilStatsResult> GetStatsAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken)
+    {
+        var tareasCompletadas = await _dbContext.Tareas
+            .AsNoTracking()
+            .CountAsync(x => x.HogarId == hogarId && x.CompletadoPor == usuarioId, cancellationToken);
+
+        var productosEscaneados = await _dbContext.StockHogars
+            .AsNoTracking()
+            .CountAsync(x =>
+                x.HogarId == hogarId
+                && x.CargadoPor == usuarioId
+                && !string.IsNullOrWhiteSpace(x.Producto.CodigoBarras), cancellationToken);
+
+        var logros = await _dbContext.LogrosUsuarios
+            .AsNoTracking()
+            .CountAsync(x => x.UsuarioId == usuarioId, cancellationToken);
+
+        return new PerfilStatsResult(tareasCompletadas, productosEscaneados, logros);
+    }
+
     public async Task UpdateAsync(Usuario usuario, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.Usuarios.FirstOrDefaultAsync(x => x.Id == usuario.Id, cancellationToken)

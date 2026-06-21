@@ -21,6 +21,10 @@ public partial class Hogare
 
     public virtual ICollection<ListaCompra> ListaCompras { get; set; } = new List<ListaCompra>();
 
+    public virtual ICollection<ListaCompraHogar> ListasCompraHogar { get; set; } = new List<ListaCompraHogar>();
+
+    public virtual ICollection<RecetaGuardadaHogar> RecetasGuardadasHogar { get; set; } = new List<RecetaGuardadaHogar>();
+
     public virtual ICollection<LogrosHogar> LogrosHogars { get; set; } = new List<LogrosHogar>();
 
     public virtual ICollection<MiembrosHogar> MiembrosHogars { get; set; } = new List<MiembrosHogar>();

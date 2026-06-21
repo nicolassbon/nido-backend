@@ -12,7 +12,10 @@ namespace Nido.Api.Controllers;
 public sealed class RecetasController : ControllerBase
 {
     private readonly GetRecetasHandler           _getRecetasHandler;
+    private readonly GetRecetasGuardadasHandler  _getRecetasGuardadasHandler;
     private readonly GetRecetaByIdHandler        _getRecetaByIdHandler;
+    private readonly SaveRecetaHandler           _saveRecetaHandler;
+    private readonly UnsaveRecetaHandler         _unsaveRecetaHandler;
     private readonly CocinarRecetaHandler        _cocinarRecetaHandler;
     private readonly UpsertResenaHandler         _upsertResenaHandler;
     private readonly GetResenasByRecetaHandler   _getResenasHandler;
@@ -23,7 +26,10 @@ public sealed class RecetasController : ControllerBase
 
     public RecetasController(
         GetRecetasHandler getRecetasHandler,
+        GetRecetasGuardadasHandler getRecetasGuardadasHandler,
         GetRecetaByIdHandler getRecetaByIdHandler,
+        SaveRecetaHandler saveRecetaHandler,
+        UnsaveRecetaHandler unsaveRecetaHandler,
         CocinarRecetaHandler cocinarRecetaHandler,
         UpsertResenaHandler upsertResenaHandler,
         GetResenasByRecetaHandler getResenasHandler,
@@ -33,7 +39,10 @@ public sealed class RecetasController : ControllerBase
         GetNotasByRecetaHandler getNotasHandler)
     {
         _getRecetasHandler    = getRecetasHandler;
+        _getRecetasGuardadasHandler = getRecetasGuardadasHandler;
         _getRecetaByIdHandler = getRecetaByIdHandler;
+        _saveRecetaHandler    = saveRecetaHandler;
+        _unsaveRecetaHandler  = unsaveRecetaHandler;
         _cocinarRecetaHandler = cocinarRecetaHandler;
         _upsertResenaHandler  = upsertResenaHandler;
         _getResenasHandler    = getResenasHandler;
@@ -43,12 +52,21 @@ public sealed class RecetasController : ControllerBase
         _getNotasHandler      = getNotasHandler;
     }
 
+    [HttpGet("guardadas")]
+    public async Task<IActionResult> GetGuardadas(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _getRecetasGuardadasHandler.Handle(currentUser.HogarId, currentUser.UsuarioId, ct);
+        return Ok(result.Select(ToResponse));
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
-        var result = await _getRecetasHandler.Handle(currentUser.HogarId, ct);
+        var result = await _getRecetasHandler.Handle(currentUser.HogarId, currentUser.UsuarioId, ct);
         return Ok(result.Select(ToResponse));
     }
 
@@ -59,7 +77,7 @@ public sealed class RecetasController : ControllerBase
         CancellationToken ct)
     {
         var result = await _getRecetaByIdHandler.Handle(
-            new GetRecetaByIdCommand(id, currentUser.HogarId), ct);
+            new GetRecetaByIdCommand(id, currentUser.HogarId, currentUser.UsuarioId), ct);
 
         if (result is null)
             return NotFound();
@@ -80,6 +98,26 @@ public sealed class RecetasController : ControllerBase
             return NotFound();
 
         return Ok(new CocinarRecetaResponse(result.RecetaId, result.VecesCocinada));
+    }
+
+    [HttpPost("{id:guid}/guardar")]
+    public async Task<IActionResult> Guardar(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var saved = await _saveRecetaHandler.Handle(id, currentUser.HogarId, currentUser.UsuarioId, ct);
+        return saved ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("{id:guid}/guardar")]
+    public async Task<IActionResult> QuitarGuardada(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var removed = await _unsaveRecetaHandler.Handle(id, currentUser.HogarId, ct);
+        return removed ? NoContent() : NotFound();
     }
 
     [HttpGet("{id}/resenas")]
@@ -211,6 +249,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.ProductoNombre,
                 ingrediente.Cantidad,
                 ingrediente.Unidad,
+                ingrediente.CantidadCompraEstandar,
+                ingrediente.UnidadCompraEstandar,
                 ingrediente.EnStock,
                 ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(
@@ -222,7 +262,16 @@ public sealed class RecetasController : ControllerBase
                 electrodomestico.TipoRequerido)).ToList(),
             receta.VecesCocinada,
             receta.CalificacionPromedio,
-            receta.CalificacionTotal);
+            receta.CalificacionTotal,
+            receta.TieneProductosPorVencer,
+            receta.FechaVencimientoMasProxima,
+            receta.DiasHastaVencimiento,
+            receta.ProductosPorVencer.Select(producto => new RecetaProductoPorVencerResponse(
+                producto.ProductoId,
+                producto.Nombre,
+                producto.FechaVencimiento,
+                producto.DiasHastaVencimiento)).ToList(),
+            receta.Guardada);
     }
 
     private static RecetaResponse ToResponseFromById(GetRecetaByIdResult receta)
@@ -247,6 +296,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.ProductoNombre,
                 ingrediente.Cantidad,
                 ingrediente.Unidad,
+                ingrediente.CantidadCompraEstandar,
+                ingrediente.UnidadCompraEstandar,
                 ingrediente.EnStock,
                 ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(
@@ -258,6 +309,15 @@ public sealed class RecetasController : ControllerBase
                 electrodomestico.TipoRequerido)).ToList(),
             receta.VecesCocinada,
             receta.CalificacionPromedio,
-            receta.CalificacionTotal);
+            receta.CalificacionTotal,
+            receta.TieneProductosPorVencer,
+            receta.FechaVencimientoMasProxima,
+            receta.DiasHastaVencimiento,
+            receta.ProductosPorVencer.Select(producto => new RecetaProductoPorVencerResponse(
+                producto.ProductoId,
+                producto.Nombre,
+                producto.FechaVencimiento,
+                producto.DiasHastaVencimiento)).ToList(),
+            receta.Guardada);
     }
 }

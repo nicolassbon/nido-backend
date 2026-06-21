@@ -92,19 +92,7 @@ public sealed class AceptarInvitacionHandlerTests
             handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
     }
 
-    [Fact]
-    public async Task Handle_UsuarioYaPerteneceAOtroHogar_LanzaNotSoleOwnerException()
-    {
-        var repo = new FakeInvitacionRepository { EsSoleOwner = false };
-        var handler = new AceptarInvitacionHandler(repo, new FakeJwt());
-
-        var ex = await Assert.ThrowsAsync<NotSoleOwnerException>(() =>
-            handler.Handle(new AceptarInvitacionCommand(repo.UsuarioId, "token-valido"), CancellationToken.None));
-
-        Assert.Equal("NOT_SOLE_OWNER", ex.Code);
-    }
-
-    // Test Fakes   
+    // Test Fakes
 
     private sealed class FakeInvitacionRepository : IInvitacionRepository
     {
@@ -112,7 +100,6 @@ public sealed class AceptarInvitacionHandlerTests
         public Guid HogarDestino { get; } = Guid.NewGuid();
         public Guid HogarActualDelUsuario { get; set; } = Guid.NewGuid(); // distinto al destino por defecto
         public int CantidadMiembros { get; set; } = 2;
-        public bool EsSoleOwner { get; set; } = true;
 
         public InvitacionInfo? Invitacion { get; set; }
 
@@ -128,17 +115,16 @@ public sealed class AceptarInvitacionHandlerTests
         public Task<int> CountRealMembersAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult(CantidadMiembros);
 
-        public Task<Guid> GetUserCurrentHogarIdAsync(Guid usuarioId, CancellationToken ct)
-            => Task.FromResult(HogarActualDelUsuario);
-
-        public Task<bool> IsUserSoleOwnerAsync(Guid usuarioId, CancellationToken ct)
-            => Task.FromResult(EsSoleOwner);
-
-        public Task MoveUserToHouseholdAsync(Guid usuarioId, Guid fromHogarId, Guid toHogarId, string token, CancellationToken ct)
+        public Task AddUserToHouseholdAsync(Guid usuarioId, Guid toHogarId, string token, CancellationToken ct)
             => Task.CompletedTask;
 
         public Task<(string Email, string Nombre)> GetUsuarioInfoAsync(Guid usuarioId, CancellationToken ct)
             => Task.FromResult(("usuario@mail.com", "Nombre Usuario"));
+
+        public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(hogarId == HogarActualDelUsuario);
+
+        public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => Task.FromResult(false);
 
         // Los métodos de abajo no se usan en AceptarInvitacionHandler
         public Task<string> CreateInvitacionAsync(Guid hogarId, Guid invitadoPor, string emailInvitado, DateTime expiresAt, CancellationToken ct) => Task.FromResult("");

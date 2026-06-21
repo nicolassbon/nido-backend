@@ -135,7 +135,7 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task RemoveMiembro_CuandoOwnerEliminaAConviviente_RemueveMembresiaYLeCreaNuevoHogar()
+    public async Task RemoveMiembro_CuandoOwnerEliminaAIntegrante_RemueveMembresiaYLeCreaNuevoHogar()
     {
         var owner = await RegisterAndAuthenticateAsync(_client, "hogar-remove-owner", "Owner Remove");
         var memberClient = _factory.CreateClient();
@@ -195,7 +195,7 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task InvitarConvivente_CuandoUsuarioNoEsOwner_DevuelveForbidden()
+    public async Task InvitarIntegrante_CuandoUsuarioNoEsOwner_DevuelveForbidden()
     {
         var owner = await RegisterAndAuthenticateAsync(_client, "invitar-owner", "Owner Invite");
         var memberClient = _factory.CreateClient();
@@ -213,7 +213,7 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task InvitarConvivente_CuandoEmailVacio_DevuelveBadRequest()
+    public async Task InvitarIntegrante_CuandoEmailVacio_DevuelveBadRequest()
     {
         var owner = await RegisterAndAuthenticateAsync(_client, "invitar-empty", "Owner Empty");
 
@@ -227,7 +227,7 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
-    public async Task InvitarConvivente_CuandoHogarLleno_DevuelveConflict()
+    public async Task InvitarIntegrante_CuandoHogarLleno_DevuelveConflict()
     {
         var owner = await RegisterAndAuthenticateAsync(_client, "invitar-full", "Owner Full");
         using (var scope = _factory.Services.CreateScope())
@@ -296,8 +296,7 @@ public sealed class HogaresEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
-        var membership = await db.MiembrosHogars.SingleAsync(x => x.UsuarioId == invitee.UsuarioId);
-        Assert.Equal(owner.HogarId, membership.HogarId);
+        var membership = await db.MiembrosHogars.SingleAsync(x => x.UsuarioId == invitee.UsuarioId && x.HogarId == owner.HogarId);
         Assert.Equal("integrante", membership.Rol);
     }
 

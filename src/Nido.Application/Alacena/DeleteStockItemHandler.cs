@@ -27,9 +27,9 @@ public sealed class DeleteStockItemHandler
 
         if (item is not null)
         {
-            var motivo = EsVencido(item.FechaVencimiento)
+            var motivo = command.Motivo ?? (EsVencido(item.FechaVencimiento)
                 ? ConsumoMotivos.Vencido
-                : ConsumoMotivos.Terminado;
+                : ConsumoMotivos.Consumido);
 
             await _consumos.RegistrarAsync(new RegistrarConsumoInput(
                 command.HogarId,

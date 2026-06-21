@@ -53,18 +53,31 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
         if (producto is null)
         {
+            var normalizedName = NormalizeName(request.Nombre);
+            var productos = await _db.Productos.ToListAsync(ct);
+            producto = productos.FirstOrDefault(p => NormalizeName(p.Nombre) == normalizedName);
+        }
+
+        if (producto is null)
+        {
             producto = new Producto
             {
                 Id = Guid.NewGuid(),
                 Nombre = request.Nombre,
+                CategoriaId = request.CategoriaId is null || request.CategoriaId == Guid.Empty
+                    ? null
+                    : request.CategoriaId,
                 CodigoBarras = request.CodigoBarras,
                 ImagenUrl = request.Imagen
             };
             _db.Productos.Add(producto);
         }
-        else if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+        else
         {
-            producto.ImagenUrl = request.Imagen;
+            if (producto.CategoriaId is null && request.CategoriaId is not null && request.CategoriaId != Guid.Empty)
+                producto.CategoriaId = request.CategoriaId;
+            if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+                producto.ImagenUrl = request.Imagen;
         }
 
         DateOnly? fechaVencimiento = null;
@@ -86,7 +99,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             Ubicacion = request.Ubicacion,
             EstaAbierto = request.EstaAbierto,
             PorcentajeConsumido = request.PorcentajeConsumido,
-            CantidadEnvases = request.CantidadEnvases < 1 ? 1 : request.CantidadEnvases
+            CantidadEnvases = request.CantidadEnvases < 1 ? 1 : request.CantidadEnvases,
+            OrigenCarga = request.OrigenCarga
         };
 
         _db.StockHogars.Add(stock);
@@ -161,7 +175,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.FechaVencimiento?.ToString("yyyy-MM-dd"),
             stock.EstaAbierto,
             stock.PorcentajeConsumido,
-            stock.CantidadEnvases);
+            stock.CantidadEnvases,
+            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga);
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();

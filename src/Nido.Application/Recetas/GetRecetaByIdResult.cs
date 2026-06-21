@@ -18,4 +18,9 @@ public sealed record GetRecetaByIdResult(
     IReadOnlyList<RecetaElectrodomesticoResult> Electrodomesticos,
     int VecesCocinada,
     decimal CalificacionPromedio,
-    int CalificacionTotal);
+    int CalificacionTotal,
+    bool TieneProductosPorVencer,
+    string? FechaVencimientoMasProxima,
+    int? DiasHastaVencimiento,
+    IReadOnlyList<RecetaProductoPorVencerResult> ProductosPorVencer,
+    bool Guardada = false);

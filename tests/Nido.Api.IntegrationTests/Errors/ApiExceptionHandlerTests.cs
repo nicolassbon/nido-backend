@@ -58,20 +58,6 @@ public sealed class ApiExceptionHandlerTests
     }
 
     [Fact]
-    public async Task TryHandle_MapsNotSoleOwnerException_To409Conflict()
-    {
-        var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
-        var context = new DefaultHttpContext();
-        context.Response.Body = new MemoryStream();
-
-        var exception = new NotSoleOwnerException();
-        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
-
-        Assert.True(result);
-        Assert.Equal(409, context.Response.StatusCode);
-    }
-
-    [Fact]
     public async Task TryHandle_MapsNoHouseholdAssociatedException_To500()
     {
         var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);

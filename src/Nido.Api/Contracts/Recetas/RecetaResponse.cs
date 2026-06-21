@@ -18,7 +18,18 @@ public sealed record RecetaResponse(
     IReadOnlyList<RecetaElectrodomesticoResponse> Electrodomesticos,
     int VecesCocinada,
     decimal CalificacionPromedio,
-    int CalificacionTotal);
+    int CalificacionTotal,
+    bool TieneProductosPorVencer,
+    string? FechaVencimientoMasProxima,
+    int? DiasHastaVencimiento,
+    IReadOnlyList<RecetaProductoPorVencerResponse> ProductosPorVencer,
+    bool Guardada);
+
+public sealed record RecetaProductoPorVencerResponse(
+    Guid ProductoId,
+    string Nombre,
+    string FechaVencimiento,
+    int DiasHastaVencimiento);
 
 public sealed record RecetaIngredienteResponse(
     Guid Id,
@@ -27,6 +38,8 @@ public sealed record RecetaIngredienteResponse(
     string? ProductoNombre,
     decimal? Cantidad,
     string? Unidad,
+    decimal? CantidadCompraEstandar,
+    string? UnidadCompraEstandar,
     bool EnStock,
     IReadOnlyList<string> Alergenos);
 

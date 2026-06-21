@@ -34,8 +34,35 @@ public sealed class AlacenaHandlersTests
 
         await Assert.ThrowsAsync<InvalidStockItemDateException>(() =>
             handler.Handle(
-                new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, "Alacena", 1, "g", "no-fecha", false, 0),
+                new CreateStockItemCommand(Guid.NewGuid(), Guid.NewGuid(), "Arroz", null, null, null, "Alacena", 1, "g", "no-fecha", false, 0),
                 CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Create_NormalizesAndPropagatesLoadOrigin()
+    {
+        var repo = new FakeAlacenaRepository();
+        var handler = new CreateStockItemHandler(repo);
+
+        await handler.Handle(
+            new CreateStockItemCommand(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Leche",
+                null,
+                "779123",
+                null,
+                "Alacena",
+                1,
+                "lt",
+                null,
+                false,
+                0,
+                OrigenCarga: "codigo_barras"),
+            CancellationToken.None);
+
+        Assert.NotNull(repo.LastCreateRequest);
+        Assert.Equal(StockLoadOrigins.CodigoBarras, repo.LastCreateRequest!.OrigenCarga);
     }
 
     [Fact]
@@ -83,7 +110,7 @@ public sealed class AlacenaHandlersTests
         Assert.Equal("Arroz", consumo.ProductoNombre);
         Assert.Equal(2.5m, consumo.Cantidad);
         Assert.Equal("kg", consumo.UnidadMedida);
-        Assert.Equal(ConsumoMotivos.Terminado, consumo.Motivo);
+        Assert.Equal(ConsumoMotivos.Consumido, consumo.Motivo);
         Assert.Equal(usuarioId, consumo.UsuarioId);
     }
 
@@ -112,6 +139,87 @@ public sealed class AlacenaHandlersTests
         Assert.Equal(ConsumoMotivos.Vencido, consumo.Motivo);
     }
 
+    [Fact]
+    public async Task Delete_WhenExpiredItemWithConsumidoMotivo_RegistersConsumidoConsumo()
+    {
+        var hogarId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var repo = new FakeAlacenaRepository
+        {
+            DeleteResult = true,
+            Items =
+            [
+                new StockItemResult(stockId, productoId, "Leche", null, null, null, "Heladera", 1m, "lt", DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)).ToString("yyyy-MM-dd"), false, 0, 1),
+            ]
+        };
+        var consumos = new FakeConsumoRepository();
+        var handler = new DeleteStockItemHandler(repo, consumos);
+
+        var result = await handler.Handle(
+            new DeleteStockItemCommand(stockId, hogarId, usuarioId, ConsumoMotivos.Consumido),
+            CancellationToken.None);
+
+        Assert.True(result);
+        var consumo = Assert.Single(consumos.Registros);
+        Assert.Equal(ConsumoMotivos.Consumido, consumo.Motivo);
+    }
+
+    [Fact]
+    public async Task Delete_WhenNonExpiredItemWithVencidoMotivo_RegistersVencidoConsumo()
+    {
+        var hogarId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var repo = new FakeAlacenaRepository
+        {
+            DeleteResult = true,
+            Items =
+            [
+                new StockItemResult(stockId, productoId, "Arroz", null, null, null, "Alacena", 1m, "kg", null, false, 0, 1),
+            ]
+        };
+        var consumos = new FakeConsumoRepository();
+        var handler = new DeleteStockItemHandler(repo, consumos);
+
+        var result = await handler.Handle(
+            new DeleteStockItemCommand(stockId, hogarId, usuarioId, ConsumoMotivos.Vencido),
+            CancellationToken.None);
+
+        Assert.True(result);
+        var consumo = Assert.Single(consumos.Registros);
+        Assert.Equal(ConsumoMotivos.Vencido, consumo.Motivo);
+    }
+
+    [Fact]
+    public async Task Delete_WhenItemWithDescartadoMotivo_RegistersDescartadoConsumo()
+    {
+        var hogarId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var repo = new FakeAlacenaRepository
+        {
+            DeleteResult = true,
+            Items =
+            [
+                new StockItemResult(stockId, productoId, "Yogur", null, null, null, "Heladera", 1m, "unidad", null, false, 0, 1),
+            ]
+        };
+        var consumos = new FakeConsumoRepository();
+        var handler = new DeleteStockItemHandler(repo, consumos);
+
+        var result = await handler.Handle(
+            new DeleteStockItemCommand(stockId, hogarId, usuarioId, ConsumoMotivos.Descartado),
+            CancellationToken.None);
+
+        Assert.True(result);
+        var consumo = Assert.Single(consumos.Registros);
+        Assert.Equal(ConsumoMotivos.Descartado, consumo.Motivo);
+    }
+
     private sealed class FakeAlacenaRepository : IAlacenaRepository
     {
         public IReadOnlyList<StockItemResult> Items { get; set; } = Array.Empty<StockItemResult>();
@@ -122,6 +230,7 @@ public sealed class AlacenaHandlersTests
         public Guid LastGetByIdHogarId { get; private set; }
         public Guid LastDeleteId { get; private set; }
         public Guid LastDeleteHogarId { get; private set; }
+        public CreateStockItemRequestModel? LastCreateRequest { get; private set; }
 
         public Task<IReadOnlyList<StockItemResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult(Items);
@@ -134,8 +243,11 @@ public sealed class AlacenaHandlersTests
         }
 
         public Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
-            => Task.FromResult(CreatedResult ??
-                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido, request.CantidadEnvases));
+        {
+            LastCreateRequest = request;
+            return Task.FromResult(CreatedResult ??
+                new StockItemResult(Guid.NewGuid(), Guid.NewGuid(), request.Nombre, request.Imagen, request.CodigoBarras, null, request.Ubicacion, request.Cantidad, request.UnidadMedida ?? "unidad", request.FechaVencimiento, request.EstaAbierto, request.PorcentajeConsumido, request.CantidadEnvases, request.OrigenCarga));
+        }
 
         public Task<StockItemResult?> UpdateAsync(UpdateStockItemRequestModel request, CancellationToken ct)
             => Task.FromResult(UpdatedResult);
@@ -161,6 +273,10 @@ public sealed class AlacenaHandlersTests
         public Task<IReadOnlyList<ConsumoPorProducto>> GetConsumosPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ConsumoPorProducto>>(Array.Empty<ConsumoPorProducto>());
+
+        public Task<IReadOnlyList<ConsumoMovimiento>> GetMovimientosAsync(
+            Guid hogarId, ConsumoMovimientosFiltro filtro, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ConsumoMovimiento>>(Array.Empty<ConsumoMovimiento>());
 
         public Task<IReadOnlyList<ComprasPorProducto>> GetComprasPorProductoAsync(
             Guid hogarId, int diasAtras, CancellationToken ct)
