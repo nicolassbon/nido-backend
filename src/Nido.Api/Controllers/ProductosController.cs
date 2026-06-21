@@ -74,6 +74,11 @@ public sealed class ProductoController : ControllerBase
             categoriesTags    = result.CategoriesTags,
             categoriaSugerida = result.CategoriaSugerida,
             foundInDb         = result.FoundInDb,
+            calorias          = result.Calorias,
+            proteinas         = result.Proteinas,
+            carbohidratos     = result.Carbohidratos,
+            grasas            = result.Grasas,
+            gramajeExtraido   = result.GramajeExtraido,
         });
     }
 
