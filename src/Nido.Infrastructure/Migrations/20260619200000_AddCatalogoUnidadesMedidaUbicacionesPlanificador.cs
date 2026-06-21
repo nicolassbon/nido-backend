@@ -98,6 +98,7 @@ namespace Nido.Infrastructure.Migrations
                 {
                     id           = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "uuid_generate_v4()"),
                     semana_id    = table.Column<Guid>(type: "uuid", nullable: false),
+                    tarea_id     = table.Column<Guid>(type: "uuid", nullable: true),
                     fecha        = table.Column<DateOnly>(type: "date", nullable: false),
                     tipo_comida  = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     receta_id    = table.Column<Guid>(type: "uuid", nullable: true),
@@ -123,6 +124,12 @@ namespace Nido.Infrastructure.Migrations
                         principalTable: "recetas",
                         principalColumn: "id");
                     table.ForeignKey(
+                        name: "planificador_item_tarea_id_fkey",
+                        column: x => x.tarea_id,
+                        principalTable: "tareas",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
                         name: "planificador_item_creado_por_fkey",
                         column: x => x.creado_por,
                         principalTable: "usuarios",
@@ -138,6 +145,11 @@ namespace Nido.Infrastructure.Migrations
                 name: "idx_planificador_item_fecha",
                 table: "planificador_item",
                 column: "fecha");
+
+            migrationBuilder.CreateIndex(
+                name: "idx_planificador_item_tarea",
+                table: "planificador_item",
+                column: "tarea_id");
         }
 
         /// <inheritdoc />

@@ -525,5 +525,6 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
+
 }
 

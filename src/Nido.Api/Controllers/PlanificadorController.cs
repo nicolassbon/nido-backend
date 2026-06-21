@@ -53,7 +53,8 @@ public sealed class PlanificadorController : ControllerBase
                 request.TipoComida.ToLowerInvariant(),
                 request.RecetaId,
                 request.TituloLibre,
-                request.Hora),
+                request.Hora,
+                request.AsignadoA),
             ct);
 
         return Ok(ToItemResponse(result));
@@ -71,9 +72,11 @@ public sealed class PlanificadorController : ControllerBase
             new UpdatePlanificadorItemCommand(
                 id,
                 currentUser.HogarId,
+                currentUser.UsuarioId,
                 request.RecetaId,
                 request.TituloLibre,
-                request.Hora),
+                request.Hora,
+                request.AsignadoA),
             ct);
 
         return result is null ? NotFound() : Ok(ToItemResponse(result));
@@ -97,11 +100,19 @@ public sealed class PlanificadorController : ControllerBase
         item.Id,
         Fecha = item.Fecha.ToString("yyyy-MM-dd"),
         item.TipoComida,
+        item.TareaId,
         item.RecetaId,
         item.RecetaNombre,
         item.ImagenUrl,
         item.TituloLibre,
         item.Hora,
+        item.TareaEstado,
+        AsignadoA = item.AsignadoA is null ? null : new
+        {
+            item.AsignadoA.UsuarioId,
+            item.AsignadoA.Nombre,
+            item.AsignadoA.FotoStorageKey,
+        },
         item.Orden,
         item.CreadoPor,
     };
@@ -119,9 +130,11 @@ public sealed record AddPlanificadorItemRequest(
     string TipoComida,
     Guid? RecetaId,
     string? TituloLibre,
-    string? Hora);
+    string? Hora,
+    Guid? AsignadoA);
 
 public sealed record UpdatePlanificadorItemRequest(
     Guid? RecetaId,
     string? TituloLibre,
-    string? Hora);
+    string? Hora,
+    Guid? AsignadoA);
