@@ -22,7 +22,6 @@ public sealed class TelegramOptionsTests
         var options = new TelegramOptions();
 
         Assert.Equal("MarkdownV2", options.DefaultParseMode);
-        Assert.Equal(string.Empty, options.FrontEndBaseUrl);
         Assert.Equal(9, options.DailySummaryHourUtc);
         Assert.Equal(30, options.OutboxPollIntervalSeconds);
         Assert.Equal(50, options.OutboxMaxBatchSize);
@@ -80,7 +79,6 @@ public sealed class TelegramOptionsTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Telegram:DefaultParseMode"] = "HTML",
-                ["Telegram:FrontEndBaseUrl"] = "https://nido.example.com",
                 ["Telegram:DailySummaryHourUtc"] = "8",
                 ["Telegram:OutboxPollIntervalSeconds"] = "15",
                 ["Telegram:OutboxMaxBatchSize"] = "100",
@@ -107,7 +105,6 @@ public sealed class TelegramOptionsTests
         var options = provider.GetRequiredService<IOptions<TelegramOptions>>().Value;
 
         Assert.Equal("HTML", options.DefaultParseMode);
-        Assert.Equal("https://nido.example.com", options.FrontEndBaseUrl);
         Assert.Equal(8, options.DailySummaryHourUtc);
         Assert.Equal(15, options.OutboxPollIntervalSeconds);
         Assert.Equal(100, options.OutboxMaxBatchSize);
@@ -255,7 +252,6 @@ public sealed class TelegramOptionsTests
 
         Assert.Null(options.BotToken);
         Assert.Null(options.WebhookSecretToken);
-        Assert.Equal(string.Empty, options.FrontEndBaseUrl);
     }
 
     [Fact]
@@ -280,7 +276,6 @@ public sealed class TelegramOptionsTests
         Assert.Equal("", options.BotToken);
         Assert.Equal("", options.WebhookSecretToken);
         Assert.Equal("MarkdownV2", options.DefaultParseMode);
-        Assert.Equal("", options.FrontEndBaseUrl);
         Assert.Equal(9, options.DailySummaryHourUtc);
         Assert.Equal(30, options.OutboxPollIntervalSeconds);
         Assert.Equal(50, options.OutboxMaxBatchSize);

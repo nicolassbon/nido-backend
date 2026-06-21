@@ -21,8 +21,6 @@ public sealed class TelegramOptions
     [Required]
     public string DefaultParseMode { get; init; } = "MarkdownV2";
 
-    public string FrontEndBaseUrl { get; init; } = string.Empty;
-
     [Range(0, 23, ErrorMessage = "DailySummaryHourUtc must be between 0 and 23.")]
     public int DailySummaryHourUtc { get; init; } = 9;
 
