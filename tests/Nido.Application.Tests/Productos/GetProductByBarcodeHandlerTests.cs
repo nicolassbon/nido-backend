@@ -52,7 +52,7 @@ public sealed class GetProductByBarcodeHandlerTests
     {
         public GetProductByBarcodeResult? Producto { get; set; }
 
-        public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, CancellationToken ct)
+        public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, Guid? hogarId, CancellationToken ct)
             => Task.FromResult(Producto);
 
         public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
@@ -61,7 +61,8 @@ public sealed class GetProductByBarcodeHandlerTests
         public Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
             => Task.FromResult(Enumerable.Empty<SearchProductosResult>());
 
-        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct,
+            decimal? calorias = null, decimal? proteinas = null, decimal? carbohidratos = null, decimal? grasas = null)
             => throw new NotSupportedException("CreateAsync should not be called by GetProductByBarcodeHandler tests.");
     }
 }

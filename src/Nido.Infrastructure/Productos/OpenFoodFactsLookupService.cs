@@ -70,7 +70,8 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
             var categories  = p.CategoriesTags ?? Array.Empty<string>();
             var n           = p.Nutriments;
             var sanitized   = SanitizeName(p.ProductNameEs ?? p.ProductName ?? p.ProductNameEn ?? string.Empty);
-            var (cleanName, gramaje) = ExtractGramaje(sanitized);
+            var deBranded   = StripTrailingBrand(sanitized, p.Brands ?? string.Empty);
+            var (cleanName, gramaje) = ExtractGramaje(deBranded);
 
             return new LookupExternalProductoResult(
                 Name:              cleanName,
@@ -106,7 +107,8 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
             var item        = res.Items[0];
             var categories  = ParseCategoryString(item.Category ?? string.Empty);
             var sanitized   = SanitizeName(item.Title ?? string.Empty);
-            var (cleanName, gramaje) = ExtractGramaje(sanitized);
+            var deBranded   = StripTrailingBrand(sanitized, item.Brand ?? string.Empty);
+            var (cleanName, gramaje) = ExtractGramaje(deBranded);
 
             return new LookupExternalProductoResult(
                 Name:              cleanName,
@@ -138,26 +140,59 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
     }
 
     /// <summary>
-    /// Extrae el gramaje del final del nombre (ej: "Producto 290g" → (name: "Producto", gramaje: 290m))
-    /// Si no encuentra gramaje, devuelve (name, null)
+    /// Saca la marca del final del nombre cuando aparece como token final
+    /// (ej: "Queso blanco light x 290 Tregar" + marca "Tregar" → "Queso blanco light x 290").
+    /// Las marcas de OFF pueden venir separadas por coma.
+    /// </summary>
+    private static string StripTrailingBrand(string name, string brands)
+    {
+        if (string.IsNullOrWhiteSpace(brands)) return name.Trim();
+
+        var result = name.Trim();
+        foreach (var brand in brands.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (brand.Length < 2) continue;
+            result = Regex.Replace(result, $@"\s+{Regex.Escape(brand)}\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Extrae el gramaje del final del nombre, tolerando el prefijo "x" típico de
+    /// Argentina y unidades de peso/volumen:
+    ///   "Producto 290g"      → ("Producto", 290)
+    ///   "Producto x 290"     → ("Producto", 290)
+    ///   "Producto x290 g"    → ("Producto", 290)
+    /// Si no encuentra gramaje, devuelve (name, null).
     /// </summary>
     private static (string cleanName, decimal? gramaje) ExtractGramaje(string name)
     {
         var trimmed = name.Trim();
-        var match = Regex.Match(trimmed, @"^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:gr|g|gramos)?$", RegexOptions.IgnoreCase);
 
-        if (!match.Success) return (trimmed, null);
-
-        var cleanName = match.Groups[1].Value.Trim();
-        var gramStr = match.Groups[2].Value.Replace(",", ".");
-
-        if (decimal.TryParse(gramStr, System.Globalization.CultureInfo.InvariantCulture, out var gramaje))
+        // Formato argentino "Producto x 290 [marca]": cortamos todo desde la "x"
+        // y nos quedamos con el número, aunque haya texto (marca) después.
+        var xMatch = Regex.Match(trimmed, @"^(.+?)\s+x\s*(\d+(?:[.,]\d+)?)\b", RegexOptions.IgnoreCase);
+        if (xMatch.Success && TryParseGramaje(xMatch.Groups[2].Value, out var xg))
         {
-            return (cleanName, gramaje);
+            return (xMatch.Groups[1].Value.Trim(), xg);
+        }
+
+        // Gramaje al final con unidad opcional: "Producto 290g".
+        var endMatch = Regex.Match(
+            trimmed,
+            @"^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:gr|grs|g|gramos|kg|ml|cc|cm3|lt|l|litros?)?\s*$",
+            RegexOptions.IgnoreCase);
+        if (endMatch.Success && TryParseGramaje(endMatch.Groups[2].Value, out var eg))
+        {
+            return (endMatch.Groups[1].Value.Trim(), eg);
         }
 
         return (trimmed, null);
     }
+
+    private static bool TryParseGramaje(string raw, out decimal value) =>
+        decimal.TryParse(raw.Replace(",", "."), System.Globalization.CultureInfo.InvariantCulture, out value);
 
     /// <summary>
     /// "Food &amp; Grocery > Dairy > Spreads" → ["en:food-grocery", "en:dairy", "en:spreads"]
