@@ -27,6 +27,18 @@ jobs:
       - name: Test
         run: dotnet test Nido.slnx --no-build --verbosity normal
 
+      - name: Build Docker image
+        run: |
+          n=0
+          until [ "$n" -ge 5 ]; do
+            docker build -t nido-api:test . && exit 0
+            n=$((n+1))
+            echo "::warning::docker build attempt $n failed (likely mcr.microsoft.com rate limit). Retrying in 30s..."
+            sleep 30
+          done
+          echo "::error::docker build failed after 5 attempts."
+          exit 1
+
   deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
