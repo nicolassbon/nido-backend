@@ -102,6 +102,11 @@ public sealed class RegisterUserHandler
         {
             throw new WeakPasswordException();
         }
+
+        if (!command.AceptaTerminos)
+        {
+            throw new TermsNotAcceptedException();
+        }
     }
 
     private NewUserRegistrationData BuildNewRegistrationData(RegisterUserCommand command, string normalizedEmail, Guid usuarioId)
@@ -112,7 +117,8 @@ public sealed class RegisterUserHandler
             command.Nombre.Trim(),
             normalizedEmail,
             _passwordHasher.Hash(command.Password),
-            command.Sexo.Trim());
+            command.Sexo.Trim(),
+            command.AceptaTerminos);
     }
 
     private async Task<string?> UploadProfileImageIfPresentAsync(
@@ -147,6 +153,7 @@ public sealed class RegisterUserHandler
             registration.PasswordHash,
             registration.Sexo,
             fotoStorageKey,
+            registration.AceptaTerminos,
             cancellationToken);
     }
 
@@ -193,5 +200,6 @@ public sealed class RegisterUserHandler
         string Nombre,
         string Email,
         string PasswordHash,
-        string Sexo);
+        string Sexo,
+        bool AceptaTerminos);
 }

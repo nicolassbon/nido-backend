@@ -25,6 +25,10 @@ public partial class Usuario
 
     public DateTime? FotoUpdatedAt { get; set; }
 
+    public bool AceptaTerminos { get; set; }
+
+    public DateTime? AceptaTerminosAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

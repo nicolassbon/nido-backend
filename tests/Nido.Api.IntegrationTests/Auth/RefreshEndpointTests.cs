@@ -1,4 +1,4 @@
-using Nido.Application.Auth.RefreshToken;
+﻿using Nido.Application.Auth.RefreshToken;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +30,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+            await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, true, CancellationToken.None);
         }
 
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
@@ -74,7 +74,7 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
             var jwt = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, "hash", "M", null, CancellationToken.None);
+            var (userId, _) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, "hash", "M", null, true, CancellationToken.None);
 
             rawToken = jwt.GenerateRefreshToken();
             var tokenHash = jwt.HashRefreshToken(rawToken);

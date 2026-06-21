@@ -1,15 +1,75 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Persistence;
 
 public partial class NidoDbContext : DbContext
 {
-    public NidoDbContext(DbContextOptions<NidoDbContext> options)
+    private readonly IServiceProvider? _serviceProvider;
+
+    public NidoDbContext(DbContextOptions<NidoDbContext> options, IServiceProvider? serviceProvider = null)
         : base(options)
     {
+        _serviceProvider = serviceProvider;
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var addedNotifications = ChangeTracker.Entries<Notificacione>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .ToList();
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (addedNotifications.Count > 0 && _serviceProvider != null)
+        {
+            foreach (var notif in addedNotifications)
+            {
+                var title = notif.Tipo switch
+                {
+                    "tarea_vencida" => "Tarea Vencida",
+                    "producto_vencido" => "Producto Vencido",
+                    "producto_por_vencer" => "Producto por Vencer",
+                    "stock_bajo" => "Stock Bajo",
+                    "asignacion_tarea" => "Aviso de tareas asignadas",
+                    _ => "Nueva Notificación"
+                };
+
+                var redirectUrl = notif.ReferenciaTipo switch
+                {
+                    "tarea" => "/tareas",
+                    "alacena" => "/alacena",
+                    _ => "/"
+                };
+
+                // Capture required values before starting the background thread
+                var targetUsuarioId = notif.UsuarioId;
+                var targetMensaje = notif.Mensaje ?? string.Empty;
+
+                // Send push notification in background using an isolated DI scope
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using (var scope = _serviceProvider.CreateScope())
+                        {
+                            var pushService = scope.ServiceProvider.GetRequiredService<Nido.Application.Common.Notifications.IPushNotificationService>();
+                            await pushService.SendNotificationAsync(targetUsuarioId, title, targetMensaje, redirectUrl, CancellationToken.None);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error sending background push notification: {ex.Message}");
+                    }
+                }, CancellationToken.None);
+            }
+        }
+
+        return result;
     }
 
     public virtual DbSet<AsignacionesTarea> AsignacionesTareas { get; set; }
@@ -22,11 +82,15 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<PasoReceta> PasosReceta { get; set; }
 
+    public virtual DbSet<Factura> Facturas { get; set; }
+
     public virtual DbSet<Gasto> Gastos { get; set; }
 
     public virtual DbSet<Hogare> Hogares { get; set; }
 
     public virtual DbSet<InfoNutricionalProducto> InfoNutricionalProductos { get; set; }
+
+    public virtual DbSet<InfoNutricionalProductoDetalle> InfoNutricionalProductoDetalles { get; set; }
 
     public virtual DbSet<InfoNutricionalRecetum> InfoNutricionalReceta { get; set; }
 
@@ -35,6 +99,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<InvitacionesHogar> InvitacionesHogars { get; set; }
 
     public virtual DbSet<ListaCompra> ListaCompras { get; set; }
+
+    public virtual DbSet<ListaCompraHogar> ListasCompraHogar { get; set; }
 
     public virtual DbSet<Logro> Logros { get; set; }
 
@@ -53,6 +119,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<RecetaElectrodomestico> RecetaElectrodomesticos { get; set; }
 
     public virtual DbSet<RecetasCocinada> RecetasCocinadas { get; set; }
+
+    public virtual DbSet<RecetaGuardadaHogar> RecetasGuardadasHogar { get; set; }
 
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
@@ -76,7 +144,19 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<Tarea> Tareas { get; set; }
 
+    public virtual DbSet<PresupuestoMensual> PresupuestosMensuales { get; set; }
+
     public virtual DbSet<Usuario> Usuarios { get; set; }
+
+    public virtual DbSet<SuscripcionPush> SuscripcionesPush { get; set; }
+
+    public virtual DbSet<UnidadMedida> UnidadesMedida { get; set; }
+
+    public virtual DbSet<UbicacionCatalogo> UbicacionesCatalogo { get; set; }
+
+    public virtual DbSet<PlanificadorSemana> PlanificadorSemanas { get; set; }
+
+    public virtual DbSet<PlanificadorItem> PlanificadorItems { get; set; }
 
 
 
@@ -220,6 +300,34 @@ public partial class NidoDbContext : DbContext
                 .HasColumnName("activo");
         });
 
+        modelBuilder.Entity<Factura>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("facturas_pkey");
+            entity.ToTable("facturas");
+            entity.HasIndex(e => e.HogarId, "idx_facturas_hogar");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
+            entity.Property(e => e.Nombre).HasMaxLength(255).HasColumnName("nombre");
+            entity.Property(e => e.Tipo).HasMaxLength(50).HasColumnName("tipo");
+            entity.Property(e => e.Monto).HasPrecision(10, 2).HasColumnName("monto");
+            entity.Property(e => e.FechaVencimiento).HasColumnName("fecha_vencimiento");
+            entity.Property(e => e.ArchivoStorageKey).HasMaxLength(500).HasColumnName("archivo_storage_key");
+            entity.Property(e => e.Pagada).HasDefaultValue(false).HasColumnName("pagada");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("facturas_hogar_id_fkey");
+            entity.HasOne(d => d.CreadoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadoPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("facturas_creado_por_fkey");
+        });
+
         modelBuilder.Entity<Gasto>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("gastos_pkey");
@@ -247,6 +355,7 @@ public partial class NidoDbContext : DbContext
                 .HasPrecision(10, 2)
                 .HasColumnName("monto");
             entity.Property(e => e.PagadoPor).HasColumnName("pagado_por");
+            entity.Property(e => e.FacturaId).HasColumnName("factura_id").IsRequired(false);
 
             entity.HasOne(d => d.Hogar).WithMany(p => p.Gastos)
                 .HasForeignKey(d => d.HogarId)
@@ -272,6 +381,9 @@ public partial class NidoDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.ModoAhorro)
+                .HasDefaultValue(false)
+                .HasColumnName("modo_ahorro");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
@@ -295,6 +407,12 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Grasas)
                 .HasPrecision(10, 2)
                 .HasColumnName("grasas");
+            entity.Property(e => e.Porcion)
+                .HasMaxLength(100)
+                .HasColumnName("porcion");
+            entity.Property(e => e.Base)
+                .HasMaxLength(100)
+                .HasColumnName("base");
             entity.Property(e => e.ProductoId).HasColumnName("producto_id");
             entity.Property(e => e.Proteinas)
                 .HasPrecision(10, 2)
@@ -304,6 +422,38 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.ProductoId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("info_nutricional_producto_producto_id_fkey");
+        });
+
+        modelBuilder.Entity<InfoNutricionalProductoDetalle>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("info_nutricional_producto_detalle_pkey");
+
+            entity.ToTable("info_nutricional_producto_detalle");
+
+            entity.HasIndex(e => e.InfoNutricionalProductoId, "idx_info_nutricional_producto_detalle_info_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.InfoNutricionalProductoId).HasColumnName("info_nutricional_producto_id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(150)
+                .HasColumnName("nombre");
+            entity.Property(e => e.Valor)
+                .HasPrecision(10, 2)
+                .HasColumnName("valor");
+            entity.Property(e => e.Unidad)
+                .HasMaxLength(30)
+                .HasColumnName("unidad");
+            entity.Property(e => e.PorcentajeDiario)
+                .HasPrecision(6, 2)
+                .HasColumnName("porcentaje_diario");
+            entity.Property(e => e.Orden).HasColumnName("orden");
+
+            entity.HasOne(d => d.InfoNutricionalProducto).WithMany(p => p.Detalles)
+                .HasForeignKey(d => d.InfoNutricionalProductoId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("info_nutricional_producto_detalle_info_id_fkey");
         });
 
         modelBuilder.Entity<InfoNutricionalRecetum>(entity =>
@@ -429,8 +579,34 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Comprado)
                 .HasDefaultValue(false)
                 .HasColumnName("comprado");
+            entity.Property(e => e.CompradoEn)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("comprado_en");
+            entity.Property(e => e.CompradoPor).HasColumnName("comprado_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.GrupoNombre)
+                .HasMaxLength(255)
+                .HasDefaultValue("Productos agregados")
+                .HasColumnName("grupo_nombre");
             entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.ListaId).HasColumnName("lista_id");
+            entity.Property(e => e.NombreManual)
+                .HasMaxLength(255)
+                .HasColumnName("nombre_manual");
+            entity.Property(e => e.Orden)
+                .HasDefaultValue(0)
+                .HasColumnName("orden");
             entity.Property(e => e.ProductoId).HasColumnName("producto_id");
+            entity.Property(e => e.ProductoNombreSnapshot)
+                .HasMaxLength(255)
+                .HasDefaultValue("")
+                .HasColumnName("producto_nombre_snapshot");
+            entity.Property(e => e.RemovidoDeListaAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("removido_de_lista_at");
             entity.Property(e => e.Unidad)
                 .HasMaxLength(100)
                 .HasColumnName("unidad");
@@ -440,15 +616,57 @@ public partial class NidoDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("lista_compras_agregado_por_fkey");
 
+            entity.HasOne(d => d.CompradoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CompradoPor)
+                .HasConstraintName("lista_compras_comprado_por_fkey");
+
             entity.HasOne(d => d.Hogar).WithMany(p => p.ListaCompras)
                 .HasForeignKey(d => d.HogarId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("lista_compras_hogar_id_fkey");
 
+            entity.HasOne(d => d.Lista).WithMany(p => p.Items)
+                .HasForeignKey(d => d.ListaId)
+                .HasConstraintName("lista_compras_lista_id_fkey");
+
             entity.HasOne(d => d.Producto).WithMany(p => p.ListaCompras)
                 .HasForeignKey(d => d.ProductoId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("lista_compras_producto_id_fkey");
+        });
+
+        modelBuilder.Entity<ListaCompraHogar>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("listas_compra_hogar_pkey");
+
+            entity.ToTable("listas_compra_hogar");
+
+            entity.HasIndex(e => e.HogarId, "idx_listas_compra_hogar_hogar");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(120)
+                .HasColumnName("nombre");
+            entity.Property(e => e.CreadaPor).HasColumnName("creada_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Hogar).WithMany(p => p.ListasCompraHogar)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("listas_compra_hogar_hogar_id_fkey");
+
+            entity.HasOne(d => d.CreadaPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadaPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("listas_compra_hogar_creada_por_fkey");
         });
 
         modelBuilder.Entity<Logro>(entity =>
@@ -642,9 +860,15 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.CodigoBarras)
                 .HasMaxLength(255)
                 .HasColumnName("codigo_barras");
+            entity.Property(e => e.CantidadCompraEstandar)
+                .HasPrecision(10, 2)
+                .HasColumnName("cantidad_compra_estandar");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
+            entity.Property(e => e.UnidadCompraEstandar)
+                .HasMaxLength(50)
+                .HasColumnName("unidad_compra_estandar");
 
             entity.HasOne(d => d.Categoria).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.CategoriaId)
@@ -745,9 +969,17 @@ public partial class NidoDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
             entity.Property(e => e.Puntuacion).HasColumnName("puntuacion");
             entity.Property(e => e.RecetaId).HasColumnName("receta_id");
             entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+
+            // 1 reseña por (receta, usuario)
+            entity.HasIndex(e => new { e.RecetaId, e.UsuarioId })
+                .IsUnique()
+                .HasDatabaseName("resenias_receta_receta_id_usuario_id_key");
 
             entity.HasOne(d => d.Receta).WithMany(p => p.ReseniasReceta)
                 .HasForeignKey(d => d.RecetaId)
@@ -860,6 +1092,13 @@ public partial class NidoDbContext : DbContext
                 .HasPrecision(5, 2)
                 .HasDefaultValue(0m)
                 .HasColumnName("porcentaje_consumido");
+            entity.Property(e => e.CantidadEnvases)
+                .HasDefaultValue(1)
+                .HasColumnName("cantidad_envases");
+            entity.Property(e => e.OrigenCarga)
+                .HasMaxLength(30)
+                .HasDefaultValue("manual")
+                .HasColumnName("origen_carga");
 
             entity.HasOne(d => d.CargadoPorNavigation).WithMany(p => p.StockHogarCargadoPorNavigations)
                 .HasForeignKey(d => d.CargadoPor)
@@ -882,6 +1121,60 @@ public partial class NidoDbContext : DbContext
                 .HasConstraintName("stock_hogar_updated_by_fkey");
         });
 
+        modelBuilder.Entity<RecetaGuardadaHogar>(entity =>
+        {
+            entity.HasKey(e => new { e.HogarId, e.RecetaId }).HasName("recetas_guardadas_hogar_pkey");
+
+            entity.ToTable("recetas_guardadas_hogar");
+
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.RecetaId).HasColumnName("receta_id");
+            entity.Property(e => e.GuardadaPor).HasColumnName("guardada_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Hogar).WithMany(p => p.RecetasGuardadasHogar)
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("recetas_guardadas_hogar_hogar_id_fkey");
+
+            entity.HasOne(d => d.Receta).WithMany(p => p.RecetasGuardadasHogar)
+                .HasForeignKey(d => d.RecetaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("recetas_guardadas_hogar_receta_id_fkey");
+
+            entity.HasOne(d => d.GuardadaPorNavigation).WithMany()
+                .HasForeignKey(d => d.GuardadaPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("recetas_guardadas_hogar_guardada_por_fkey");
+        });
+
+        modelBuilder.Entity<PresupuestoMensual>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("presupuestos_mensuales_pkey");
+            entity.ToTable("presupuestos_mensuales");
+            entity.HasIndex(e => new { e.HogarId, e.Anio, e.Mes }, "ux_presupuestos_hogar_anio_mes").IsUnique();
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.Anio).HasColumnName("anio");
+            entity.Property(e => e.Mes).HasColumnName("mes");
+            entity.Property(e => e.Monto).HasPrecision(12, 2).HasColumnName("monto");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("presupuestos_mensuales_hogar_id_fkey");
+        });
+
         modelBuilder.Entity<Tarea>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("tareas_pkey");
@@ -893,7 +1186,7 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
-            entity.Property(e => e.CompletadoPor).HasColumnName("completado_por");
+            entity.Property(e => e.CompletadoPor).HasColumnName("completado_por").IsRequired(false);
             entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
@@ -1045,6 +1338,111 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("password_reset_tokens_usuario_id_fkey");
+        });
+
+        modelBuilder.Entity<SuscripcionPush>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("suscripciones_push_pkey");
+
+            entity.ToTable("suscripciones_push");
+
+            entity.HasIndex(e => e.UsuarioId, "idx_suscripciones_push_usuario");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.Property(e => e.Endpoint).HasColumnName("endpoint");
+            entity.Property(e => e.P256dh).HasColumnName("p256dh");
+            entity.Property(e => e.Auth).HasColumnName("auth");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Usuario).WithMany()
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("suscripciones_push_usuario_id_fkey");
+        });
+
+        modelBuilder.Entity<UnidadMedida>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("unidades_medida_pkey");
+            entity.ToTable("unidades_medida");
+            entity.HasIndex(e => e.Codigo).IsUnique();
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.Codigo).HasMaxLength(20).HasColumnName("codigo");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+        });
+
+        modelBuilder.Entity<UbicacionCatalogo>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("ubicaciones_catalogo_pkey");
+            entity.ToTable("ubicaciones_catalogo");
+            entity.HasIndex(e => e.Nombre).IsUnique();
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.Nombre).HasMaxLength(100).HasColumnName("nombre");
+            entity.Property(e => e.Icono).HasMaxLength(50).HasColumnName("icono");
+            entity.Property(e => e.Color).HasMaxLength(20).HasColumnName("color");
+        });
+
+        modelBuilder.Entity<PlanificadorSemana>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("planificador_semana_pkey");
+            entity.ToTable("planificador_semana");
+            entity.HasIndex(e => e.HogarId, "idx_planificador_semana_hogar");
+            entity.HasIndex(e => new { e.HogarId, e.FechaInicio }).IsUnique().HasDatabaseName("planificador_semana_hogar_fecha_key");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.HogarId).HasColumnName("hogar_id");
+            entity.Property(e => e.FechaInicio).HasColumnName("fecha_inicio");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Hogar).WithMany()
+                .HasForeignKey(d => d.HogarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_semana_hogar_id_fkey");
+        });
+
+        modelBuilder.Entity<PlanificadorItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("planificador_item_pkey");
+            entity.ToTable("planificador_item");
+            entity.HasIndex(e => e.SemanaId, "idx_planificador_item_semana");
+            entity.HasIndex(e => e.Fecha, "idx_planificador_item_fecha");
+            entity.HasIndex(e => e.TareaId, "idx_planificador_item_tarea");
+            entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
+            entity.Property(e => e.SemanaId).HasColumnName("semana_id");
+            entity.Property(e => e.TareaId).HasColumnName("tarea_id");
+            entity.Property(e => e.Fecha).HasColumnName("fecha");
+            entity.Property(e => e.TipoComida).HasMaxLength(20).HasColumnName("tipo_comida");
+            entity.Property(e => e.RecetaId).HasColumnName("receta_id");
+            entity.Property(e => e.TituloLibre).HasMaxLength(255).HasColumnName("titulo_libre");
+            entity.Property(e => e.ImagenUrl).HasMaxLength(500).HasColumnName("imagen_url");
+            entity.Property(e => e.Hora).HasMaxLength(10).HasColumnName("hora");
+            entity.Property(e => e.Orden).HasDefaultValue(0).HasColumnName("orden");
+            entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.HasOne(d => d.Semana).WithMany(p => p.Items)
+                .HasForeignKey(d => d.SemanaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_item_semana_id_fkey");
+            entity.HasOne(d => d.Receta).WithMany()
+                .HasForeignKey(d => d.RecetaId)
+                .HasConstraintName("planificador_item_receta_id_fkey");
+            entity.HasOne(d => d.Tarea).WithMany(p => p.PlanificadorItems)
+                .HasForeignKey(d => d.TareaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_item_tarea_id_fkey");
+            entity.HasOne(d => d.CreadoPorNavigation).WithMany()
+                .HasForeignKey(d => d.CreadoPor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("planificador_item_creado_por_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

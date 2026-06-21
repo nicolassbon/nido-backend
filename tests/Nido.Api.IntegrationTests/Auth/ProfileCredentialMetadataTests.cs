@@ -1,9 +1,11 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
+using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Api.IntegrationTests.Auth;
 
@@ -45,7 +47,7 @@ public sealed class ProfileCredentialMetadataTests : IClassFixture<NidoTestWebAp
             }
             else
             {
-                (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Perfil User", email, hasher.Hash(seedPassword), "M", null, CancellationToken.None);
+                (userId, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Perfil User", email, hasher.Hash(seedPassword), "M", null, true, CancellationToken.None);
             }
 
             token = tokenService.CreateToken(userId, hogarId, email, "Perfil User");
@@ -61,5 +63,119 @@ public sealed class ProfileCredentialMetadataTests : IClassFixture<NidoTestWebAp
         Assert.Equal(hasGoogleLinked, body.HasGoogleLinked);
     }
 
-    private sealed record PerfilBody(bool HasPassword, bool HasGoogleLinked);
+    [Fact]
+    public async Task PerfilEndpoint_ReturnsRealProfileStats()
+    {
+        var client = _factory.CreateClient();
+        var email = $"perfil-stats-{Guid.NewGuid()}@test.com";
+        string token;
+        Guid userId;
+        Guid hogarId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+            (userId, hogarId) = await repo.CreateUserWithPasswordAsync(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Perfil Stats",
+                email,
+                hasher.Hash("Password123!"),
+                "Otro",
+                null,
+                true,
+                CancellationToken.None);
+
+            var productoEscaneadoId = Guid.NewGuid();
+            var productoManualId = Guid.NewGuid();
+            var logroId = Guid.NewGuid();
+
+            db.Tareas.AddRange(
+                new Tarea
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = hogarId,
+                    CreadoPor = userId,
+                    Titulo = "Limpiar cocina",
+                    Estado = "completada",
+                    CompletadoPor = userId,
+                    FechaCompletado = DateTime.UtcNow
+                },
+                new Tarea
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = hogarId,
+                    CreadoPor = userId,
+                    Titulo = "Sacar residuos",
+                    Estado = "pendiente"
+                });
+            db.Productos.AddRange(
+                new Producto { Id = productoEscaneadoId, Nombre = "Yerba", CodigoBarras = "779123" },
+                new Producto { Id = productoManualId, Nombre = "Manzana" });
+            db.StockHogars.AddRange(
+                new StockHogar
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = hogarId,
+                    ProductoId = productoEscaneadoId,
+                    CargadoPor = userId,
+                    UpdatedBy = userId,
+                    CantidadActual = 1,
+                    UnidadMedida = "unidad",
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0
+                },
+                new StockHogar
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = hogarId,
+                    ProductoId = productoManualId,
+                    CargadoPor = userId,
+                    UpdatedBy = userId,
+                    CantidadActual = 1,
+                    UnidadMedida = "unidad",
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0
+                });
+            db.Logros.Add(new Logro
+            {
+                Id = logroId,
+                Nombre = "Primer logro",
+                Descripcion = "Logro de prueba"
+            });
+            db.LogrosUsuarios.Add(new LogrosUsuario
+            {
+                Id = Guid.NewGuid(),
+                UsuarioId = userId,
+                LogroId = logroId,
+                FechaObtenido = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+
+            token = tokenService.CreateToken(userId, hogarId, email, "Perfil Stats");
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await client.GetAsync("/api/perfiles");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PerfilBody>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.TareasCompletadas);
+        Assert.Equal(1, body.ProductosEscaneados);
+        Assert.Equal(1, body.Logros);
+    }
+
+    private sealed record PerfilBody(
+        bool HasPassword,
+        bool HasGoogleLinked,
+        int TareasCompletadas,
+        int ProductosEscaneados,
+        int Logros);
 }

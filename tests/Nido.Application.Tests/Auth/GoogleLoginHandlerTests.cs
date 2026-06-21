@@ -1,4 +1,4 @@
-using Nido.Application.Auth.Google.Login;
+﻿using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth;
@@ -153,7 +153,7 @@ public sealed class GoogleLoginHandlerTests
             return Task.FromResult((id, hid));
         }
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, string? fotoStorageKey, CancellationToken cancellationToken)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, string? fotoStorageKey, bool aceptaTerminos, CancellationToken cancellationToken)
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
         public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User);

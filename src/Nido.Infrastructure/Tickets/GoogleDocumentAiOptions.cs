@@ -7,4 +7,6 @@ public sealed class GoogleDocumentAiOptions
     public string ProjectId { get; init; } = string.Empty;
     public string Location { get; init; } = "us";
     public string ProcessorId { get; init; } = string.Empty;
+    public string ReceiptProcessorId { get; init; } = string.Empty;
+    public string NutritionProcessorId { get; init; } = string.Empty;
 }

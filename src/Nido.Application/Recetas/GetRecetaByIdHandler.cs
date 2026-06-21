@@ -13,12 +13,12 @@ public sealed class GetRecetaByIdHandler
         GetRecetaByIdCommand command,
         CancellationToken ct)
     {
-        if (command.Id == Guid.Empty || command.HogarId == Guid.Empty)
+        if (command.Id == Guid.Empty || command.HogarId == Guid.Empty || command.UsuarioId == Guid.Empty)
         {
             return null;
         }
 
-        var result = await _repository.GetByIdAsync(command.Id, command.HogarId, ct);
+        var result = await _repository.GetByIdAsync(command.Id, command.HogarId, command.UsuarioId, ct);
         
         if (result is null)
         {
@@ -41,6 +41,13 @@ public sealed class GetRecetaByIdHandler
             result.Ingredientes,
             result.Pasos,
             result.Electrodomesticos,
-            result.VecesCocinada);
+            result.VecesCocinada,
+            result.CalificacionPromedio,
+            result.CalificacionTotal,
+            result.TieneProductosPorVencer,
+            result.FechaVencimientoMasProxima,
+            result.DiasHastaVencimiento,
+            result.ProductosPorVencer,
+            result.Guardada);
     }
 }

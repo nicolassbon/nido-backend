@@ -1,4 +1,4 @@
-using Nido.Application.Auth.Register;
+﻿using Nido.Application.Auth.Register;
 using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
@@ -20,7 +20,7 @@ public sealed class RegisterUserHandlerTests
         var repo = new FakeAuthRepository();
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeFileStorageService(), new StorageKeyFactory(), new FakeEmailService(), NullLogger<RegisterUserHandler>.Instance);
 
-        var result = await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null), CancellationToken.None);
+        var result = await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null, true), CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.UsuarioId);
         Assert.NotEqual(Guid.Empty, result.HogarId);
@@ -38,7 +38,7 @@ public sealed class RegisterUserHandlerTests
         var emailService = new FakeEmailService();
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeFileStorageService(), new StorageKeyFactory(), emailService, NullLogger<RegisterUserHandler>.Instance);
 
-        var result = await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null), CancellationToken.None);
+        var result = await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null, true), CancellationToken.None);
 
         Assert.True(result.IsSilentSuccess);
         Assert.Null(result.UsuarioId);
@@ -58,7 +58,7 @@ public sealed class RegisterUserHandlerTests
         var emailService = new FakeEmailService();
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeFileStorageService(), new StorageKeyFactory(), emailService, NullLogger<RegisterUserHandler>.Instance);
 
-        var result = await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null), CancellationToken.None);
+        var result = await handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "Password1", "M", null, true), CancellationToken.None);
 
         Assert.True(result.IsSilentSuccess);
         Assert.Null(repo.LastUpdatedUser);
@@ -73,7 +73,7 @@ public sealed class RegisterUserHandlerTests
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeFileStorageService(), new StorageKeyFactory(), new FakeEmailService(), NullLogger<RegisterUserHandler>.Instance);
 
         var ex = await Assert.ThrowsAsync<MissingRegistrationFieldsException>(() =>
-            handler.Handle(new RegisterUserCommand("", "nico@mail.com", "Password1", "M", null), CancellationToken.None));
+            handler.Handle(new RegisterUserCommand("", "nico@mail.com", "Password1", "M", null, true), CancellationToken.None));
 
         Assert.Equal("MISSING_REGISTRATION_FIELDS", ex.Code);
         Assert.Contains("Nombre", ex.Message);
@@ -86,7 +86,7 @@ public sealed class RegisterUserHandlerTests
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), new FakeProfileImageProcessor(), new FakeFileStorageService(), new StorageKeyFactory(), new FakeEmailService(), NullLogger<RegisterUserHandler>.Instance);
 
         var ex = await Assert.ThrowsAsync<WeakPasswordException>(() =>
-            handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "short", "M", null), CancellationToken.None));
+            handler.Handle(new RegisterUserCommand("Nico", "nico@mail.com", "short", "M", null, true), CancellationToken.None));
 
         Assert.Equal("WEAK_PASSWORD", ex.Code);
     }
@@ -100,7 +100,7 @@ public sealed class RegisterUserHandlerTests
         var handler = new RegisterUserHandler(repo, new FakeHasher(), new FakeJwt(), processor, storage, new StorageKeyFactory(), new FakeEmailService(), NullLogger<RegisterUserHandler>.Instance);
 
         var foto = new RegistrationProfileImageUpload("avatar.png", "image/png", [1, 2, 3, 4]);
-        var result = await handler.Handle(new RegisterUserCommand("Nico", "foto@mail.com", "Password1", "M", foto), CancellationToken.None);
+        var result = await handler.Handle(new RegisterUserCommand("Nico", "foto@mail.com", "Password1", "M", foto, true), CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.UsuarioId);
         Assert.Equal(1, storage.UploadCalls);
@@ -119,7 +119,7 @@ public sealed class RegisterUserHandlerTests
         var foto = new RegistrationProfileImageUpload("avatar.png", "image/png", [1, 2, 3, 4]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            handler.Handle(new RegisterUserCommand("Nico", "upload-fail@mail.com", "Password1", "M", foto), CancellationToken.None));
+            handler.Handle(new RegisterUserCommand("Nico", "upload-fail@mail.com", "Password1", "M", foto, true), CancellationToken.None));
 
         Assert.Equal(0, repo.CreateCalls);
         Assert.Equal(0, storage.DeleteCalls);
@@ -135,7 +135,7 @@ public sealed class RegisterUserHandlerTests
         var foto = new RegistrationProfileImageUpload("avatar.png", "image/png", [1, 2, 3, 4]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            handler.Handle(new RegisterUserCommand("Nico", "persist-fail@mail.com", "Password1", "M", foto), CancellationToken.None));
+            handler.Handle(new RegisterUserCommand("Nico", "persist-fail@mail.com", "Password1", "M", foto, true), CancellationToken.None));
 
         Assert.Equal(1, storage.UploadCalls);
         Assert.Equal(1, storage.DeleteCalls);
@@ -152,7 +152,7 @@ public sealed class RegisterUserHandlerTests
         var foto = new RegistrationProfileImageUpload("avatar.png", "image/png", [1, 2, 3, 4]);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            handler.Handle(new RegisterUserCommand("Nico", "cleanup-fail@mail.com", "Password1", "M", foto), CancellationToken.None));
+            handler.Handle(new RegisterUserCommand("Nico", "cleanup-fail@mail.com", "Password1", "M", foto, true), CancellationToken.None));
 
         Assert.Equal("persistence failed", exception.Message);
         Assert.Equal(1, storage.DeleteCalls);
@@ -174,7 +174,7 @@ public sealed class RegisterUserHandlerTests
         public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(CreateOAuthUserData data, CancellationToken cancellationToken)
             => Task.FromResult((Guid.NewGuid(), Guid.NewGuid()));
 
-        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, string? fotoStorageKey, CancellationToken cancellationToken)
+        public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(Guid usuarioId, Guid hogarId, string nombre, string email, string passwordHash, string sexo, string? fotoStorageKey, bool aceptaTerminos, CancellationToken cancellationToken)
         {
             CreateCalls++;
             LastFotoStorageKey = fotoStorageKey;

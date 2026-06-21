@@ -12,5 +12,9 @@ public sealed record StockItemResponse(
     string? UnidadMedida,
     string? FechaVencimiento,       // ISO yyyy-MM-dd or null
     bool EstaAbierto,
-    decimal PorcentajeConsumido
+    decimal PorcentajeConsumido,
+    // Cantidad de envases idénticos del mismo producto.
+    int CantidadEnvases,
+    string OrigenCarga,
+    NutritionInfoResponse? InformacionNutricional = null
 );

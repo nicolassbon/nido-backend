@@ -87,5 +87,54 @@ public sealed class OnboardingHouseholdTests : IClassFixture<NidoTestWebAppFacto
         Assert.False(state.Step3Skipped);
     }
 
+    [Fact]
+    public async Task SaveHousehold_WhenSubmittedAgain_ReplacesRepresentedMembersAndKeepsStepCompleted()
+    {
+        using var registerContent = RegisterMultipartRequest.Create("Retry Household", "retry-house@test.com", "Password123!", "F");
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
+        var body = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        Assert.NotNull(body);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
+
+        var firstResponse = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new
+        {
+            skip = false,
+            members = new[]
+            {
+                new { nombre = "Pepe", rol = "child" },
+                new { nombre = "Lola", rol = "adult" }
+            }
+        });
+
+        var secondResponse = await _client.PatchAsJsonAsync("/api/onboarding/step-2", new
+        {
+            skip = false,
+            members = new[]
+            {
+                new { nombre = "Uma", rol = "child" }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.NoContent, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, secondResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var representedMembers = await db.MiembrosHogars
+            .Where(x => x.HogarId == body.HogarId && x.NombreRepresentado != null)
+            .OrderBy(x => x.NombreRepresentado)
+            .ToListAsync();
+
+        Assert.Single(representedMembers);
+        Assert.Equal("Uma", representedMembers[0].NombreRepresentado);
+        Assert.Equal("child", representedMembers[0].Rol);
+
+        var state = await db.OnboardingStates.SingleAsync(x => x.UsuarioId == body.UsuarioId && x.HogarId == body.HogarId);
+        Assert.False(state.Step2Skipped);
+        Assert.NotNull(state.Step2CompletedAt);
+    }
+
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
 }

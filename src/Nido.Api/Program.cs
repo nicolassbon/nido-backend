@@ -12,12 +12,18 @@ using Nido.Application.Alacena;
 using Nido.Application.Productos;
 using Nido.Application.Preferencias;
 using Nido.Application.Recetas;
+using Nido.Application.Estadisticas;
+using Nido.Application.Insights;
+using Nido.Application.ListaCompras;
 using Nido.Application.Common.Security;
 using Nido.Api.Errors;
 using Nido.Api.Security;
 using Nido.Infrastructure;
 using Nido.Infrastructure.Persistence;
 using Nido.Application.UsuariosPerfil;
+using Nido.Application.Finanzas;
+using Nido.Application.Tareas;
+using Nido.Application.Notificaciones;
 using Nido.Infrastructure.Auth;
 using Nido.Api.OpenApi;
 using Scalar.AspNetCore;
@@ -54,6 +60,12 @@ builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
 builder.Services.AddTicketsModule();
 builder.Services.AddUsuariosPerfilModule();
+builder.Services.AddEstadisticasModule();
+builder.Services.AddInsightsModule();
+builder.Services.AddListaComprasModule();
+builder.Services.AddFinanzasModule();
+builder.Services.AddTareasModule();
+builder.Services.AddNotificacionesModule();
 
 
 
@@ -126,6 +138,14 @@ if (!app.Environment.IsProduction())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+app.MapGet("/health", async (NidoDbContext dbContext, CancellationToken ct) =>
+{
+    var canConnect = await dbContext.Database.CanConnectAsync(ct);
+    return canConnect
+        ? Results.Ok(new { status = "healthy" })
+        : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+});
 
 app.UseStaticFiles();
 app.UseCors("Frontend");

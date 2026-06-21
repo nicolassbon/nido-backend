@@ -4,6 +4,7 @@ public sealed record CreateStockItemCommand(
     Guid HogarId,
     Guid UsuarioId,
     string Nombre,
+    Guid? CategoriaId,
     string? CodigoBarras,
     string? Imagen,
     string Ubicacion,
@@ -11,5 +12,7 @@ public sealed record CreateStockItemCommand(
     string? UnidadMedida,
     string? FechaVencimiento,
     bool EstaAbierto,
-    decimal PorcentajeConsumido
+    decimal PorcentajeConsumido,
+    int CantidadEnvases = 1,
+    string? OrigenCarga = null
 );

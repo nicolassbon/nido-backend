@@ -21,12 +21,15 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     private async Task<RegisterBody> AuthenticateAsync()
+        => await AuthenticateAsync(_client);
+
+    private static async Task<RegisterBody> AuthenticateAsync(HttpClient client)
     {
         var email = $"receta-{Guid.NewGuid():N}@test.com";
         using var req = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
-        var res  = await _client.PostAsync("/api/auth/register", req);
+        var res  = await client.PostAsync("/api/auth/register", req);
         var body = await res.Content.ReadFromJsonAsync<RegisterBody>();
-        _client.DefaultRequestHeaders.Authorization =
+        client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", body!.AccessToken);
 
         return body;
@@ -50,6 +53,65 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         return id;
     }
 
+    private async Task<Guid> SeedRecipeWithExpiringStockAsync(
+        RegisterBody auth,
+        string recetaNombre,
+        string productoNombre,
+        string ingredienteNombre,
+        DateOnly fechaVencimiento,
+        int diasAlerta = 3,
+        bool ingredienteConProductoId = true)
+    {
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var usuario = await db.Usuarios.SingleAsync(usuario => usuario.Id == auth.UsuarioId);
+        usuario.AlertaVencimientoDias = diasAlerta;
+
+        db.Productos.Add(new Producto
+        {
+            Id = productoId,
+            Nombre = productoNombre
+        });
+        db.Recetas.Add(new Receta
+        {
+            Id = recetaId,
+            Nombre = recetaNombre,
+            Descripcion = "Receta de prueba",
+            Dificultad = "Facil",
+            Porciones = 2,
+            TiempoCoccionMin = 20,
+        });
+        db.IngredientesReceta.Add(new IngredientesRecetum
+        {
+            Id = Guid.NewGuid(),
+            RecetaId = recetaId,
+            ProductoId = ingredienteConProductoId ? productoId : null,
+            NombreIngrediente = ingredienteNombre,
+            Cantidad = 1,
+            Unidad = "unidad"
+        });
+        db.StockHogars.Add(new StockHogar
+        {
+            Id = Guid.NewGuid(),
+            HogarId = auth.HogarId,
+            ProductoId = productoId,
+            CargadoPor = auth.UsuarioId,
+            UpdatedBy = auth.UsuarioId,
+            CantidadActual = 1m,
+            UnidadMedida = "unidad",
+            FechaVencimiento = fechaVencimiento,
+            Ubicacion = "Alacena",
+            EstaAbierto = false,
+            PorcentajeConsumido = 0m
+        });
+
+        await db.SaveChangesAsync();
+        return recetaId;
+    }
+
     [Fact]
     public async Task GetAll_SinAuth_Returns401()
     {
@@ -70,6 +132,172 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(lista);
         Assert.NotEmpty(lista!);
         Assert.All(lista!, r => Assert.True(r.VecesCocinada >= 0));
+    }
+
+    [Fact]
+    public async Task GetAll_CuandoProductoVenceDentroDeAlerta_MarcaRecetaUrgente()
+    {
+        var auth = await AuthenticateAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var fechaVencimiento = hoy.AddDays(2);
+        var recetaId = await SeedRecipeWithExpiringStockAsync(
+            auth,
+            "Tarta urgente",
+            "Ricota",
+            "Ricota",
+            fechaVencimiento);
+
+        var response = await _client.GetAsync("/api/recetas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<RecetaBody>>();
+        var receta = lista!.Single(r => r.Id == recetaId);
+        Assert.True(receta.TieneProductosPorVencer);
+        Assert.Equal(fechaVencimiento.ToString("yyyy-MM-dd"), receta.FechaVencimientoMasProxima);
+        Assert.Equal(2, receta.DiasHastaVencimiento);
+        var producto = Assert.Single(receta.ProductosPorVencer);
+        Assert.Equal("Ricota", producto.Nombre);
+        Assert.Equal(fechaVencimiento.ToString("yyyy-MM-dd"), producto.FechaVencimiento);
+        Assert.Equal(2, producto.DiasHastaVencimiento);
+    }
+
+    [Fact]
+    public async Task GetAll_CuandoProductoVenceDespuesDeAlerta_NoMarcaRecetaUrgente()
+    {
+        var auth = await AuthenticateAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var recetaId = await SeedRecipeWithExpiringStockAsync(
+            auth,
+            "Salsa sin urgencia",
+            "Tomate",
+            "Tomate",
+            hoy.AddDays(4));
+
+        var response = await _client.GetAsync("/api/recetas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<RecetaBody>>();
+        var receta = lista!.Single(r => r.Id == recetaId);
+        Assert.False(receta.TieneProductosPorVencer);
+        Assert.Null(receta.FechaVencimientoMasProxima);
+        Assert.Null(receta.DiasHastaVencimiento);
+    }
+
+    [Fact]
+    public async Task GetAll_CuandoProductoVencioAyer_NoMarcaRecetaUrgente()
+    {
+        var auth = await AuthenticateAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var recetaId = await SeedRecipeWithExpiringStockAsync(
+            auth,
+            "Budin vencido",
+            "Leche",
+            "Leche",
+            hoy.AddDays(-1));
+
+        var response = await _client.GetAsync("/api/recetas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<RecetaBody>>();
+        var receta = lista!.Single(r => r.Id == recetaId);
+        Assert.False(receta.TieneProductosPorVencer);
+        Assert.Null(receta.FechaVencimientoMasProxima);
+        Assert.Null(receta.DiasHastaVencimiento);
+    }
+
+    [Fact]
+    public async Task GetAll_CuandoIngredienteSinProductoIdMatcheaPorNombre_MarcaRecetaUrgente()
+    {
+        var auth = await AuthenticateAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var recetaId = await SeedRecipeWithExpiringStockAsync(
+            auth,
+            "Arroz por nombre",
+            "Arroz integral",
+            "Arroz integral",
+            hoy.AddDays(1),
+            ingredienteConProductoId: false);
+
+        var response = await _client.GetAsync("/api/recetas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<RecetaBody>>();
+        var receta = lista!.Single(r => r.Id == recetaId);
+        Assert.True(receta.TieneProductosPorVencer);
+        Assert.Equal(1, receta.DiasHastaVencimiento);
+    }
+
+    [Fact]
+    public async Task GetAll_UsaFechaMasProximaEntreProductosUrgentes()
+    {
+        var auth = await AuthenticateAsync();
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var recetaId = Guid.NewGuid();
+        var lecheId = Guid.NewGuid();
+        var harinaId = Guid.NewGuid();
+        var fechaMasProxima = hoy.AddDays(1);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var usuario = await db.Usuarios.SingleAsync(usuario => usuario.Id == auth.UsuarioId);
+            usuario.AlertaVencimientoDias = 7;
+            db.Productos.AddRange(
+                new Producto { Id = lecheId, Nombre = "Leche" },
+                new Producto { Id = harinaId, Nombre = "Harina" });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Panqueques urgentes",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.AddRange(
+                new IngredientesRecetum { Id = Guid.NewGuid(), RecetaId = recetaId, ProductoId = lecheId, NombreIngrediente = "Leche", Cantidad = 1, Unidad = "lt" },
+                new IngredientesRecetum { Id = Guid.NewGuid(), RecetaId = recetaId, ProductoId = harinaId, NombreIngrediente = "Harina", Cantidad = 500, Unidad = "g" });
+            db.StockHogars.AddRange(
+                new StockHogar
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = auth.HogarId,
+                    ProductoId = lecheId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 1m,
+                    UnidadMedida = "lt",
+                    FechaVencimiento = hoy.AddDays(5),
+                    Ubicacion = "Heladera",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = Guid.NewGuid(),
+                    HogarId = auth.HogarId,
+                    ProductoId = harinaId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 1m,
+                    UnidadMedida = "kg",
+                    FechaVencimiento = fechaMasProxima,
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/recetas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<RecetaBody>>();
+        var receta = lista!.Single(r => r.Id == recetaId);
+        Assert.True(receta.TieneProductosPorVencer);
+        Assert.Equal(fechaMasProxima.ToString("yyyy-MM-dd"), receta.FechaVencimientoMasProxima);
+        Assert.Equal(1, receta.DiasHastaVencimiento);
+        Assert.Equal(["Harina", "Leche"], receta.ProductosPorVencer.Select(producto => producto.Nombre).ToArray());
     }
 
     [Fact]
@@ -194,6 +422,14 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetById_SinAuth_Returns401()
+    {
+        var response = await _client.GetAsync($"/api/recetas/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetById_CuandoNoExiste_Returns404()
     {
         await AuthenticateAsync();
@@ -201,6 +437,139 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var response = await _client.GetAsync($"/api/recetas/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetById_CuandoIngredienteTieneCompraEstandar_DevuelveElEstandarDeCompra()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Arroz",
+                CantidadCompraEstandar = 1m,
+                UnidadCompraEstandar = "kg"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Arroz salteado",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Arroz",
+                Cantidad = 200m,
+                Unidad = "g"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var ingrediente = Assert.Single(body!.Ingredientes);
+        Assert.Equal(1m, ingrediente.CantidadCompraEstandar);
+        Assert.Equal("kg", ingrediente.UnidadCompraEstandar);
+    }
+
+    [Fact]
+    public async Task GetById_CuandoIngredienteNoTieneCompraEstandar_DevuelveNull()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Salsa casera",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = null,
+                NombreIngrediente = "Ingrediente imposible xyz",
+                Cantidad = 1m,
+                Unidad = "pizca"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var ingrediente = Assert.Single(body!.Ingredientes);
+        Assert.Null(ingrediente.CantidadCompraEstandar);
+        Assert.Null(ingrediente.UnidadCompraEstandar);
+    }
+
+    [Fact]
+    public async Task GetById_CuandoIngredienteNoTieneProductoId_PeroMatcheaPorNombre_DevuelveCompraEstandar()
+    {
+        await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Aceite de oliva",
+                CantidadCompraEstandar = 1m,
+                UnidadCompraEstandar = "lt"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Arroz salteado",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = null,
+                NombreIngrediente = "Aceite de oliva",
+                Cantidad = 1m,
+                Unidad = "cda"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleCompraBody>();
+        var ingrediente = Assert.Single(body!.Ingredientes);
+        Assert.Equal(1m, ingrediente.CantidadCompraEstandar);
+        Assert.Equal("lt", ingrediente.UnidadCompraEstandar);
     }
 
     [Fact]
@@ -519,6 +888,121 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task Cocinar_DescuentaMedidasDeReferenciaEnVolumen()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var lecheId = Guid.NewGuid();
+        var aceiteId = Guid.NewGuid();
+        var extractoId = Guid.NewGuid();
+        var lecheStockId = Guid.NewGuid();
+        var aceiteStockId = Guid.NewGuid();
+        var extractoStockId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.AddRange(
+                new Producto { Id = lecheId, Nombre = "Leche" },
+                new Producto { Id = aceiteId, Nombre = "Aceite" },
+                new Producto { Id = extractoId, Nombre = "Extracto" });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Medidas caseras",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.AddRange(
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = lecheId,
+                    NombreIngrediente = "Leche",
+                    Cantidad = 2m,
+                    Unidad = "vaso"
+                },
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = aceiteId,
+                    NombreIngrediente = "Aceite",
+                    Cantidad = null,
+                    Unidad = "\u00BD cucharadita"
+                },
+                new IngredientesRecetum
+                {
+                    Id = Guid.NewGuid(),
+                    RecetaId = recetaId,
+                    ProductoId = extractoId,
+                    NombreIngrediente = "Extracto",
+                    Cantidad = 1m,
+                    Unidad = "pizca"
+                });
+            db.StockHogars.AddRange(
+                new StockHogar
+                {
+                    Id = lecheStockId,
+                    HogarId = auth.HogarId,
+                    ProductoId = lecheId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 1m,
+                    UnidadMedida = "lt",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = aceiteStockId,
+                    HogarId = auth.HogarId,
+                    ProductoId = aceiteId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 100m,
+                    UnidadMedida = "ml",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = extractoStockId,
+                    HogarId = auth.HogarId,
+                    ProductoId = extractoId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 10m,
+                    UnidadMedida = "ml",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var lecheStock = await verifyDb.StockHogars.SingleAsync(s => s.Id == lecheStockId);
+        var aceiteStock = await verifyDb.StockHogars.SingleAsync(s => s.Id == aceiteStockId);
+        var extractoStock = await verifyDb.StockHogars.SingleAsync(s => s.Id == extractoStockId);
+        Assert.Equal(0.5m, lecheStock.CantidadActual);
+        Assert.Equal(97.5m, aceiteStock.CantidadActual);
+        Assert.Equal(9.7m, extractoStock.CantidadActual);
+    }
+
+    [Fact]
     public async Task Cocinar_ConvierteTazaDeIngredienteSeco_AGramosDelStock()
     {
         var auth = await AuthenticateAsync();
@@ -767,13 +1251,350 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(0.95m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == cebollaStockId)).CantidadActual);
         Assert.Equal(0.55m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == mantecaStockId)).CantidadActual);
         Assert.Equal(94m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == salStockId)).CantidadActual);
-        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == arvejasStockId));
-        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.Id == pasasStockId));
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == arvejasStockId)).CantidadActual);
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == pasasStockId)).CantidadActual);
+    }
+
+    [Fact]
+    public async Task GetById_CuandoIngredienteTieneStockSoloEnOtroHogar_EnStockEsFalse()
+    {
+        var auth = await AuthenticateAsync();
+        using var otherClient = _factory.CreateClient();
+        var otherAuth = await AuthenticateAsync(otherClient);
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Tomate"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Salsa de tomate",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Tomate",
+                Cantidad = 2m,
+                Unidad = "unidad"
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = Guid.NewGuid(),
+                HogarId = otherAuth.HogarId,
+                ProductoId = productoId,
+                CargadoPor = otherAuth.UsuarioId,
+                UpdatedBy = otherAuth.UsuarioId,
+                CantidadActual = 5m,
+                UnidadMedida = "unidad",
+                FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
+                Ubicacion = "Heladera",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync($"/api/recetas/{recetaId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RecetaDetalleBody>();
+        Assert.NotNull(body);
+        Assert.Equal(recetaId, body!.Id);
+        Assert.Single(body.Ingredientes);
+        Assert.False(body.Ingredientes[0].EnStock);
+    }
+
+    [Fact]
+    public async Task Cocinar_CuandoHayMultiplesStocksDelMismoProducto_ConsumePrimeroElQueVenceAntes()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockViejoId = Guid.NewGuid();
+        var stockNuevoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Azucar"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Budin",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Azucar",
+                Cantidad = 300m,
+                Unidad = "g"
+            });
+            db.StockHogars.AddRange(
+                new StockHogar
+                {
+                    Id = stockViejoId,
+                    HogarId = auth.HogarId,
+                    ProductoId = productoId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 200m,
+                    UnidadMedida = "g",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                },
+                new StockHogar
+                {
+                    Id = stockNuevoId,
+                    HogarId = auth.HogarId,
+                    ProductoId = productoId,
+                    CargadoPor = auth.UsuarioId,
+                    UpdatedBy = auth.UsuarioId,
+                    CantidadActual = 300m,
+                    UnidadMedida = "g",
+                    FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    Ubicacion = "Alacena",
+                    EstaAbierto = false,
+                    PorcentajeConsumido = 0m
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == stockViejoId)).CantidadActual);
+        var stockRestante = await verifyDb.StockHogars.SingleAsync(s => s.Id == stockNuevoId);
+        Assert.Equal(200m, stockRestante.CantidadActual);
+    }
+
+    [Fact]
+    public async Task Cocinar_CuandoUnidadNoEsConvertible_NoModificaStockPeroRegistraLaCoccion()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Perejil"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Salsa verde",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Perejil",
+                Cantidad = 1m,
+                Unidad = "atado"
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = auth.HogarId,
+                ProductoId = productoId,
+                CargadoPor = auth.UsuarioId,
+                UpdatedBy = auth.UsuarioId,
+                CantidadActual = 100m,
+                UnidadMedida = "g",
+                FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                Ubicacion = "Heladera",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CocinarBody>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.VecesCocinada);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var stock = await verifyDb.StockHogars.SingleAsync(s => s.Id == stockId);
+        Assert.Equal(100m, stock.CantidadActual);
+    }
+
+    [Fact]
+    public async Task Cocinar_CuandoNoHayStock_RegistraCoccionYNoModificaStock()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Leche"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Panqueques sin stock",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Leche",
+                Cantidad = 1,
+                Unidad = "lt"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CocinarBody>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.VecesCocinada);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        Assert.False(await verifyDb.StockHogars.AnyAsync(s => s.HogarId == auth.HogarId && s.ProductoId == productoId));
+        Assert.Equal(1, await verifyDb.RecetasCocinadas.CountAsync(rc => rc.RecetaId == recetaId && rc.HogarId == auth.HogarId));
+    }
+
+    [Fact]
+    public async Task Cocinar_CuandoStockEsInsuficiente_ConsumeTodoElStockDisponibleYRegistraCoccion()
+    {
+        var auth = await AuthenticateAsync();
+        var recetaId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productoId,
+                Nombre = "Harina"
+            });
+            db.Recetas.Add(new Receta
+            {
+                Id = recetaId,
+                Nombre = "Pan casero",
+                Descripcion = "Receta de prueba",
+                Dificultad = "Facil",
+                Porciones = 2,
+                TiempoCoccionMin = 20,
+            });
+            db.IngredientesReceta.Add(new IngredientesRecetum
+            {
+                Id = Guid.NewGuid(),
+                RecetaId = recetaId,
+                ProductoId = productoId,
+                NombreIngrediente = "Harina",
+                Cantidad = 500,
+                Unidad = "g"
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = auth.HogarId,
+                ProductoId = productoId,
+                CargadoPor = auth.UsuarioId,
+                UpdatedBy = auth.UsuarioId,
+                CantidadActual = 200,
+                UnidadMedida = "g",
+                FechaVencimiento = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                Ubicacion = "Alacena",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/recetas/{recetaId}/cocinar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CocinarBody>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.VecesCocinada);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        Assert.Equal(0m, (await verifyDb.StockHogars.SingleAsync(s => s.Id == stockId)).CantidadActual);
+        Assert.Equal(1, await verifyDb.RecetasCocinadas.CountAsync(rc => rc.RecetaId == recetaId && rc.HogarId == auth.HogarId));
     }
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
-    private sealed record RecetaBody(Guid Id, string Nombre, int VecesCocinada);
+    private sealed record RecetaBody(
+        Guid Id,
+        string Nombre,
+        int VecesCocinada,
+        bool TieneProductosPorVencer,
+        string? FechaVencimientoMasProxima,
+        int? DiasHastaVencimiento,
+        List<ProductoPorVencerBody> ProductosPorVencer);
+    private sealed record ProductoPorVencerBody(
+        Guid ProductoId,
+        string Nombre,
+        string FechaVencimiento,
+        int DiasHastaVencimiento);
+    private sealed record RecetaDetalleBody(Guid Id, List<IngredienteDetalleBody> Ingredientes, int VecesCocinada);
+    private sealed record RecetaDetalleCompraBody(Guid Id, List<IngredienteDetalleCompraBody> Ingredientes, int VecesCocinada);
     private sealed record RecetaConIngredientesBody(Guid Id, string Nombre, List<IngredienteBody> Ingredientes);
     private sealed record IngredienteBody(Guid Id, List<string> Alergenos);
+    private sealed record IngredienteDetalleBody(Guid Id, bool EnStock, List<string> Alergenos);
+    private sealed record IngredienteDetalleCompraBody(
+        Guid Id,
+        decimal? CantidadCompraEstandar,
+        string? UnidadCompraEstandar,
+        bool EnStock,
+        List<string> Alergenos);
     private sealed record CocinarBody(Guid RecetaId, int VecesCocinada);
 }

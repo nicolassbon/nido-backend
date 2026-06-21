@@ -22,7 +22,7 @@ public sealed class GoogleDocumentAiReceiptParser : IReceiptParser
     {
         if (string.IsNullOrWhiteSpace(_options.ProjectId) ||
             string.IsNullOrWhiteSpace(_options.Location) ||
-            string.IsNullOrWhiteSpace(_options.ProcessorId))
+            string.IsNullOrWhiteSpace(GetProcessorId()))
         {
             throw new InvalidOperationException(
                 "Missing Google Document AI configuration.");
@@ -38,7 +38,7 @@ public sealed class GoogleDocumentAiReceiptParser : IReceiptParser
             Name = ProcessorName.FromProjectLocationProcessor(
                 _options.ProjectId,
                 _options.Location,
-                _options.ProcessorId).ToString(),
+                GetProcessorId()).ToString(),
             RawDocument = new RawDocument
             {
                 Content = ByteString.CopyFrom(image.Content),
@@ -63,6 +63,11 @@ public sealed class GoogleDocumentAiReceiptParser : IReceiptParser
             MerchantName: GetEntityText(document, "supplier_name"),
             Items: items);
     }
+
+    private string GetProcessorId()
+        => string.IsNullOrWhiteSpace(_options.ReceiptProcessorId)
+            ? _options.ProcessorId
+            : _options.ReceiptProcessorId;
 
     private static ScanTicketItemResult? ToTicketItem(Document.Types.Entity entity)
     {
