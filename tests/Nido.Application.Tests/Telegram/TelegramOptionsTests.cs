@@ -27,7 +27,7 @@ public sealed class TelegramOptionsTests
         Assert.Equal(30, options.OutboxPollIntervalSeconds);
         Assert.Equal(50, options.OutboxMaxBatchSize);
         Assert.Equal(5, options.MaxAttempts);
-        Assert.Equal(15, options.GroupingWindowMinutes);
+        Assert.Equal(5, options.GroupingWindowMinutes);
         Assert.Equal(5, options.GroupingEarlySendThreshold);
         Assert.Equal(30, options.ConversationStateTtlMinutes);
         Assert.Equal(30, options.TimeoutSeconds);
@@ -60,7 +60,7 @@ public sealed class TelegramOptionsTests
         Assert.Equal(30, options.OutboxPollIntervalSeconds);
         Assert.Equal(50, options.OutboxMaxBatchSize);
         Assert.Equal(5, options.MaxAttempts);
-        Assert.Equal(15, options.GroupingWindowMinutes);
+        Assert.Equal(5, options.GroupingWindowMinutes);
         Assert.Equal(5, options.GroupingEarlySendThreshold);
         Assert.Equal(30, options.ConversationStateTtlMinutes);
         Assert.Equal(30, options.TimeoutSeconds);
@@ -285,7 +285,7 @@ public sealed class TelegramOptionsTests
         Assert.Equal(30, options.OutboxPollIntervalSeconds);
         Assert.Equal(50, options.OutboxMaxBatchSize);
         Assert.Equal(5, options.MaxAttempts);
-        Assert.Equal(15, options.GroupingWindowMinutes);
+        Assert.Equal(1, options.GroupingWindowMinutes);
         Assert.Equal(5, options.GroupingEarlySendThreshold);
         Assert.Equal(30, options.ConversationStateTtlMinutes);
         Assert.Equal(30, options.TimeoutSeconds);

@@ -374,6 +374,52 @@ public sealed class TelegramNotificationBatcherTests : IAsyncLifetime
         Assert.All(sourceMessages, m => Assert.Equal((int)TelegramOutboxStatus.Ready, m.Status));
     }
 
+    [Fact]
+    public async Task ProcessExpiredBatchesAsync_WithMultipleTargetTypes_GroupsAndFormatsWithHeaders()
+    {
+        _options.GroupingEarlySendThreshold = 5;
+        var hogarId = await SeedHogarAsync();
+
+        // Enqueue some target messages (normal priority, not critical)
+        await _sut.EnqueueEventAsync(hogarId, 123456789L, "asignacion_tarea", "{\"text\":\"Juan te asignó la tarea A\"}", isCritical: false);
+        await _sut.EnqueueEventAsync(hogarId, 123456789L, "asignacion_tarea", "{\"text\":\"Maria te asignó la tarea B\"}", isCritical: false);
+        await _sut.EnqueueEventAsync(hogarId, 123456789L, "producto_vencido", "{\"text\":\"Leche vencida\"}", isCritical: false);
+        await _sut.EnqueueEventAsync(hogarId, 123456789L, "stock_bajo", "{\"text\":\"El stock de Azúcar es bajo\"}", isCritical: false);
+
+        var batch = await _db.TelegramBatches.SingleAsync();
+        batch.CreatedAt = DateTime.UtcNow.AddMinutes(-20);
+        await _db.SaveChangesAsync();
+
+        _wakeupService.WasWokenUp = false;
+
+        await _sut.ProcessExpiredBatchesAsync(CancellationToken.None);
+
+        var updatedBatch = await _db.TelegramBatches.SingleAsync();
+        Assert.Equal((int)TelegramBatchStatus.Ready, updatedBatch.Status);
+
+        var messages = await _db.TelegramOutboxMessages.ToListAsync();
+        // 4 individual + 1 consolidated = 5
+        Assert.Equal(5, messages.Count);
+
+        var consolidated = messages.Single(m => m.MessageType == $"Batch_{updatedBatch.Id:N}");
+        Assert.Equal((int)TelegramOutboxStatus.Pending, consolidated.Status);
+
+        using var doc = JsonDocument.Parse(consolidated.PayloadJson);
+        var text = doc.RootElement.GetProperty("text").GetString();
+
+        var expectedText =
+            "📋 Se te han asignado las siguientes tareas:\n" +
+            "• Juan te asignó la tarea A\n" +
+            "• Maria te asignó la tarea B\n\n" +
+            "❌ Se ha vencido el siguiente producto:\n" +
+            "• Leche vencida\n\n" +
+            "📉 El siguiente producto tiene stock bajo:\n" +
+            "• El stock de Azúcar es bajo";
+
+        Assert.Equal(expectedText, text);
+        Assert.True(_wakeupService.WasWokenUp);
+    }
+
     private async Task WaitForMessageStatusAsync(Guid id, TelegramOutboxStatus expectedStatus)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
