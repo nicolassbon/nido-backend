@@ -55,6 +55,8 @@ public sealed record MarkListaCompraItemCompradoByNameCommand(
     Guid UsuarioId,
     string Nombre);
 
+public sealed record MarkListaCompraItemAgregadoInventarioCommand(Guid Id, Guid HogarId);
+
 public sealed record RemoveListaCompraItemCommand(Guid Id, Guid HogarId);
 
 public sealed record ClearListaComprasCommand(Guid HogarId);

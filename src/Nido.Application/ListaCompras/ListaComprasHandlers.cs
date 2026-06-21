@@ -265,6 +265,19 @@ public sealed class RemoveListaCompraItemHandler
         => _repository.RemoveItemAsync(command.Id, command.HogarId, ct);
 }
 
+public sealed class MarkListaCompraItemAgregadoInventarioHandler
+{
+    private readonly IListaComprasRepository _repository;
+
+    public MarkListaCompraItemAgregadoInventarioHandler(IListaComprasRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<bool> Handle(MarkListaCompraItemAgregadoInventarioCommand command, CancellationToken ct)
+        => _repository.MarkAddedToInventoryAsync(command.Id, command.HogarId, ct);
+}
+
 public sealed class ClearListaComprasHandler
 {
     private readonly IListaComprasRepository _repository;

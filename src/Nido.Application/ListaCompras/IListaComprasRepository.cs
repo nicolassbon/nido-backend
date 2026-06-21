@@ -60,6 +60,8 @@ public interface IListaComprasRepository
         string nombre,
         CancellationToken ct);
 
+    Task<bool> MarkAddedToInventoryAsync(Guid id, Guid hogarId, CancellationToken ct);
+
     Task<bool> RemoveItemAsync(Guid id, Guid hogarId, CancellationToken ct);
 
     Task ClearActiveAsync(Guid hogarId, CancellationToken ct);

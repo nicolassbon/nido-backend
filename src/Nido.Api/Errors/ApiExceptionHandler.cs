@@ -78,6 +78,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         AccountLinkRequiredException => (StatusCodes.Status409Conflict, "Conflict"),
         UserNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
         UserNotInHouseholdException => (StatusCodes.Status404NotFound, "Not found"),
+        TermsNotAcceptedException => (StatusCodes.Status400BadRequest, "Validation error"),
 
         // Onboarding exceptions
         BoundaryViolationException => (StatusCodes.Status403Forbidden, "Forbidden"),

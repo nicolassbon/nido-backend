@@ -33,7 +33,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         var listas = await _db.ListasCompraHogar
             .AsNoTracking()
             .Where(lista => lista.HogarId == hogarId)
-            .Include(lista => lista.Items.Where(item => item.RemovidoDeListaAt == null))
+            .Include(lista => lista.Items.Where(item => item.RemovidoDeListaAt == null && item.Comprado != true))
                 .ThenInclude(item => item.Producto)
             .OrderBy(lista => lista.CreatedAt)
             .ThenBy(lista => lista.Nombre)
@@ -61,7 +61,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
     public async Task<ListaCompraListResult?> UpdateListAsync(Guid hogarId, Guid listaId, string nombre, CancellationToken ct)
     {
         var lista = await _db.ListasCompraHogar
-            .Include(l => l.Items.Where(item => item.RemovidoDeListaAt == null))
+            .Include(l => l.Items.Where(item => item.RemovidoDeListaAt == null && item.Comprado != true))
                 .ThenInclude(item => item.Producto)
             .FirstOrDefaultAsync(lista => lista.Id == listaId && lista.HogarId == hogarId, ct);
 
@@ -198,7 +198,11 @@ public sealed class ListaComprasRepository : IListaComprasRepository
     {
         return await _db.ListaCompras
             .AsNoTracking()
-            .Where(item => item.HogarId == hogarId && item.Comprado == true && item.CompradoEn != null)
+            .Where(item =>
+                item.HogarId == hogarId &&
+                item.Comprado == true &&
+                item.CompradoEn != null &&
+                item.AgregadoAlInventario != true)
             .OrderByDescending(item => item.CompradoEn)
             .ThenBy(item => item.ProductoNombreSnapshot)
             .Select(item => new ListaCompraHistorialItemResult(
@@ -345,6 +349,22 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return matched.Select(ToItemResult).ToList();
     }
 
+    public async Task<bool> MarkAddedToInventoryAsync(Guid id, Guid hogarId, CancellationToken ct)
+    {
+        var item = await _db.ListaCompras
+            .FirstOrDefaultAsync(item => item.Id == id && item.HogarId == hogarId, ct);
+
+        if (item is null)
+        {
+            return false;
+        }
+
+        item.AgregadoAlInventario = true;
+        item.RemovidoDeListaAt ??= DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task<bool> RemoveItemAsync(Guid id, Guid hogarId, CancellationToken ct)
     {
         var item = await QueryActive(hogarId)
@@ -391,7 +411,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
     private IQueryable<ListaCompra> QueryActive(Guid hogarId)
         => _db.ListaCompras
             .Include(item => item.Producto)
-            .Where(item => item.HogarId == hogarId && item.RemovidoDeListaAt == null);
+            .Where(item => item.HogarId == hogarId && item.RemovidoDeListaAt == null && item.Comprado != true);
 
     private async Task<Producto> GetOrCreateProductoAsync(string nombre, CancellationToken ct)
     {
@@ -447,6 +467,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         item.Comprado = true;
         item.CompradoEn = DateTime.UtcNow;
         item.CompradoPor = usuarioId;
+        item.RemovidoDeListaAt ??= item.CompradoEn;
     }
 
     private static IReadOnlyList<ListaCompraGrupoResult> ToGroups(IReadOnlyList<ListaCompra> items)
@@ -464,7 +485,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             lista.CreatedAt,
             lista.UpdatedAt,
             lista.Items
-                .Where(item => item.RemovidoDeListaAt == null)
+                .Where(item => item.RemovidoDeListaAt == null && item.Comprado != true)
                 .OrderBy(item => item.Orden)
                 .ThenBy(item => item.CreatedAt)
                 .Select(ToItemResult)
@@ -504,5 +525,6 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
+
 }
 

@@ -191,6 +191,46 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task CreateProducto_WhenNameMatchesExistingProduct_ReusesExistingProductAndPreservesUnit()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-name-create");
+        var existingProductId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = existingProductId,
+                Nombre = "Harina premium"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var createResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Harina premium",
+            codigoBarras = (string?)null,
+            imagen = (string?)null,
+            ubicacion = "Alacena",
+            cantidad = 1m,
+            unidadMedida = "kg",
+            fechaVencimiento = (string?)null,
+            estaAbierto = false,
+            porcentajeConsumido = 0m
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var stock = await verifyDb.StockHogars.SingleAsync(x => x.HogarId == user.HogarId);
+        Assert.Equal(existingProductId, stock.ProductoId);
+        Assert.Equal("kg", stock.UnidadMedida);
+        Assert.Equal(1m, stock.CantidadActual);
+    }
+
+    [Fact]
     public async Task GetProductos_WhenProductStoresSpacesKey_ReturnsResolvedPublicImageUrl()
     {
         var email = $"alacena-image-{Guid.NewGuid():N}@test.com";

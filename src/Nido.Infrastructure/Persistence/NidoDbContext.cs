@@ -820,9 +820,15 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.CodigoBarras)
                 .HasMaxLength(255)
                 .HasColumnName("codigo_barras");
+            entity.Property(e => e.CantidadCompraEstandar)
+                .HasPrecision(10, 2)
+                .HasColumnName("cantidad_compra_estandar");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
+            entity.Property(e => e.UnidadCompraEstandar)
+                .HasMaxLength(50)
+                .HasColumnName("unidad_compra_estandar");
 
             entity.HasOne(d => d.Categoria).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.CategoriaId)
@@ -1366,8 +1372,10 @@ public partial class NidoDbContext : DbContext
             entity.ToTable("planificador_item");
             entity.HasIndex(e => e.SemanaId, "idx_planificador_item_semana");
             entity.HasIndex(e => e.Fecha, "idx_planificador_item_fecha");
+            entity.HasIndex(e => e.TareaId, "idx_planificador_item_tarea");
             entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
             entity.Property(e => e.SemanaId).HasColumnName("semana_id");
+            entity.Property(e => e.TareaId).HasColumnName("tarea_id");
             entity.Property(e => e.Fecha).HasColumnName("fecha");
             entity.Property(e => e.TipoComida).HasMaxLength(20).HasColumnName("tipo_comida");
             entity.Property(e => e.RecetaId).HasColumnName("receta_id");
@@ -1387,6 +1395,10 @@ public partial class NidoDbContext : DbContext
             entity.HasOne(d => d.Receta).WithMany()
                 .HasForeignKey(d => d.RecetaId)
                 .HasConstraintName("planificador_item_receta_id_fkey");
+            entity.HasOne(d => d.Tarea).WithMany(p => p.PlanificadorItems)
+                .HasForeignKey(d => d.TareaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_item_tarea_id_fkey");
             entity.HasOne(d => d.CreadoPorNavigation).WithMany()
                 .HasForeignKey(d => d.CreadoPor)
                 .OnDelete(DeleteBehavior.ClientSetNull)

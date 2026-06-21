@@ -59,6 +59,13 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
         if (producto is null)
         {
+            var normalizedName = NormalizeName(request.Nombre);
+            var productos = await _db.Productos.ToListAsync(ct);
+            producto = productos.FirstOrDefault(p => NormalizeName(p.Nombre) == normalizedName);
+        }
+
+        if (producto is null)
+        {
             producto = new Producto
             {
                 Id = Guid.NewGuid(),

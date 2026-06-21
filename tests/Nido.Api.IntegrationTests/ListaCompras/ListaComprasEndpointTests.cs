@@ -30,7 +30,7 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     }
 
     [Fact]
-    public async Task GroupFlow_PreservesOrderAndPurchasedHistory()
+    public async Task GroupFlow_HidesPurchasedItemsAndKeepsHistory()
     {
         var user = await RegisterAndAuthenticateAsync(_client, "lista-flow");
 
@@ -60,8 +60,7 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
         var activeResponse = await _client.GetAsync("/api/lista-compras");
         var activeGroups = await activeResponse.Content.ReadFromJsonAsync<List<ListaGrupoBody>>();
         var activeItems = Assert.Single(activeGroups!).Items;
-        Assert.Equal(["Harina", "Acelga"], activeItems.Select(item => item.Nombre).ToArray());
-        Assert.True(activeItems.Single(item => item.Id == purchasedId).Comprado);
+        Assert.Equal(["Harina"], activeItems.Select(item => item.Nombre).ToArray());
 
         var historyResponse = await _client.GetAsync("/api/lista-compras/historial");
         var history = await historyResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
@@ -138,7 +137,7 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
         Assert.Equal(HttpStatusCode.OK, markResponse.StatusCode);
 
         var removeResponse = await _client.DeleteAsync($"/api/lista-compras/items/{purchased.Id}");
-        Assert.Equal(HttpStatusCode.NoContent, removeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, removeResponse.StatusCode);
 
         var clearResponse = await _client.DeleteAsync("/api/lista-compras");
         Assert.Equal(HttpStatusCode.NoContent, clearResponse.StatusCode);
@@ -158,6 +157,76 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
         Assert.NotNull(pending.RemovidoDeListaAt);
     }
 
+    [Fact]
+    public async Task MarkAgregadoInventario_RemovesItemFromHistory()
+    {
+        await RegisterAndAuthenticateAsync(_client, "lista-inventario");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/listas-compra", new
+        {
+            nombre = "Compra despensa"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<ListaBody>();
+
+        var addItemResponse = await _client.PostAsJsonAsync($"/api/listas-compra/{created!.Id}/items", new
+        {
+            nombre = "Azucar",
+            cantidad = (decimal?)1m,
+            unidad = "kg"
+        });
+        var added = await addItemResponse.Content.ReadFromJsonAsync<ListaItemBody>();
+
+        var markPurchasedResponse = await _client.PatchAsJsonAsync($"/api/lista-compras/items/{added!.Id}/comprado", new { });
+        Assert.Equal(HttpStatusCode.OK, markPurchasedResponse.StatusCode);
+
+        var historyBeforeResponse = await _client.GetAsync("/api/lista-compras/historial");
+        var historyBefore = await historyBeforeResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
+        var beforeItem = Assert.Single(historyBefore!);
+        Assert.Equal("kg", beforeItem.Unidad);
+
+        var markAddedResponse = await _client.PatchAsync($"/api/lista-compras/items/{added.Id}/agregado-inventario", null);
+        Assert.Equal(HttpStatusCode.NoContent, markAddedResponse.StatusCode);
+
+        var historyAfterResponse = await _client.GetAsync("/api/lista-compras/historial");
+        var historyAfter = await historyAfterResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
+        Assert.Empty(historyAfter!);
+    }
+
+    [Fact]
+    public async Task NamedListPurchasedItem_DisappearsFromListAndMovesToHistory()
+    {
+        await RegisterAndAuthenticateAsync(_client, "lista-check");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/listas-compra", new
+        {
+            nombre = "Compra sal"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<ListaBody>();
+
+        var addItemResponse = await _client.PostAsJsonAsync($"/api/listas-compra/{created!.Id}/items", new
+        {
+            nombre = "Sal",
+            cantidad = (decimal?)500m,
+            unidad = "g"
+        });
+        var added = await addItemResponse.Content.ReadFromJsonAsync<ListaItemBody>();
+
+        var markPurchasedResponse = await _client.PatchAsJsonAsync($"/api/lista-compras/items/{added!.Id}/comprado", new { });
+        Assert.Equal(HttpStatusCode.OK, markPurchasedResponse.StatusCode);
+
+        var listsResponse = await _client.GetAsync("/api/listas-compra");
+        var lists = await listsResponse.Content.ReadFromJsonAsync<List<ListaBody>>();
+        var list = Assert.Single(lists!);
+        Assert.Empty(list.Items);
+
+        var historyResponse = await _client.GetAsync("/api/lista-compras/historial");
+        var history = await historyResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
+        var historyItem = Assert.Single(history!);
+        Assert.Equal("Sal", historyItem.Nombre);
+        Assert.Equal(500m, historyItem.Cantidad);
+        Assert.Equal("g", historyItem.Unidad);
+    }
+
     private static async Task<RegisterBody> RegisterAndAuthenticateAsync(HttpClient client, string prefix)
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
@@ -174,6 +243,6 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     private sealed record ListaBody(Guid Id, string Nombre, DateTime CreatedAt, DateTime? UpdatedAt, List<ListaItemBody> Items);
     private sealed record ListaGrupoBody(string GrupoNombre, List<ListaItemBody> Items);
     private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden);
-    private sealed record HistorialItemBody(Guid Id, Guid ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor);
+    private sealed record HistorialItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor);
 }
 

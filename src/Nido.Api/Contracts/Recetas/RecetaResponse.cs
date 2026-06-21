@@ -38,6 +38,8 @@ public sealed record RecetaIngredienteResponse(
     string? ProductoNombre,
     decimal? Cantidad,
     string? Unidad,
+    decimal? CantidadCompraEstandar,
+    string? UnidadCompraEstandar,
     bool EnStock,
     IReadOnlyList<string> Alergenos);
 
