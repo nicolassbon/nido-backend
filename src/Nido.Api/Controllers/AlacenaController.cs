@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
+using Nido.Api.ImageUploads;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Insights;
@@ -13,12 +14,15 @@ namespace Nido.Api.Controllers;
 [Route("api/alacena")]
 public sealed class AlacenaController : ControllerBase
 {
+    private const long MaxNutritionImageBytes = 10 * 1024 * 1024;
     private readonly GetStockItemsHandler _getStockItemsHandler;
     private readonly GetStockItemByIdHandler _getStockItemByIdHandler;
     private readonly CreateStockItemHandler _createStockItemHandler;
     private readonly UpdateStockItemHandler _updateStockItemHandler;
     private readonly DeleteStockItemHandler _deleteStockItemHandler;
     private readonly GetStockMovementsHandler _getStockMovementsHandler;
+    private readonly ScanNutritionInfoHandler _scanNutritionInfoHandler;
+    private readonly SaveNutritionInfoHandler _saveNutritionInfoHandler;
     private readonly CatalogoRepository _catalogoRepository;
 
     public AlacenaController(
@@ -28,6 +32,8 @@ public sealed class AlacenaController : ControllerBase
         UpdateStockItemHandler updateStockItemHandler,
         DeleteStockItemHandler deleteStockItemHandler,
         GetStockMovementsHandler getStockMovementsHandler,
+        ScanNutritionInfoHandler scanNutritionInfoHandler,
+        SaveNutritionInfoHandler saveNutritionInfoHandler,
         CatalogoRepository catalogoRepository)
     {
         _getStockItemsHandler = getStockItemsHandler;
@@ -36,6 +42,8 @@ public sealed class AlacenaController : ControllerBase
         _updateStockItemHandler = updateStockItemHandler;
         _deleteStockItemHandler = deleteStockItemHandler;
         _getStockMovementsHandler = getStockMovementsHandler;
+        _scanNutritionInfoHandler = scanNutritionInfoHandler;
+        _saveNutritionInfoHandler = saveNutritionInfoHandler;
         _catalogoRepository = catalogoRepository;
     }
 
@@ -85,7 +93,12 @@ public sealed class AlacenaController : ControllerBase
                 request.EstaAbierto,
                 request.PorcentajeConsumido,
                 CantidadEnvases: request.CantidadEnvases ?? 1,
-                OrigenCarga: request.OrigenCarga),
+                OrigenCarga: request.OrigenCarga,
+                Calorias: request.Calorias,
+                Proteinas: request.Proteinas,
+                Carbohidratos: request.Carbohidratos,
+                Grasas: request.Grasas,
+                InformacionNutricional: ToSaveNutritionModel(request.InformacionNutricional)),
             ct);
 
         return CreatedAtAction(nameof(GetProductos), ToResponse(created));
@@ -136,6 +149,40 @@ public sealed class AlacenaController : ControllerBase
         if (!deleted) return NotFound();
 
         return NoContent();
+    }
+
+    [HttpPost("productos/{id:guid}/informacion-nutricional/scan")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ScanInformacionNutricional(
+        Guid id,
+        IFormFile? file,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var image = await ImageUploadFormReader.ReadAsync(file, MaxNutritionImageBytes, ct);
+
+        var result = await _scanNutritionInfoHandler.Handle(
+            new ScanNutritionInfoCommand(id, currentUser.HogarId, image),
+            ct);
+
+        return result is null ? NotFound() : Ok(ToNutritionResponse(result));
+    }
+
+    [HttpPut("productos/{id:guid}/informacion-nutricional")]
+    public async Task<IActionResult> SaveInformacionNutricional(
+        Guid id,
+        [FromBody] SaveNutritionInfoRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _saveNutritionInfoHandler.Handle(
+            new SaveNutritionInfoCommand(
+                id,
+                currentUser.HogarId,
+                ToSaveNutritionModel(request)!),
+            ct);
+
+        return result is null ? NotFound() : Ok(ToNutritionResponse(result));
     }
 
     [HttpGet("movimientos")]
@@ -197,6 +244,40 @@ public sealed class AlacenaController : ControllerBase
             item.CantidadCompraEstandar,
             item.UnidadCompraEstandar
         );
+
+    private static NutritionInfoResponse ToNutritionResponse(NutritionInfoResult nutrition) =>
+        new(
+            nutrition.Calorias,
+            nutrition.Proteinas,
+            nutrition.Carbohidratos,
+            nutrition.Grasas,
+            nutrition.Porcion,
+            nutrition.Base,
+            nutrition.Items.Select(item => new NutritionInfoItemResponse(
+                item.Nombre,
+                item.Valor,
+                item.Unidad,
+                item.PorcentajeDiario,
+                item.Orden)).ToArray());
+
+    private static SaveNutritionInfoRequestModel? ToSaveNutritionModel(SaveNutritionInfoRequest? request) =>
+        request is null
+            ? null
+            : new SaveNutritionInfoRequestModel(
+                request.Calorias,
+                request.Proteinas,
+                request.Carbohidratos,
+                request.Grasas,
+                request.Porcion,
+                request.Base,
+                (request.Items ?? Array.Empty<SaveNutritionInfoItemRequest>())
+                    .Select(item => new SaveNutritionInfoItemRequestModel(
+                        item.Nombre,
+                        item.Valor,
+                        item.Unidad,
+                        item.PorcentajeDiario,
+                        item.Orden))
+                    .ToArray());
 
     private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)
     {
@@ -282,4 +363,3 @@ public sealed class AlacenaController : ControllerBase
             item.FechaConsumo,
             item.UsuarioId);
 }
-

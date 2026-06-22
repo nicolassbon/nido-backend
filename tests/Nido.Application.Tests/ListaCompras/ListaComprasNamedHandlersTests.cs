@@ -103,6 +103,8 @@ public sealed class ListaComprasNamedHandlersTests
 
         public Task<IReadOnlyList<ListaCompraGrupoResult>> GetActiveAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ListaCompraGrupoResult>>(Array.Empty<ListaCompraGrupoResult>());
+        public Task<IReadOnlyList<ListaCompraGrupoResult>> GetActiveByListAsync(Guid hogarId, Guid listaId, CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<ListaCompraGrupoResult>>(Array.Empty<ListaCompraGrupoResult>());
         public Task<IReadOnlyList<ListaCompraHistorialItemResult>> GetHistorialAsync(Guid hogarId, CancellationToken ct)
             => Task.FromResult<IReadOnlyList<ListaCompraHistorialItemResult>>(Array.Empty<ListaCompraHistorialItemResult>());
         public Task<IReadOnlyList<ListaCompraGrupoResult>> ReplaceGroupAsync(Guid hogarId, Guid usuarioId, string grupoNombre, IReadOnlyList<ListaCompraItemInput> items, CancellationToken ct)

@@ -133,7 +133,7 @@ public sealed class CreateStockHomeHandlerTests
         public GetProductByNameResult CreatedProduct { get; set; } = new(Guid.NewGuid(), "Yerba", null, null);
         public int CreateCalls { get; private set; }
 
-        public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, CancellationToken ct)
+        public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, Guid? hogarId, CancellationToken ct)
             => throw new NotSupportedException();
 
         public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
@@ -142,7 +142,8 @@ public sealed class CreateStockHomeHandlerTests
         public Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
             => Task.FromResult(Enumerable.Empty<SearchProductosResult>());
 
-        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct,
+            decimal? calorias = null, decimal? proteinas = null, decimal? carbohidratos = null, decimal? grasas = null)
         {
             CreateCalls++;
             return Task.FromResult(CreatedProduct);

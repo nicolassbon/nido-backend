@@ -19,4 +19,9 @@ public sealed record StockItemResult(
     string? Icono = null,
     decimal? CantidadCompraEstandar = null,
     string? UnidadCompraEstandar = null
+    NutritionInfoResult? InformacionNutricional = null,
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null
 );

@@ -17,9 +17,6 @@ public sealed class InvitacionRepository : IInvitacionRepository
         _profileImagePublicUrlResolver = profileImagePublicUrlResolver;
     }
 
-    public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.Rol == "owner", ct);
-
     public Task<int> CountRealMembersAsync(Guid hogarId, CancellationToken ct)
         => _db.MiembrosHogars.CountAsync(m => m.HogarId == hogarId && m.NombreRepresentado == null, ct);
 
@@ -56,6 +53,12 @@ public sealed class InvitacionRepository : IInvitacionRepository
 
     public Task<bool> IsUserInAnyHouseholdAsync(Guid usuarioId, CancellationToken ct)
         => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.NombreRepresentado == null, ct);
+
+    public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.NombreRepresentado == null, ct);
+
+    public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.Rol == "owner" && m.NombreRepresentado == null, ct);
 
     public async Task AddUserToHouseholdAsync(Guid usuarioId, Guid toHogarId, string token, CancellationToken ct)
     {
@@ -134,9 +137,6 @@ public sealed class InvitacionRepository : IInvitacionRepository
             .FirstAsync(ct);
         return (user.Email, user.Nombre);
     }
-
-    public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.NombreRepresentado == null, ct);
 
     public async Task RemoveMiembroAsync(Guid hogarId, Guid targetUsuarioId, CancellationToken ct)
     {

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.Contracts.Notificaciones;
@@ -64,6 +65,8 @@ public sealed class NotificacionesController : ControllerBase
     }
 
     [HttpPost("suscripciones")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SubscribePush(
         [FromBody] SubscribePushRequest request,
         [FromServices] SubscribePushHandler handler,
@@ -78,12 +81,19 @@ public sealed class NotificacionesController : ControllerBase
 
         var usuarioId = currentUser.UsuarioId;
 
-        await handler.Handle(new SubscribePushCommand(
-            usuarioId,
-            request.Endpoint,
-            request.P256dh,
-            request.Auth
-        ), ct);
+        try
+        {
+            await handler.Handle(new SubscribePushCommand(
+                usuarioId,
+                request.Endpoint,
+                request.P256dh,
+                request.Auth
+            ), ct);
+        }
+        catch (InvalidPushEndpointException ex)
+        {
+            return BadRequest(ex.Message);
+        }
 
         _ = Task.Run(async () =>
         {

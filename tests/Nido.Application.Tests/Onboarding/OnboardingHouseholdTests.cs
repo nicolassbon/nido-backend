@@ -1,5 +1,6 @@
 using Nido.Application.Onboarding;
 using Nido.Application.Onboarding.Exceptions;
+using Nido.Application.Tests.Common.Security;
 
 namespace Nido.Application.Tests.Onboarding;
 
@@ -8,8 +9,12 @@ public sealed class OnboardingHouseholdTests
     [Fact]
     public async Task SaveHousehold_WhenUserIsNotHouseholdMember_ThrowsAccessDenied()
     {
-        var repo = new RecordingOnboardingRepository { IsMember = false };
-        var handler = new SaveHouseholdStepHandler(repo);
+        var repo = new RecordingOnboardingRepository();
+        var membershipService = new RecordingHouseholdMembershipService
+        {
+            MemberExceptionToThrow = new HouseholdAccessDeniedException()
+        };
+        var handler = new SaveHouseholdStepHandler(repo, new FakeHogarMembershipRepository(), membershipService);
 
         await Assert.ThrowsAsync<HouseholdAccessDeniedException>(() => handler.Handle(new SaveHouseholdStepCommand(
             repo.UsuarioId,
@@ -26,8 +31,11 @@ public sealed class OnboardingHouseholdTests
     [Fact]
     public async Task SaveHousehold_WhenUserIsInvitedMember_MarksStepSkippedWithoutReplacingMembers()
     {
-        var repo = new RecordingOnboardingRepository { IsOwner = false };
-        var handler = new SaveHouseholdStepHandler(repo);
+        var repo = new RecordingOnboardingRepository();
+        var handler = new SaveHouseholdStepHandler(
+            repo,
+            new FakeHogarMembershipRepository { IsOwner = false },
+            new RecordingHouseholdMembershipService());
 
         await handler.Handle(new SaveHouseholdStepCommand(
             repo.UsuarioId,

@@ -26,4 +26,3 @@ public sealed record UpdateListaCompraItemRequest(
     decimal? Cantidad,
     string? Unidad,
     bool? Comprado);
-

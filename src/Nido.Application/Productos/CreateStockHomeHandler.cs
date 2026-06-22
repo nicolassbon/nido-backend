@@ -57,7 +57,11 @@ public sealed class CreateStockHomeHandler
             command.CategoriaId is null || command.CategoriaId == Guid.Empty
                 ? null
                 : command.CategoriaId,
-            cancellationToken);
+            cancellationToken,
+            command.Calorias,
+            command.Proteinas,
+            command.Carbohidratos,
+            command.Grasas);
 
         var cantidadEnvases = command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases;
 

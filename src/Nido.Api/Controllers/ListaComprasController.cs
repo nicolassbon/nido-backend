@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.ListaCompras;
 using Nido.Application.Common.Security;
@@ -27,6 +28,7 @@ public sealed class ListaComprasController : ControllerBase
     private readonly MarkListaCompraItemAgregadoInventarioHandler _markAgregadoInventarioHandler;
     private readonly RemoveListaCompraItemHandler _removeItemHandler;
     private readonly ClearListaComprasHandler _clearHandler;
+    private readonly SendListaCompraToTelegramHandler _sendTelegramHandler;
 
     public ListaComprasController(
         GetListasCompraHandler getListasHandler,
@@ -44,7 +46,8 @@ public sealed class ListaComprasController : ControllerBase
         MarkListaCompraItemCompradoByNameHandler markCompradoByNameHandler,
         MarkListaCompraItemAgregadoInventarioHandler markAgregadoInventarioHandler,
         RemoveListaCompraItemHandler removeItemHandler,
-        ClearListaComprasHandler clearHandler)
+        ClearListaComprasHandler clearHandler,
+        SendListaCompraToTelegramHandler sendTelegramHandler)
     {
         _getListasHandler = getListasHandler;
         _createListaHandler = createListaHandler;
@@ -62,6 +65,7 @@ public sealed class ListaComprasController : ControllerBase
         _markAgregadoInventarioHandler = markAgregadoInventarioHandler;
         _removeItemHandler = removeItemHandler;
         _clearHandler = clearHandler;
+        _sendTelegramHandler = sendTelegramHandler;
     }
 
     [HttpGet]
@@ -309,6 +313,40 @@ public sealed class ListaComprasController : ControllerBase
     {
         await _clearHandler.Handle(new ClearListaComprasCommand(currentUser.HogarId), ct);
         return NoContent();
+    }
+
+    [HttpPost("/api/lista-compras/enviar-telegram")]
+    public async Task<IActionResult> SendTelegram(
+        [FromServices] ICurrentUserContext currentUser,
+        [FromQuery] Guid? listaId,
+        CancellationToken ct)
+    {
+        var result = await _sendTelegramHandler.Handle(
+            new SendListaCompraToTelegramCommand(currentUser.HogarId, currentUser.UsuarioId, listaId),
+            ct);
+
+        return result.Status switch
+        {
+            SendListaCompraToTelegramStatus.Enqueued => Ok(new
+            {
+                status = "enqueued",
+                itemCount = result.ItemCount,
+                chatId = result.ChatId,
+                listaId = result.ListaId
+            }),
+            SendListaCompraToTelegramStatus.Empty => Ok(new
+            {
+                status = "empty",
+                itemCount = result.ItemCount,
+                chatId = result.ChatId,
+                listaId = result.ListaId
+            }),
+            SendListaCompraToTelegramStatus.NoTelegramLink => new JsonResult(new { status = "no_telegram_link" })
+            {
+                StatusCode = StatusCodes.Status409Conflict
+            },
+            _ => StatusCode(500)
+        };
     }
 
     private static ListaCompraGrupoResponse ToResponse(ListaCompraGrupoResult group)

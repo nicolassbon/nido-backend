@@ -37,3 +37,17 @@ public sealed record ListaCompraHistorialItemResult(
     string? CategoriaNombre = null,
     string? IconoSvg = null,
     string? Icono = null);
+    Guid? CompradoPor);
+
+public enum SendListaCompraToTelegramStatus
+{
+    Enqueued,
+    Empty,
+    NoTelegramLink
+}
+
+public sealed record SendListaCompraToTelegramResult(
+    SendListaCompraToTelegramStatus Status,
+    int ItemCount,
+    long? ChatId,
+    Guid? ListaId);

@@ -1,4 +1,5 @@
 using Nido.Application.Common.Notifications;
+using Nido.Application.Common.Security;
 using Nido.Application.Hogares.Exceptions;
 
 namespace Nido.Application.Hogares;
@@ -7,11 +8,16 @@ public sealed class InvitarIntegranteHandler
 {
     private const int MaxMiembros = 6;
     private readonly IInvitacionRepository _repository;
+    private readonly IHouseholdMembershipService _membershipService;
     private readonly IEmailService _emailService;
 
-    public InvitarIntegranteHandler(IInvitacionRepository repository, IEmailService emailService)
+    public InvitarIntegranteHandler(
+        IInvitacionRepository repository,
+        IHouseholdMembershipService membershipService,
+        IEmailService emailService)
     {
         _repository = repository;
+        _membershipService = membershipService;
         _emailService = emailService;
     }
 
@@ -20,8 +26,7 @@ public sealed class InvitarIntegranteHandler
         if (string.IsNullOrWhiteSpace(command.EmailInvitado))
             throw new MissingInvitationTokenException();
 
-        if (!await _repository.IsUserHouseholdOwnerAsync(command.UsuarioId, command.HogarId, ct))
-            throw new NotHouseholdOwnerException();
+        await _membershipService.EnsureOwnerAsync(command.UsuarioId, command.HogarId, ct);
 
         var totalMiembros = await _repository.CountRealMembersAsync(command.HogarId, ct);
         if (totalMiembros >= MaxMiembros)

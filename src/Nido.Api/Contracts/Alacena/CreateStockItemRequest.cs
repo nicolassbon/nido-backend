@@ -13,5 +13,11 @@ public sealed record CreateStockItemRequest(
     decimal PorcentajeConsumido,
     // Cantidad de envases idénticos. Default 1.
     int? CantidadEnvases = 1,
-    string? OrigenCarga = null
+    string? OrigenCarga = null,
+    // Información nutricional por 100 g (del escaneo a Open Food Facts).
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null,
+    SaveNutritionInfoRequest? InformacionNutricional = null
 );
