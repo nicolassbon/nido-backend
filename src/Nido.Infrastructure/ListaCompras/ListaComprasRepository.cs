@@ -540,24 +540,40 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         ListaCompra item,
         Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
     {
+        var name = GetItemName(item);
+        var normalized = string.IsNullOrWhiteSpace(name) ? string.Empty : NormalizeName(name);
+
         if (item.Producto?.Categoria is not null)
         {
-            return (item.Producto.Categoria.Nombre, item.Producto.Categoria.IconoSvg, item.Producto.Categoria.Icono);
+            var category = (item.Producto.Categoria.Nombre, item.Producto.Categoria.IconoSvg, item.Producto.Categoria.Icono);
+            return EnsureIcon(category, normalized);
         }
 
-        var name = GetItemName(item);
         if (string.IsNullOrWhiteSpace(name))
         {
             return ("Otros", "otros.svg", "package");
         }
 
-        var normalized = NormalizeName(name);
         if (map.TryGetValue(normalized, out var productCat))
         {
-            return productCat;
+            return EnsureIcon(productCat, normalized);
         }
 
         return ResolveCategoryByKeyword(normalized);
+    }
+
+    private static (string CategoriaNombre, string? IconoSvg, string? Icono) EnsureIcon(
+        (string CategoriaNombre, string? IconoSvg, string? Icono) category,
+        string normalizedName)
+    {
+        if (!string.IsNullOrWhiteSpace(category.Icono))
+        {
+            return category;
+        }
+
+        return string.IsNullOrWhiteSpace(normalizedName)
+            ? ("Otros", "otros.svg", "package")
+            : ResolveCategoryByKeyword(normalizedName);
     }
 
     private static (string CategoriaNombre, string? IconoSvg, string? Icono) ResolveCategoryByKeyword(string normalizedName)
@@ -575,7 +591,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         if (ContainsAny(normalizedName, "manzana", "banana", "naranja", "limon", "frutilla", "uva", "pera", "durazno", "cereza", "fruta"))
             return ("Frutas", "frutas.svg", "apple");
         if (ContainsAny(normalizedName, "ajo en polvo", "cebolla en polvo", "pimenton", "aji molido"))
-            return ("Condimentos", "condimentos.svg", "salt");
+            return ("Condimentos", "condimentos.svg", "leaf");
         if (ContainsAny(normalizedName, "tomate", "zanahoria", "cebolla", "lechuga", "papa", "batata", "morron", "ajo", "verdura", "zapallo", "espinaca", "acelga"))
             return ("Verduras", "verduras.svg", "carrot");
         if (ContainsAny(normalizedName, "lenteja", "garbanzo", "poroto", "arveja", "legumbre", "soja"))
@@ -597,7 +613,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         if (ContainsAny(normalizedName, "aceite"))
             return ("Aceites", "aceites.svg", "droplet");
         if (ContainsAny(normalizedName, "sal", "pimienta", "oregano", "condimento", "especia", "caldo"))
-            return ("Condimentos", "condimentos.svg", "salt");
+            return ("Condimentos", "condimentos.svg", "leaf");
         if (ContainsAny(normalizedName, "salsa", "aderezo", "mayonesa", "ketchup", "mostaza", "vinagre", "aceto"))
             return ("Salsas y Aderezos", "salsas-aderezos.svg", "chef-hat");
         if (ContainsAny(normalizedName, "huevo"))
