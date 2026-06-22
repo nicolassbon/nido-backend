@@ -4,7 +4,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.IntegrationTests.Auth;
+using Nido.Infrastructure.Persistence;
 using Xunit;
 
 namespace Nido.Api.IntegrationTests.Notificaciones;
@@ -12,9 +15,11 @@ namespace Nido.Api.IntegrationTests.Notificaciones;
 public sealed class NotificacionesEndpointTests : IClassFixture<NidoTestWebAppFactory>
 {
     private readonly HttpClient _client;
+    private readonly NidoTestWebAppFactory _factory;
 
     public NotificacionesEndpointTests(NidoTestWebAppFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -117,6 +122,67 @@ public sealed class NotificacionesEndpointTests : IClassFixture<NidoTestWebAppFa
 
         var expiredNotif3 = notifList3!.Find(n => n.Tipo == "producto_vencido" && n.ReferenciaId == expiredProd.Id);
         Assert.Null(expiredNotif3); // Limpiada
+    }
+
+    [Fact]
+    public async Task SubscribePush_WithValidPayload_ReturnsNoContent_AndKeepsSingleSubscriptionPerEndpoint()
+    {
+        await RegisterAndAuthenticateAsync();
+
+        // Use a realistic FCM endpoint format so it passes the SSRF allowlist.
+        var request = new
+        {
+            endpoint = "https://fcm.googleapis.com/fcm/send/subscriptions/test-token-abc123",
+            p256dh = "key-a",
+            auth = "auth-a"
+        };
+
+        var first = await _client.PostAsJsonAsync("/api/notificaciones/suscripciones", request);
+        var second = await _client.PostAsJsonAsync("/api/notificaciones/suscripciones", new
+        {
+            endpoint = request.endpoint,
+            p256dh = "key-b",
+            auth = "auth-b"
+        });
+
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var subscriptions = await db.SuscripcionesPush
+            .AsNoTracking()
+            .Where(x => x.Endpoint == request.endpoint)
+            .ToListAsync();
+
+        var subscription = Assert.Single(subscriptions);
+        Assert.Equal("key-b", subscription.P256dh);
+        Assert.Equal("auth-b", subscription.Auth);
+    }
+
+    [Fact]
+    public async Task SubscribePush_WithMissingFields_ReturnsBadRequest()
+    {
+        await RegisterAndAuthenticateAsync();
+
+        var response = await _client.PostAsJsonAsync("/api/notificaciones/suscripciones", new
+        {
+            endpoint = "   ",
+            p256dh = "key-a",
+            auth = "auth-a"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private async Task RegisterAndAuthenticateAsync()
+    {
+        var email = $"notif-subscribe-{Guid.NewGuid():N}@test.com";
+        using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
+        var regBody = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", regBody!.AccessToken);
     }
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);

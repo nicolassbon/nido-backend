@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nido.Infrastructure.Persistence.Configurations;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Persistence;
@@ -9,9 +10,23 @@ public partial class NidoDbContext
 {
     public virtual DbSet<ConsumoProducto> ConsumosProducto { get; set; } = null!;
     public virtual DbSet<NotaReceta> NotasReceta { get; set; } = null!;
+    public virtual DbSet<TelegramChatLink> TelegramChatLinks { get; set; } = null!;
+    public virtual DbSet<ProcessedTelegramUpdate> ProcessedTelegramUpdates { get; set; } = null!;
+    public virtual DbSet<TelegramOutboxMessage> TelegramOutboxMessages { get; set; } = null!;
+    public virtual DbSet<TelegramConversationStateEntity> TelegramConversationStates { get; set; } = null!;
+    public virtual DbSet<TelegramBatch> TelegramBatches { get; set; } = null!;
+    public virtual DbSet<TelegramPairingToken> TelegramPairingTokens { get; set; } = null!;
+    public virtual DbSet<TelegramPairingCode> TelegramPairingCodes { get; set; } = null!;
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        modelBuilder.ApplyConfiguration(new TelegramChatLinkConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessedTelegramUpdateConfiguration());
+        modelBuilder.ApplyConfiguration(new TelegramOutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new TelegramConversationStateConfiguration());
+        modelBuilder.ApplyConfiguration(new TelegramBatchConfiguration());
+        modelBuilder.ApplyConfiguration(new TelegramPairingTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new TelegramPairingCodeConfiguration());
         modelBuilder.Entity<ConsumoProducto>(entity =>
         {
             entity.ToTable("consumos_producto");

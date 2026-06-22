@@ -1,3 +1,4 @@
+using Nido.Application.Common.Security;
 using Nido.Application.Tareas;
 
 namespace Nido.Application.Tests.Tareas;
@@ -66,7 +67,7 @@ public sealed class TareasHandlersTests
         var fechaLimite = DateTime.UtcNow.AddDays(7);
         var repo = new FakeTareaRepository();
         repo.TareaCreada = MakeTarea(hogarId, "Regar plantas");
-        var handler = new CreateTareaHandler(repo);
+        var handler = new CreateTareaHandler(repo, new AllowAllMembershipService());
 
         var result = await handler.Handle(
             new CreateTareaCommand(hogarId, creadoPor, "Regar plantas", "Todas las macetas", fechaLimite, asignadoA),
@@ -87,7 +88,7 @@ public sealed class TareasHandlersTests
         var hogarId = Guid.NewGuid();
         var repo = new FakeTareaRepository();
         repo.TareaCreada = MakeTarea(hogarId, "Orden general");
-        var handler = new CreateTareaHandler(repo);
+        var handler = new CreateTareaHandler(repo, new AllowAllMembershipService());
 
         var result = await handler.Handle(
             new CreateTareaCommand(hogarId, Guid.NewGuid(), "Orden general", null, null, null),
@@ -96,6 +97,57 @@ public sealed class TareasHandlersTests
         Assert.Null(repo.LastCreateDescripcion);
         Assert.Null(repo.LastCreateAsignadoA);
         Assert.Equal("Orden general", result.Titulo);
+    }
+
+    [Fact]
+    public async Task CreateTarea_WhenAsignadoAIsNull_DoesNotInvokeMembershipService()
+    {
+        var repo = new FakeTareaRepository();
+        repo.TareaCreada = MakeTarea(Guid.NewGuid(), "Sin asignar");
+        var membership = new AllowAllMembershipService();
+        var handler = new CreateTareaHandler(repo, membership);
+
+        await handler.Handle(
+            new CreateTareaCommand(Guid.NewGuid(), Guid.NewGuid(), "Sin asignar", null, null, null),
+            CancellationToken.None);
+
+        Assert.Equal(0, membership.EnsureMemberCallCount);
+        Assert.Equal(1, repo.CreateCallCount);
+    }
+
+    [Fact]
+    public async Task CreateTarea_WhenAsignadoANotMemberOfHousehold_ThrowsAndDoesNotCallRepository()
+    {
+        var repo = new FakeTareaRepository();
+        var handler = new CreateTareaHandler(repo, new DenyAllMembershipService());
+        var hogarId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => handler.Handle(
+                new CreateTareaCommand(hogarId, Guid.NewGuid(), "Fuga asignada", null, null, Guid.NewGuid()),
+                CancellationToken.None));
+
+        Assert.Equal(0, repo.CreateCallCount);
+    }
+
+    [Fact]
+    public async Task CreateTarea_WhenAsignadoAIsMemberOfHousehold_CreatesTarea()
+    {
+        var hogarId = Guid.NewGuid();
+        var asignadoA = Guid.NewGuid();
+        var membership = new SelectiveMembershipService(allow: asignadoA);
+        var repo = new FakeTareaRepository();
+        repo.TareaCreada = MakeTarea(hogarId, "Asignada válida");
+        var handler = new CreateTareaHandler(repo, membership);
+
+        var result = await handler.Handle(
+            new CreateTareaCommand(hogarId, Guid.NewGuid(), "Asignada válida", null, null, asignadoA),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, membership.EnsureMemberCallCount);
+        Assert.Equal(asignadoA, repo.LastCreateAsignadoA);
+        Assert.Equal(1, repo.CreateCallCount);
     }
 
     [Fact]
@@ -158,7 +210,7 @@ public sealed class TareasHandlersTests
         var hogarId = Guid.NewGuid();
         var repo = new FakeTareaRepository();
         repo.TareaAsignada = MakeTarea(hogarId, "Aspirar");
-        var handler = new AsignarTareaHandler(repo);
+        var handler = new AsignarTareaHandler(repo, new AllowAllMembershipService());
 
         var result = await handler.Handle(
             new AsignarTareaCommand(Guid.NewGuid(), hogarId, Guid.NewGuid(), Guid.NewGuid()),
@@ -171,13 +223,62 @@ public sealed class TareasHandlersTests
     [Fact]
     public async Task AsignarTarea_WhenTareaNotFound_ReturnsNull()
     {
-        var handler = new AsignarTareaHandler(new FakeTareaRepository());
+        var handler = new AsignarTareaHandler(new FakeTareaRepository(), new AllowAllMembershipService());
 
         var result = await handler.Handle(
             new AsignarTareaCommand(Guid.NewGuid(), Guid.NewGuid(), null, Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task AsignarTarea_WhenAsignadoAIsNull_DoesNotInvokeMembershipService()
+    {
+        var repo = new FakeTareaRepository();
+        var membership = new AllowAllMembershipService();
+        var handler = new AsignarTareaHandler(repo, membership);
+
+        await handler.Handle(
+            new AsignarTareaCommand(Guid.NewGuid(), Guid.NewGuid(), null, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.Equal(0, membership.EnsureMemberCallCount);
+        Assert.Equal(1, repo.AsignarCallCount);
+    }
+
+    [Fact]
+    public async Task AsignarTarea_WhenAsignadoANotMemberOfHousehold_ThrowsAndDoesNotCallRepository()
+    {
+        var repo = new FakeTareaRepository();
+        var handler = new AsignarTareaHandler(repo, new DenyAllMembershipService());
+        var hogarId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => handler.Handle(
+                new AsignarTareaCommand(Guid.NewGuid(), hogarId, Guid.NewGuid(), Guid.NewGuid()),
+                CancellationToken.None));
+
+        Assert.Equal(0, repo.AsignarCallCount);
+    }
+
+    [Fact]
+    public async Task AsignarTarea_WhenAsignadoAIsMemberOfHousehold_AssignsTarea()
+    {
+        var hogarId = Guid.NewGuid();
+        var asignadoA = Guid.NewGuid();
+        var membership = new SelectiveMembershipService(allow: asignadoA);
+        var repo = new FakeTareaRepository();
+        repo.TareaAsignada = MakeTarea(hogarId, "Asignada OK");
+        var handler = new AsignarTareaHandler(repo, membership);
+
+        var result = await handler.Handle(
+            new AsignarTareaCommand(Guid.NewGuid(), hogarId, asignadoA, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, membership.EnsureMemberCallCount);
+        Assert.Equal(1, repo.AsignarCallCount);
     }
 
     [Fact]
@@ -224,6 +325,8 @@ public sealed class TareasHandlersTests
         public Guid? LastCreateAsignadoA { get; private set; }
         public Guid LastDistribucionHogarId { get; private set; }
         public int LastDistribucionOffset { get; private set; }
+        public int CreateCallCount { get; private set; }
+        public int AsignarCallCount { get; private set; }
 
         public Task<List<TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct) =>
             Task.FromResult(TareasDeHogar);
@@ -241,6 +344,7 @@ public sealed class TareasHandlersTests
         public Task<TareaResult> CreateAsync(Guid hogarId, Guid creadoPor, string titulo, string? descripcion,
             DateTime? fechaLimite, Guid? asignadoA, CancellationToken ct)
         {
+            CreateCallCount++;
             LastCreateHogarId = hogarId;
             LastCreateCreadoPor = creadoPor;
             LastCreateTitulo = titulo;
@@ -257,8 +361,11 @@ public sealed class TareasHandlersTests
         public Task<TareaResult?> CompletarAsync(Guid id, Guid hogarId, Guid completadoPor, CancellationToken ct) =>
             Task.FromResult(TareaCompletada);
 
-        public Task<TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct) =>
-            Task.FromResult(TareaAsignada);
+        public Task<TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct)
+        {
+            AsignarCallCount++;
+            return Task.FromResult(TareaAsignada);
+        }
 
         public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct) =>
             Task.FromResult(DeleteResult);
@@ -269,5 +376,57 @@ public sealed class TareasHandlersTests
             LastDistribucionOffset = utcOffsetMinutes;
             return Task.FromResult(Distribucion);
         }
+    }
+
+    private sealed class AllowAllMembershipService : IHouseholdMembershipService
+    {
+        public int EnsureMemberCallCount { get; private set; }
+
+        public Task EnsureOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => Task.CompletedTask;
+        public Task EnsureMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        {
+            EnsureMemberCallCount++;
+            return Task.CompletedTask;
+        }
+        public Task EnsureMemberAsync(Guid usuarioId, Guid hogarId, Func<Exception> deniedFactory, CancellationToken ct)
+        {
+            EnsureMemberCallCount++;
+            return Task.CompletedTask;
+        }
+        public Task EnsureAnyMembershipAsync(Guid usuarioId, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class DenyAllMembershipService : IHouseholdMembershipService
+    {
+        public Task EnsureOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => throw new InvalidOperationException();
+        public Task EnsureMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => throw new InvalidOperationException();
+        public Task EnsureMemberAsync(Guid usuarioId, Guid hogarId, Func<Exception> deniedFactory, CancellationToken ct) => throw deniedFactory();
+        public Task EnsureAnyMembershipAsync(Guid usuarioId, CancellationToken ct) => throw new InvalidOperationException();
+    }
+
+    private sealed class SelectiveMembershipService : IHouseholdMembershipService
+    {
+        private readonly Guid _allow;
+        public int EnsureMemberCallCount { get; private set; }
+
+        public SelectiveMembershipService(Guid allow)
+        {
+            _allow = allow;
+        }
+
+        public Task EnsureOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct) => Task.CompletedTask;
+        public Task EnsureMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        {
+            EnsureMemberCallCount++;
+            if (usuarioId != _allow) throw new InvalidOperationException();
+            return Task.CompletedTask;
+        }
+        public Task EnsureMemberAsync(Guid usuarioId, Guid hogarId, Func<Exception> deniedFactory, CancellationToken ct)
+        {
+            EnsureMemberCallCount++;
+            if (usuarioId != _allow) throw deniedFactory();
+            return Task.CompletedTask;
+        }
+        public Task EnsureAnyMembershipAsync(Guid usuarioId, CancellationToken ct) => Task.CompletedTask;
     }
 }

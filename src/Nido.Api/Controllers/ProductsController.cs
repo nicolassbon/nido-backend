@@ -78,7 +78,11 @@ public sealed class ProductsController : ControllerBase
                 request.FechaVencimiento,
                 currentUser.HogarId,
                 currentUser.UsuarioId,
-                CantidadEnvases: request.CantidadEnvases ?? 1),
+                CantidadEnvases: request.CantidadEnvases ?? 1,
+                Calorias: request.Calorias,
+                Proteinas: request.Proteinas,
+                Carbohidratos: request.Carbohidratos,
+                Grasas: request.Grasas),
             ct);
 
         return Ok(new CreateStockHomeResponse(

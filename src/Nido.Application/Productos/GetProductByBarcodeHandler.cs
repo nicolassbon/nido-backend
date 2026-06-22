@@ -18,6 +18,6 @@ public sealed class GetProductByBarcodeHandler
             throw new MissingProductFieldException("codigoBarras");
         }
 
-        return await _repository.GetByBarcodeAsync(query.CodigoBarras.Trim(), ct);
+        return await _repository.GetByBarcodeAsync(query.CodigoBarras.Trim(), query.HogarId, ct);
     }
 }

@@ -16,5 +16,10 @@ public sealed record StockItemResponse(
     // Cantidad de envases idénticos del mismo producto.
     int CantidadEnvases,
     string OrigenCarga,
-    NutritionInfoResponse? InformacionNutricional = null
+    NutritionInfoResponse? InformacionNutricional = null,
+    // Información nutricional por 100 g (null si el producto no la tiene).
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null
 );

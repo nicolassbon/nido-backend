@@ -36,7 +36,11 @@ public sealed class CreateStockItemHandler
             command.EstaAbierto,
             command.PorcentajeConsumido,
             command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases,
-            origenCarga);
+            origenCarga,
+            command.Calorias,
+            command.Proteinas,
+            command.Carbohidratos,
+            command.Grasas);
 
         return await _repository.CreateAsync(request, ct);
     }

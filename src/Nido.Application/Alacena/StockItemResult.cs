@@ -15,5 +15,9 @@ public sealed record StockItemResult(
     decimal PorcentajeConsumido,
     int CantidadEnvases,
     string OrigenCarga = StockLoadOrigins.Manual,
-    NutritionInfoResult? InformacionNutricional = null
+    NutritionInfoResult? InformacionNutricional = null,
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null
 );

@@ -245,4 +245,3 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden);
     private sealed record HistorialItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor);
 }
-

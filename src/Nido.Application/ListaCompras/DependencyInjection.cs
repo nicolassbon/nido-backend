@@ -22,7 +22,7 @@ public static class DependencyInjection
         services.AddScoped<MarkListaCompraItemAgregadoInventarioHandler>();
         services.AddScoped<RemoveListaCompraItemHandler>();
         services.AddScoped<ClearListaComprasHandler>();
+        services.AddScoped<SendListaCompraToTelegramHandler>();
         return services;
     }
 }
-

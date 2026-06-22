@@ -271,6 +271,134 @@ public sealed class PlanificadorEndpointTests : IClassFixture<NidoTestWebAppFact
         Assert.Equal(HttpStatusCode.NotFound, deleteResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task AddItem_WhenAsignadoAIsUserFromDifferentHousehold_Returns404AndDoesNotCreateItemOrAssignmentOrNotification()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "plan-assign-cross-owner");
+        var intruderClient = _factory.CreateClient();
+        var intruder = await RegisterAndAuthenticateAsync(intruderClient, "plan-assign-cross-intruder");
+
+        var response = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "tarea",
+            recetaId = (Guid?)null,
+            tituloLibre = "Tarea con assignee externo",
+            hora = "10:00",
+            asignadoA = intruder.UsuarioId
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem!.Title);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var ownerItems = await db.PlanificadorItems
+            .Where(i => i.Semana.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerItems);
+
+        var ownerTareas = await db.Tareas
+            .Where(t => t.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerTareas);
+
+        var intruderAssignments = await db.AsignacionesTareas
+            .Where(a => a.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderAssignments);
+
+        var intruderNotifications = await db.Notificaciones
+            .Where(n => n.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderNotifications);
+    }
+
+    [Fact]
+    public async Task AddItem_WhenAsignadoAIsNonExistentUser_Returns404AndDoesNotCreateItem()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "plan-assign-ghost");
+
+        var response = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "tarea",
+            recetaId = (Guid?)null,
+            tituloLibre = "Tarea con assignee inexistente",
+            hora = "10:00",
+            asignadoA = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem!.Title);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var ownerItems = await db.PlanificadorItems
+            .Where(i => i.Semana.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerItems);
+
+        var ownerTareas = await db.Tareas
+            .Where(t => t.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerTareas);
+    }
+
+    [Fact]
+    public async Task UpdateItem_WhenAsignadoAIsUserFromDifferentHousehold_Returns404AndDoesNotCreateAssignmentOrNotification()
+    {
+        var owner = await RegisterAndAuthenticateAsync(_client, "plan-update-assign-cross-owner");
+        var intruderClient = _factory.CreateClient();
+        var intruder = await RegisterAndAuthenticateAsync(intruderClient, "plan-update-assign-cross-intruder");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/planificador/items", new
+        {
+            fecha = "2026-06-19",
+            tipoComida = "tarea",
+            recetaId = (Guid?)null,
+            tituloLibre = "Tarea legitima sin asignar",
+            hora = "09:00"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<PlanificadorItemBody>();
+        Assert.NotNull(created);
+
+        var updateResponse = await _client.PatchAsJsonAsync($"/api/planificador/items/{created!.Id}", new
+        {
+            recetaId = (Guid?)null,
+            tituloLibre = "Tarea legitima sin asignar",
+            hora = "09:00",
+            asignadoA = intruder.UsuarioId
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, updateResponse.StatusCode);
+        var problem = await updateResponse.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem!.Title);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var intruderAssignments = await db.AsignacionesTareas
+            .Where(a => a.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderAssignments);
+
+        var intruderNotifications = await db.Notificaciones
+            .Where(n => n.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderNotifications);
+
+        var ownerTarea = await db.Tareas
+            .SingleAsync(t => t.Id == created.TareaId);
+        Assert.Empty(ownerTarea.AsignacionesTareas);
+    }
+
     private async Task<Guid> SeedRecipeAsync(string nombre, string? imagenUrl = null)
     {
         using var scope = _factory.Services.CreateScope();
@@ -321,4 +449,5 @@ public sealed class PlanificadorEndpointTests : IClassFixture<NidoTestWebAppFact
         AsignacionBody? AsignadoA,
         int Orden,
         Guid CreadoPor);
+    private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }
