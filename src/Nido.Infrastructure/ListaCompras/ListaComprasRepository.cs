@@ -25,7 +25,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             .ThenBy(item => item.Orden)
             .ToListAsync(ct);
 
-        return ToGroups(items);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToGroups(items, map);
     }
 
     public async Task<IReadOnlyList<ListaCompraGrupoResult>> GetActiveByListAsync(Guid hogarId, Guid listaId, CancellationToken ct)
@@ -48,11 +49,13 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             .Where(lista => lista.HogarId == hogarId)
             .Include(lista => lista.Items.Where(item => item.RemovidoDeListaAt == null && item.Comprado != true))
                 .ThenInclude(item => item.Producto)
+                    .ThenInclude(p => p!.Categoria)
             .OrderBy(lista => lista.CreatedAt)
             .ThenBy(lista => lista.Nombre)
             .ToListAsync(ct);
 
-        return listas.Select(ToListResult).ToList();
+        var map = await GetProductCategoryMapAsync(ct);
+        return listas.Select(lista => ToListResult(lista, map)).ToList();
     }
 
     public async Task<ListaCompraListResult> CreateListAsync(Guid hogarId, Guid usuarioId, string nombre, CancellationToken ct)
@@ -68,7 +71,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         _db.ListasCompraHogar.Add(lista);
         await _db.SaveChangesAsync(ct);
-        return ToListResult(lista);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToListResult(lista, map);
     }
 
     public async Task<ListaCompraListResult?> UpdateListAsync(Guid hogarId, Guid listaId, string nombre, CancellationToken ct)
@@ -76,6 +80,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         var lista = await _db.ListasCompraHogar
             .Include(l => l.Items.Where(item => item.RemovidoDeListaAt == null && item.Comprado != true))
                 .ThenInclude(item => item.Producto)
+                    .ThenInclude(p => p!.Categoria)
             .FirstOrDefaultAsync(lista => lista.Id == listaId && lista.HogarId == hogarId, ct);
 
         if (lista is null)
@@ -86,7 +91,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         lista.Nombre = nombre;
         lista.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
-        return ToListResult(lista);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToListResult(lista, map);
     }
 
     public async Task<bool> DeleteListAsync(Guid hogarId, Guid listaId, CancellationToken ct)
@@ -156,7 +162,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         _db.ListaCompras.Add(item);
         await _db.SaveChangesAsync(ct);
-        return ToItemResult(item);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToItemResult(item, map);
     }
 
     public async Task<ListaCompraItemResult?> UpdateItemAsync(
@@ -204,21 +211,29 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         }
 
         await _db.SaveChangesAsync(ct);
-        return ToItemResult(item);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToItemResult(item, map);
     }
 
     public async Task<IReadOnlyList<ListaCompraHistorialItemResult>> GetHistorialAsync(Guid hogarId, CancellationToken ct)
     {
-        return await _db.ListaCompras
+        var items = await _db.ListaCompras
             .AsNoTracking()
             .Where(item =>
                 item.HogarId == hogarId &&
                 item.Comprado == true &&
-                item.CompradoEn != null &&
-                item.AgregadoAlInventario != true)
+                item.CompradoEn != null)
+            .Include(item => item.Producto)
+                .ThenInclude(producto => producto!.Categoria)
             .OrderByDescending(item => item.CompradoEn)
             .ThenBy(item => item.ProductoNombreSnapshot)
-            .Select(item => new ListaCompraHistorialItemResult(
+            .ToListAsync(ct);
+
+        var map = await GetProductCategoryMapAsync(ct);
+
+        return items.Select(item => {
+            var resolved = ResolveCategory(item, map);
+            return new ListaCompraHistorialItemResult(
                 item.Id,
                 item.ProductoId,
                 item.ProductoNombreSnapshot,
@@ -226,8 +241,11 @@ public sealed class ListaComprasRepository : IListaComprasRepository
                 item.Unidad,
                 item.GrupoNombre,
                 item.CompradoEn!.Value,
-                item.CompradoPor))
-            .ToListAsync(ct);
+                item.CompradoPor,
+                item.AgregadoAlInventario == true,
+                resolved.CategoriaNombre,
+                resolved.IconoSvg);
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<ListaCompraGrupoResult>> ReplaceGroupAsync(
@@ -315,7 +333,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         _db.ListaCompras.Add(item);
         await _db.SaveChangesAsync(ct);
-        return ToItemResult(item);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToItemResult(item, map);
     }
 
     public async Task<ListaCompraItemResult?> MarkPurchasedAsync(Guid id, Guid hogarId, Guid usuarioId, CancellationToken ct)
@@ -330,7 +349,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         MarkPurchased(item, usuarioId);
         await _db.SaveChangesAsync(ct);
-        return ToItemResult(item);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToItemResult(item, map);
     }
 
     public async Task<IReadOnlyList<ListaCompraItemResult>> MarkPurchasedByNameAsync(
@@ -359,7 +379,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         }
 
         await _db.SaveChangesAsync(ct);
-        return matched.Select(ToItemResult).ToList();
+        var map = await GetProductCategoryMapAsync(ct);
+        return matched.Select(item => ToItemResult(item, map)).ToList();
     }
 
     public async Task<bool> MarkAddedToInventoryAsync(Guid id, Guid hogarId, CancellationToken ct)
@@ -424,6 +445,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
     private IQueryable<ListaCompra> QueryActive(Guid hogarId)
         => _db.ListaCompras
             .Include(item => item.Producto)
+                .ThenInclude(producto => producto!.Categoria)
             .Where(item => item.HogarId == hogarId && item.RemovidoDeListaAt == null && item.Comprado != true);
 
     private async Task<Producto> GetOrCreateProductoAsync(string nombre, CancellationToken ct)
@@ -483,15 +505,19 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         item.RemovidoDeListaAt ??= item.CompradoEn;
     }
 
-    private static IReadOnlyList<ListaCompraGrupoResult> ToGroups(IReadOnlyList<ListaCompra> items)
+    private static IReadOnlyList<ListaCompraGrupoResult> ToGroups(
+        IReadOnlyList<ListaCompra> items,
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
         => items
             .GroupBy(item => item.GrupoNombre)
             .Select(group => new ListaCompraGrupoResult(
                 group.Key,
-                group.OrderBy(item => item.Orden).ThenBy(item => item.CreatedAt).Select(ToItemResult).ToList()))
+                group.OrderBy(item => item.Orden).ThenBy(item => item.CreatedAt).Select(item => ToItemResult(item, map)).ToList()))
             .ToList();
 
-    private static ListaCompraListResult ToListResult(ListaCompraHogar lista)
+    private static ListaCompraListResult ToListResult(
+        ListaCompraHogar lista,
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
         => new(
             lista.Id,
             lista.Nombre,
@@ -501,11 +527,15 @@ public sealed class ListaComprasRepository : IListaComprasRepository
                 .Where(item => item.RemovidoDeListaAt == null && item.Comprado != true)
                 .OrderBy(item => item.Orden)
                 .ThenBy(item => item.CreatedAt)
-                .Select(ToItemResult)
+                .Select(item => ToItemResult(item, map))
                 .ToList());
 
-    private static ListaCompraItemResult ToItemResult(ListaCompra item)
-        => new(
+    private static ListaCompraItemResult ToItemResult(
+        ListaCompra item,
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
+    {
+        var resolved = ResolveCategory(item, map);
+        return new(
             item.Id,
             item.ProductoId,
             GetItemName(item),
@@ -513,7 +543,137 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             item.Unidad,
             item.Comprado == true,
             item.CompradoEn,
-            item.Orden);
+            item.Orden,
+            resolved.CategoriaNombre,
+            resolved.IconoSvg,
+            resolved.Icono);
+    }
+
+    private static (string CategoriaNombre, string? IconoSvg, string? Icono) ResolveCategory(
+        ListaCompra item,
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
+    {
+        var name = GetItemName(item);
+        var normalized = string.IsNullOrWhiteSpace(name) ? string.Empty : NormalizeName(name);
+
+        if (item.Producto?.Categoria is not null)
+        {
+            var category = (item.Producto.Categoria.Nombre, item.Producto.Categoria.IconoSvg, item.Producto.Categoria.Icono);
+            return EnsureIcon(category, normalized);
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return ("Otros", "otros.svg", "package");
+        }
+
+        if (map.TryGetValue(normalized, out var productCat))
+        {
+            return EnsureIcon(productCat, normalized);
+        }
+
+        return ResolveCategoryByKeyword(normalized);
+    }
+
+    private static (string CategoriaNombre, string? IconoSvg, string? Icono) EnsureIcon(
+        (string CategoriaNombre, string? IconoSvg, string? Icono) category,
+        string normalizedName)
+    {
+        if (!string.IsNullOrWhiteSpace(category.Icono))
+        {
+            return category;
+        }
+
+        return string.IsNullOrWhiteSpace(normalizedName)
+            ? ("Otros", "otros.svg", "package")
+            : ResolveCategoryByKeyword(normalizedName);
+    }
+
+    private static (string CategoriaNombre, string? IconoSvg, string? Icono) ResolveCategoryByKeyword(string normalizedName)
+    {
+        if (ContainsAny(normalizedName, "leche", "queso", "yogur", "crema", "manteca", "lacteo", "ricota", "dulce de leche"))
+            return ("Lácteos", "lacteos.svg", "milk");
+        if (ContainsAny(normalizedName, "pollo", "ave", "gallina"))
+            return ("Pollo y Aves", "pollo-aves.svg", "drumstick");
+        if (ContainsAny(normalizedName, "cerdo", "bondiola", "panceta", "jamon", "chorizo", "salchicha"))
+            return ("Carnes Porcinas", "carnes-porcinas.svg", "beef");
+        if (ContainsAny(normalizedName, "pescado", "atun", "merluza", "marisco", "camaron", "langostino"))
+            return ("Pescados y Mariscos", "pescados-mariscos.svg", "fish");
+        if (ContainsAny(normalizedName, "carne", "vaca", "bife", "milanesa", "asado", "lomo", "nalga", "cuadril"))
+            return ("Carnes Vacunas", "carnes-vacunas.svg", "beef");
+        if (ContainsAny(normalizedName, "manzana", "banana", "naranja", "limon", "frutilla", "uva", "pera", "durazno", "cereza", "fruta"))
+            return ("Frutas", "frutas.svg", "apple");
+        if (ContainsAny(normalizedName, "ajo en polvo", "cebolla en polvo", "pimenton", "aji molido"))
+            return ("Condimentos", "condimentos.svg", "leaf");
+        if (ContainsAny(normalizedName, "tomate", "zanahoria", "cebolla", "lechuga", "papa", "batata", "morron", "ajo", "verdura", "zapallo", "espinaca", "acelga"))
+            return ("Verduras", "verduras.svg", "carrot");
+        if (ContainsAny(normalizedName, "lenteja", "garbanzo", "poroto", "arveja", "legumbre", "soja"))
+            return ("Legumbres", "legumbres.svg", "bean");
+        if (ContainsAny(normalizedName, "pan", "factura", "medialuna", "tostada", "galleta de agua"))
+            return ("Panificados", "panificados.svg", "wheat");
+        if (ContainsAny(normalizedName, "fideo", "pasta", "spaghetti", "raviol", "ñoqui", "noqui"))
+            return ("Pastas", "pastas.svg", "utensils");
+        if (ContainsAny(normalizedName, "arroz"))
+            return ("Arroz", "arroz.svg", "wheat");
+        if (ContainsAny(normalizedName, "cereal", "avena", "granola", "copos"))
+            return ("Cereales", "cereales.svg", "wheat");
+        if (ContainsAny(normalizedName, "harina", "maicena", "fecula"))
+            return ("Harinas", "harinas.svg", "wheat");
+        if (ContainsAny(normalizedName, "azucar", "edulcorante", "miel", "endulzante"))
+            return ("Azúcar y Endulzantes", "azucar-endulzantes.svg", "candy");
+        if (ContainsAny(normalizedName, "chocolate", "levadura", "esencia", "reposteria", "polvo de hornear", "coco rallado"))
+            return ("Repostería", "reposteria.svg", "cake");
+        if (ContainsAny(normalizedName, "aceite"))
+            return ("Aceites", "aceites.svg", "droplet");
+        if (ContainsAny(normalizedName, "sal", "pimienta", "oregano", "condimento", "especia", "caldo"))
+            return ("Condimentos", "condimentos.svg", "leaf");
+        if (ContainsAny(normalizedName, "salsa", "aderezo", "mayonesa", "ketchup", "mostaza", "vinagre", "aceto"))
+            return ("Salsas y Aderezos", "salsas-aderezos.svg", "chef-hat");
+        if (ContainsAny(normalizedName, "huevo"))
+            return ("Huevos", "huevos.svg", "egg");
+        if (ContainsAny(normalizedName, "cerveza", "vino", "fernet", "sidra", "whisky", "alcoholica"))
+            return ("Bebidas Alcohólicas", "bebidas-alcoholicas.svg", "beer");
+        if (ContainsAny(normalizedName, "agua", "jugo", "gaseosa", "soda", "coca", "bebida", "te", "cafe"))
+            return ("Bebidas", "bebidas.svg", "glass-water");
+        if (ContainsAny(normalizedName, "detergente", "jabón", "jabon", "limpieza", "lavandina", "desinfectante", "trapo", "esponja", "suavizante"))
+            return ("Limpieza", "limpieza.svg", "spray-can");
+        if (ContainsAny(normalizedName, "shampoo", "acondicionador", "papel higienico", "dentifrico", "desodorante", "baño", "bano", "jabon de tocador"))
+            return ("Higiene Personal", "higiene-personal.svg", "bath");
+        if (ContainsAny(normalizedName, "congelado", "hielo", "helado", "papas fritas congeladas"))
+            return ("Congelados", "congelados.svg", "snowflake");
+
+        return ("Otros", "otros.svg", "package");
+    }
+
+    private static bool ContainsAny(string source, params string[] keywords)
+    {
+        foreach (var keyword in keywords)
+        {
+            if (source.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    private async Task<Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)>> GetProductCategoryMapAsync(CancellationToken ct)
+    {
+        var products = await _db.Productos
+            .AsNoTracking()
+            .Include(p => p.Categoria)
+            .Where(p => p.CategoriaId != null)
+            .ToListAsync(ct);
+
+        var map = new Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)>();
+        foreach (var p in products)
+        {
+            var normalized = NormalizeName(p.Nombre);
+            if (p.Categoria != null && !map.ContainsKey(normalized))
+            {
+                map[normalized] = (p.Categoria.Nombre, p.Categoria.IconoSvg, p.Categoria.Icono);
+            }
+        }
+        return map;
+    }
 
     private static string GetItemName(ListaCompra item)
         => !string.IsNullOrWhiteSpace(item.NombreManual)
@@ -538,5 +698,4 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
-
 }

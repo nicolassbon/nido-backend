@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Api.ImageUploads;
@@ -239,7 +239,10 @@ public sealed class AlacenaController : ControllerBase
             item.PorcentajeConsumido,
             item.CantidadEnvases,
             item.OrigenCarga,
-            item.InformacionNutricional is null ? null : ToNutritionResponse(item.InformacionNutricional)
+            item.IconoSvg,
+            item.Icono,
+            item.CantidadCompraEstandar,
+            item.UnidadCompraEstandar
         );
 
     private static NutritionInfoResponse ToNutritionResponse(NutritionInfoResult nutrition) =>
@@ -333,7 +336,7 @@ public sealed class AlacenaController : ControllerBase
     public async Task<IActionResult> GetCategorias(CancellationToken ct)
     {
         var result = await _catalogoRepository.GetCategoriasAsync(ct);
-        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias }));
+        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias, c.IconoSvg, c.Icono }));
     }
 
     [HttpGet("unidades-medida")]

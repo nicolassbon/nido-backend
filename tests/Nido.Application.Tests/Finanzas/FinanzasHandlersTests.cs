@@ -516,7 +516,7 @@ public sealed class FinanzasHandlersTests
     private static RecetaResult MakeReceta(string nombre, int enStock, int total)
     {
         var ingredientes = Enumerable.Range(0, total)
-            .Select(i => new RecetaIngredienteResult(Guid.NewGuid(), null, $"Ingrediente{i}", null, 1, null, null, null, i < enStock, []))
+            .Select(i => new RecetaIngredienteResult(Guid.NewGuid(), null, $"Ingrediente{i}", null, 1, null, null, null, null, null, i < enStock, []))
             .ToList<RecetaIngredienteResult>();
         return new RecetaResult(Guid.NewGuid(), nombre, null, null, null, null, null, null, null, null, null, null, ingredientes, [], [], 0, 0m, 0, false, null, null, []);
     }

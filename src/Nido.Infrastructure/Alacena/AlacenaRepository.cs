@@ -55,6 +55,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
     public async Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
     {
+        var resolvedCategoriaId = await ResolveCategoryIdAsync(request.CategoriaId, request.Nombre, ct);
         Producto? producto = null;
         if (!string.IsNullOrWhiteSpace(request.CodigoBarras))
         {
@@ -76,9 +77,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             {
                 Id = Guid.NewGuid(),
                 Nombre = request.Nombre,
-                CategoriaId = request.CategoriaId is null || request.CategoriaId == Guid.Empty
-                    ? null
-                    : request.CategoriaId,
+                CategoriaId = resolvedCategoriaId,
                 CodigoBarras = request.CodigoBarras,
                 ImagenUrl = request.Imagen
             };
@@ -86,10 +85,19 @@ public sealed class AlacenaRepository : IAlacenaRepository
         }
         else
         {
-            if (producto.CategoriaId is null && request.CategoriaId is not null && request.CategoriaId != Guid.Empty)
+            if (request.CategoriaId is not null && request.CategoriaId != Guid.Empty && producto.CategoriaId != request.CategoriaId)
+            {
                 producto.CategoriaId = request.CategoriaId;
+            }
+            else if (producto.CategoriaId is null && resolvedCategoriaId is not null)
+            {
+                producto.CategoriaId = resolvedCategoriaId;
+            }
+
             if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+            {
                 producto.ImagenUrl = request.Imagen;
+            }
         }
 
         // Información nutricional (del escaneo). Se guarda a nivel Producto.
@@ -208,6 +216,10 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.PorcentajeConsumido,
             stock.CantidadEnvases,
             string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga,
+            producto.Categoria?.IconoSvg,
+            producto.Categoria?.Icono,
+            producto.CantidadCompraEstandar,
+            producto.UnidadCompraEstandar);
             ToNutritionResult(producto.InfoNutricionalProductos?.FirstOrDefault()));
     }
 
@@ -351,6 +363,109 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();
+
+    private async Task<Guid?> ResolveCategoryIdAsync(Guid? requestedCategoryId, string productName, CancellationToken ct)
+    {
+        if (requestedCategoryId is not null && requestedCategoryId != Guid.Empty)
+        {
+            return requestedCategoryId;
+        }
+
+        var categoryName = InferCategoryNameByKeyword(NormalizeName(productName));
+        if (categoryName is null)
+        {
+            return null;
+        }
+
+        return await _db.CategoriasProductos
+            .AsNoTracking()
+            .Where(categoria => categoria.Nombre == categoryName)
+            .Select(categoria => (Guid?)categoria.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static string? InferCategoryNameByKeyword(string normalizedName)
+    {
+        if (ContainsAny(normalizedName, "leche", "queso", "yogur", "crema", "manteca", "lacteo", "ricota", "dulce de leche"))
+            return "Lácteos";
+        if (ContainsAny(normalizedName, "pollo", "ave", "gallina"))
+            return "Pollo y Aves";
+        if (ContainsAny(normalizedName, "cerdo", "bondiola", "panceta", "jamon", "chorizo", "salchicha"))
+            return "Carnes Porcinas";
+        if (ContainsAny(normalizedName, "pescado", "atun", "merluza", "marisco", "camaron", "langostino"))
+            return "Pescados y Mariscos";
+        if (ContainsAny(normalizedName, "carne", "vaca", "bife", "milanesa", "asado", "lomo", "nalga", "cuadril"))
+            return "Carnes Vacunas";
+        if (ContainsAny(normalizedName, "manzana", "banana", "naranja", "limon", "frutilla", "uva", "pera", "durazno", "cereza", "fruta"))
+            return "Frutas";
+        if (ContainsAny(normalizedName, "ajo en polvo", "cebolla en polvo", "pimenton", "aji molido"))
+            return "Condimentos";
+        if (ContainsAny(normalizedName, "tomate", "zanahoria", "cebolla", "lechuga", "papa", "batata", "morron", "ajo", "verdura", "zapallo", "espinaca", "acelga"))
+            return "Verduras";
+        if (ContainsAny(normalizedName, "lenteja", "garbanzo", "poroto", "arveja", "legumbre", "soja"))
+            return "Legumbres";
+        if (ContainsAny(normalizedName, "pan", "factura", "medialuna", "tostada", "galleta de agua"))
+            return "Panificados";
+        if (ContainsAny(normalizedName, "fideo", "pasta", "spaghetti", "raviol", "ñoqui", "noqui"))
+            return "Pastas";
+        if (ContainsAny(normalizedName, "arroz"))
+            return "Arroz";
+        if (ContainsAny(normalizedName, "cereal", "avena", "granola", "copos"))
+            return "Cereales";
+        if (ContainsAny(normalizedName, "harina", "maicena", "fecula"))
+            return "Harinas";
+        if (ContainsAny(normalizedName, "azucar", "edulcorante", "miel", "endulzante"))
+            return "Azúcar y Endulzantes";
+        if (ContainsAny(normalizedName, "chocolate", "levadura", "esencia", "reposteria", "polvo de hornear", "coco rallado"))
+            return "Repostería";
+        if (ContainsAny(normalizedName, "aceite"))
+            return "Aceites";
+        if (ContainsAny(normalizedName, "sal", "pimienta", "oregano", "condimento", "especia", "caldo"))
+            return "Condimentos";
+        if (ContainsAny(normalizedName, "salsa", "aderezo", "mayonesa", "ketchup", "mostaza", "vinagre", "aceto"))
+            return "Salsas y Aderezos";
+        if (ContainsAny(normalizedName, "huevo"))
+            return "Huevos";
+        if (ContainsAny(normalizedName, "congelado", "hielo", "helado", "freezer"))
+            return "Congelados";
+        if (ContainsAny(normalizedName, "papas fritas", "snack", "nachos", "chips", "mani"))
+            return "Snacks";
+        if (ContainsAny(normalizedName, "caramelo", "gomita", "alfajor", "golosina", "turron"))
+            return "Golosinas";
+        if (ContainsAny(normalizedName, "cerveza", "vino", "fernet", "sidra", "whisky", "alcoholica"))
+            return "Bebidas Alcohólicas";
+        if (ContainsAny(normalizedName, "agua", "jugo", "gaseosa", "soda", "coca", "bebida", "te", "cafe"))
+            return "Bebidas";
+        if (ContainsAny(normalizedName, "conserva", "lata", "atun", "tomate perita", "mermelada"))
+            return "Conservas";
+        if (ContainsAny(normalizedName, "diet", "light", "proteina", "dietetico"))
+            return "Productos Dietéticos";
+        if (ContainsAny(normalizedName, "sin tacc", "gluten free", "gluten-free", "celiaco"))
+            return "Productos Sin TACC";
+        if (ContainsAny(normalizedName, "detergente", "jabon", "limpieza", "lavandina", "desinfectante", "trapo", "esponja", "suavizante"))
+            return "Limpieza";
+        if (ContainsAny(normalizedName, "shampoo", "acondicionador", "papel higienico", "dentifrico", "desodorante", "baño", "bano", "jabon de tocador"))
+            return "Higiene Personal";
+        if (ContainsAny(normalizedName, "perro", "gato", "mascota", "alimento balanceado"))
+            return "Mascotas";
+        if (ContainsAny(normalizedName, "pañal", "panal", "bebe", "mamadera", "oleo calcareo"))
+            return "Bebés";
+
+        return "Otros";
+    }
+
+    private static bool ContainsAny(string source, params string[] keywords)
+    {
+        foreach (var keyword in keywords)
+        {
+            if (source.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private async Task UpdateProductReferenceAsync(Nido.Infrastructure.Persistence.Entities.StockHogar item, string nombre, CancellationToken ct)
     {
