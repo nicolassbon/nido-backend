@@ -192,7 +192,10 @@ public sealed class AlacenaController : ControllerBase
             item.PorcentajeConsumido,
             item.CantidadEnvases,
             item.OrigenCarga,
-            item.IconoSvg
+            item.IconoSvg,
+            item.Icono,
+            item.CantidadCompraEstandar,
+            item.UnidadCompraEstandar
         );
 
     private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)
@@ -252,7 +255,7 @@ public sealed class AlacenaController : ControllerBase
     public async Task<IActionResult> GetCategorias(CancellationToken ct)
     {
         var result = await _catalogoRepository.GetCategoriasAsync(ct);
-        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias, c.IconoSvg }));
+        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias, c.IconoSvg, c.Icono }));
     }
 
     [HttpGet("unidades-medida")]

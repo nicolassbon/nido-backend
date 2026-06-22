@@ -42,8 +42,13 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(categorias);
 
         var nombres = categorias!.Select(c => c.Nombre).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("Almacén", nombres);
         Assert.Contains("Lácteos", nombres);
+        Assert.Contains("Arroz", nombres);
+        Assert.Contains("Pastas", nombres);
+        Assert.Contains("Verduras", nombres);
+        Assert.DoesNotContain("Almacén", nombres);
+        Assert.DoesNotContain("Baño", nombres);
+        Assert.DoesNotContain("Carnes", nombres);
         Assert.DoesNotContain("Arroces y pastas", nombres);
         Assert.DoesNotContain("Aceites y condimentos", nombres);
     }
@@ -228,6 +233,97 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(existingProductId, stock.ProductoId);
         Assert.Equal("kg", stock.UnidadMedida);
         Assert.Equal(1m, stock.CantidadActual);
+    }
+
+    [Fact]
+    public async Task CreateProducto_WhenExistingProductHasLegacyCategory_UpdatesToRequestedCategory()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-existing-category");
+        var legacyCategoryId = Guid.NewGuid();
+        var requestedCategoryId = Guid.NewGuid();
+        var existingProductId = Guid.NewGuid();
+        var suffix = Guid.NewGuid().ToString("N");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.CategoriasProductos.AddRange(
+                new CategoriasProducto
+                {
+                    Id = legacyCategoryId,
+                    Nombre = $"Categoria legacy test {suffix}",
+                    IconoSvg = "carnes.svg"
+                },
+                new CategoriasProducto
+                {
+                    Id = requestedCategoryId,
+                    Nombre = $"Categoria solicitada test {suffix}",
+                    IconoSvg = "carnes-vacunas.svg"
+                });
+            db.Productos.Add(new Producto
+            {
+                Id = existingProductId,
+                Nombre = "Carne",
+                CategoriaId = legacyCategoryId
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var createResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Carne",
+            categoriaId = requestedCategoryId,
+            codigoBarras = (string?)null,
+            imagen = (string?)null,
+            ubicacion = "Alacena",
+            cantidad = 1m,
+            unidadMedida = "kg",
+            fechaVencimiento = (string?)null,
+            estaAbierto = false,
+            porcentajeConsumido = 0m
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var stock = await verifyDb.StockHogars.SingleAsync(x => x.HogarId == user.HogarId);
+        Assert.Equal(existingProductId, stock.ProductoId);
+
+        var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
+        Assert.Equal(requestedCategoryId, product.CategoriaId);
+    }
+
+    [Fact]
+    public async Task CreateProducto_WhenCategoryIsMissing_InfersCategoryFromProductName()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-infer-category");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Verduras picadas",
+            categoriaId = (Guid?)null,
+            codigoBarras = (string?)null,
+            imagen = (string?)null,
+            ubicacion = "Alacena",
+            cantidad = 240m,
+            unidadMedida = "ml",
+            fechaVencimiento = (string?)null,
+            estaAbierto = false,
+            porcentajeConsumido = 0m
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var stock = await verifyDb.StockHogars
+            .Include(x => x.Producto)
+            .ThenInclude(x => x.Categoria)
+            .SingleAsync(x => x.HogarId == user.HogarId);
+
+        Assert.Equal("Verduras", stock.Producto.Categoria?.Nombre);
+        Assert.Equal("verduras.svg", stock.Producto.Categoria?.IconoSvg);
     }
 
     [Fact]

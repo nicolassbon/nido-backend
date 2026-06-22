@@ -13,5 +13,7 @@ public partial class CategoriasProducto
 
     public string? IconoSvg { get; set; }
 
+    public string? Icono { get; set; }
+
     public virtual ICollection<Producto> Productos { get; set; } = new List<Producto>();
 }

@@ -233,6 +233,9 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.IconoSvg)
                 .HasMaxLength(255)
                 .HasColumnName("icono_svg");
+            entity.Property(e => e.Icono)
+                .HasMaxLength(255)
+                .HasColumnName("icono");
         });
 
         modelBuilder.Entity<Electrodomestico>(entity =>

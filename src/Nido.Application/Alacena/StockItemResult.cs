@@ -15,5 +15,8 @@ public sealed record StockItemResult(
     decimal PorcentajeConsumido,
     int CantidadEnvases,
     string OrigenCarga = StockLoadOrigins.Manual,
-    string? IconoSvg = null
+    string? IconoSvg = null,
+    string? Icono = null,
+    decimal? CantidadCompraEstandar = null,
+    string? UnidadCompraEstandar = null
 );

@@ -494,7 +494,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
     private static IReadOnlyList<ListaCompraGrupoResult> ToGroups(
         IReadOnlyList<ListaCompra> items,
-        Dictionary<string, (string Nombre, string? IconoSvg)> map)
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
         => items
             .GroupBy(item => item.GrupoNombre)
             .Select(group => new ListaCompraGrupoResult(
@@ -504,7 +504,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
     private static ListaCompraListResult ToListResult(
         ListaCompraHogar lista,
-        Dictionary<string, (string Nombre, string? IconoSvg)> map)
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
         => new(
             lista.Id,
             lista.Nombre,
@@ -519,7 +519,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
     private static ListaCompraItemResult ToItemResult(
         ListaCompra item,
-        Dictionary<string, (string Nombre, string? IconoSvg)> map)
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
     {
         var resolved = ResolveCategory(item, map);
         return new(
@@ -532,22 +532,23 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             item.CompradoEn,
             item.Orden,
             resolved.CategoriaNombre,
-            resolved.IconoSvg);
+            resolved.IconoSvg,
+            resolved.Icono);
     }
 
-    private static (string CategoriaNombre, string? IconoSvg) ResolveCategory(
+    private static (string CategoriaNombre, string? IconoSvg, string? Icono) ResolveCategory(
         ListaCompra item,
-        Dictionary<string, (string Nombre, string? IconoSvg)> map)
+        Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)> map)
     {
         if (item.Producto?.Categoria is not null)
         {
-            return (item.Producto.Categoria.Nombre, item.Producto.Categoria.IconoSvg);
+            return (item.Producto.Categoria.Nombre, item.Producto.Categoria.IconoSvg, item.Producto.Categoria.Icono);
         }
 
         var name = GetItemName(item);
         if (string.IsNullOrWhiteSpace(name))
         {
-            return ("Otros", "otros.svg");
+            return ("Otros", "otros.svg", "package");
         }
 
         var normalized = NormalizeName(name);
@@ -559,30 +560,60 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return ResolveCategoryByKeyword(normalized);
     }
 
-    private static (string CategoriaNombre, string? IconoSvg) ResolveCategoryByKeyword(string normalizedName)
+    private static (string CategoriaNombre, string? IconoSvg, string? Icono) ResolveCategoryByKeyword(string normalizedName)
     {
         if (ContainsAny(normalizedName, "leche", "queso", "yogur", "crema", "manteca", "lacteo", "ricota", "dulce de leche"))
-            return ("Lácteos", "lacteos.svg");
-        if (ContainsAny(normalizedName, "carne", "pollo", "cerdo", "vaca", "pescado", "atun", "merluza", "bife", "milanesa", "jamon", "panceta", "chorizo", "salchicha"))
-            return ("Carnes", "carnes.svg");
+            return ("Lácteos", "lacteos.svg", "milk");
+        if (ContainsAny(normalizedName, "pollo", "ave", "gallina"))
+            return ("Pollo y Aves", "pollo-aves.svg", "drumstick");
+        if (ContainsAny(normalizedName, "cerdo", "bondiola", "panceta", "jamon", "chorizo", "salchicha"))
+            return ("Carnes Porcinas", "carnes-porcinas.svg", "beef");
+        if (ContainsAny(normalizedName, "pescado", "atun", "merluza", "marisco", "camaron", "langostino"))
+            return ("Pescados y Mariscos", "pescados-mariscos.svg", "fish");
+        if (ContainsAny(normalizedName, "carne", "vaca", "bife", "milanesa", "asado", "lomo", "nalga", "cuadril"))
+            return ("Carnes Vacunas", "carnes-vacunas.svg", "beef");
         if (ContainsAny(normalizedName, "manzana", "banana", "naranja", "limon", "frutilla", "uva", "pera", "durazno", "cereza", "fruta"))
-            return ("Frutas", "frutas.svg");
+            return ("Frutas", "frutas.svg", "apple");
+        if (ContainsAny(normalizedName, "ajo en polvo", "cebolla en polvo", "pimenton", "aji molido"))
+            return ("Condimentos", "condimentos.svg", "salt");
         if (ContainsAny(normalizedName, "tomate", "zanahoria", "cebolla", "lechuga", "papa", "batata", "morron", "ajo", "verdura", "zapallo", "espinaca", "acelga"))
-            return ("Verduras", "verduras.svg");
-        if (ContainsAny(normalizedName, "harina", "azucar", "chocolate", "levadura", "esencia", "reposteria", "polvo de hornear", "coco rallado"))
-            return ("Repostería", "reposteria.svg");
-        if (ContainsAny(normalizedName, "arroz", "fideo", "pasta", "aceite", "sal", "pimienta", "oregano", "condimento", "lentejas", "garbanzos", "caldo", "vinagre", "salsa", "almacen", "despensa"))
-            return ("Almacén", "almacen.svg");
-        if (ContainsAny(normalizedName, "agua", "jugo", "gaseosa", "soda", "coca", "cerveza", "vino", "bebida", "te", "cafe"))
-            return ("Bebidas", "bebidas.svg");
+            return ("Verduras", "verduras.svg", "carrot");
+        if (ContainsAny(normalizedName, "lenteja", "garbanzo", "poroto", "arveja", "legumbre", "soja"))
+            return ("Legumbres", "legumbres.svg", "bean");
+        if (ContainsAny(normalizedName, "pan", "factura", "medialuna", "tostada", "galleta de agua"))
+            return ("Panificados", "panificados.svg", "wheat");
+        if (ContainsAny(normalizedName, "fideo", "pasta", "spaghetti", "raviol", "ñoqui", "noqui"))
+            return ("Pastas", "pastas.svg", "utensils");
+        if (ContainsAny(normalizedName, "arroz"))
+            return ("Arroz", "arroz.svg", "wheat");
+        if (ContainsAny(normalizedName, "cereal", "avena", "granola", "copos"))
+            return ("Cereales", "cereales.svg", "wheat");
+        if (ContainsAny(normalizedName, "harina", "maicena", "fecula"))
+            return ("Harinas", "harinas.svg", "wheat");
+        if (ContainsAny(normalizedName, "azucar", "edulcorante", "miel", "endulzante"))
+            return ("Azúcar y Endulzantes", "azucar-endulzantes.svg", "candy");
+        if (ContainsAny(normalizedName, "chocolate", "levadura", "esencia", "reposteria", "polvo de hornear", "coco rallado"))
+            return ("Repostería", "reposteria.svg", "cake");
+        if (ContainsAny(normalizedName, "aceite"))
+            return ("Aceites", "aceites.svg", "droplet");
+        if (ContainsAny(normalizedName, "sal", "pimienta", "oregano", "condimento", "especia", "caldo"))
+            return ("Condimentos", "condimentos.svg", "salt");
+        if (ContainsAny(normalizedName, "salsa", "aderezo", "mayonesa", "ketchup", "mostaza", "vinagre", "aceto"))
+            return ("Salsas y Aderezos", "salsas-aderezos.svg", "chef-hat");
+        if (ContainsAny(normalizedName, "huevo"))
+            return ("Huevos", "huevos.svg", "egg");
+        if (ContainsAny(normalizedName, "cerveza", "vino", "fernet", "sidra", "whisky", "alcoholica"))
+            return ("Bebidas Alcohólicas", "bebidas-alcoholicas.svg", "beer");
+        if (ContainsAny(normalizedName, "agua", "jugo", "gaseosa", "soda", "coca", "bebida", "te", "cafe"))
+            return ("Bebidas", "bebidas.svg", "glass-water");
         if (ContainsAny(normalizedName, "detergente", "jabón", "jabon", "limpieza", "lavandina", "desinfectante", "trapo", "esponja", "suavizante"))
-            return ("Limpieza", "limpieza.svg");
+            return ("Limpieza", "limpieza.svg", "spray-can");
         if (ContainsAny(normalizedName, "shampoo", "acondicionador", "papel higienico", "dentifrico", "desodorante", "baño", "bano", "jabon de tocador"))
-            return ("Baño", "bano.svg");
+            return ("Higiene Personal", "higiene-personal.svg", "bath");
         if (ContainsAny(normalizedName, "congelado", "hielo", "helado", "papas fritas congeladas"))
-            return ("Congelados", "congelados.svg");
+            return ("Congelados", "congelados.svg", "snowflake");
 
-        return ("Otros", "otros.svg");
+        return ("Otros", "otros.svg", "package");
     }
 
     private static bool ContainsAny(string source, params string[] keywords)
@@ -595,7 +626,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return false;
     }
 
-    private async Task<Dictionary<string, (string Nombre, string? IconoSvg)>> GetProductCategoryMapAsync(CancellationToken ct)
+    private async Task<Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)>> GetProductCategoryMapAsync(CancellationToken ct)
     {
         var products = await _db.Productos
             .AsNoTracking()
@@ -603,13 +634,13 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             .Where(p => p.CategoriaId != null)
             .ToListAsync(ct);
 
-        var map = new Dictionary<string, (string Nombre, string? IconoSvg)>();
+        var map = new Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)>();
         foreach (var p in products)
         {
             var normalized = NormalizeName(p.Nombre);
             if (p.Categoria != null && !map.ContainsKey(normalized))
             {
-                map[normalized] = (p.Categoria.Nombre, p.Categoria.IconoSvg);
+                map[normalized] = (p.Categoria.Nombre, p.Categoria.IconoSvg, p.Categoria.Icono);
             }
         }
         return map;

@@ -16,5 +16,8 @@ public sealed record StockItemResponse(
     // Cantidad de envases idénticos del mismo producto.
     int CantidadEnvases,
     string OrigenCarga,
-    string? IconoSvg = null
+    string? IconoSvg = null,
+    string? Icono = null,
+    decimal? CantidadCompraEstandar = null,
+    string? UnidadCompraEstandar = null
 );
