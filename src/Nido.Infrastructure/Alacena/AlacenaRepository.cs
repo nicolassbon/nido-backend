@@ -219,7 +219,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             producto.Categoria?.IconoSvg,
             producto.Categoria?.Icono,
             producto.CantidadCompraEstandar,
-            producto.UnidadCompraEstandar);
+            producto.UnidadCompraEstandar,
             ToNutritionResult(producto.InfoNutricionalProductos?.FirstOrDefault()));
     }
 

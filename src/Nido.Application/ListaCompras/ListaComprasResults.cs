@@ -37,7 +37,6 @@ public sealed record ListaCompraHistorialItemResult(
     string? CategoriaNombre = null,
     string? IconoSvg = null,
     string? Icono = null);
-    Guid? CompradoPor);
 
 public enum SendListaCompraToTelegramStatus
 {

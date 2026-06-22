@@ -19,7 +19,7 @@ public sealed record StockItemResponse(
     string? IconoSvg = null,
     string? Icono = null,
     decimal? CantidadCompraEstandar = null,
-    string? UnidadCompraEstandar = null
+    string? UnidadCompraEstandar = null,
     NutritionInfoResponse? InformacionNutricional = null,
     // Información nutricional por 100 g (null si el producto no la tiene).
     decimal? Calorias = null,

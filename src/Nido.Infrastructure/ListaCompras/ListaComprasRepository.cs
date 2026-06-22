@@ -39,7 +39,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             .ThenBy(item => item.Orden)
             .ToListAsync(ct);
 
-        return ToGroups(items);
+        var map = await GetProductCategoryMapAsync(ct);
+        return ToGroups(items, map);
     }
 
     public async Task<IReadOnlyList<ListaCompraListResult>> GetListsAsync(Guid hogarId, CancellationToken ct)
