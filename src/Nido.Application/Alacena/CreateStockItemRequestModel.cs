@@ -18,5 +18,6 @@ public sealed record CreateStockItemRequestModel(
     decimal? Calorias = null,
     decimal? Proteinas = null,
     decimal? Carbohidratos = null,
-    decimal? Grasas = null
+    decimal? Grasas = null,
+    SaveNutritionInfoRequestModel? InformacionNutricional = null
 );

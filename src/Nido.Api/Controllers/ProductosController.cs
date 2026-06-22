@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Api.Contracts.Productos;
+using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Productos;
 
@@ -53,7 +54,8 @@ public sealed class ProductoController : ControllerBase
             producto.Calorias,
             producto.Proteinas,
             producto.Carbohidratos,
-            producto.Grasas
+            producto.Grasas,
+            producto.InformacionNutricional is null ? null : ToNutritionResponse(producto.InformacionNutricional)
         ));
     }
 
@@ -87,6 +89,7 @@ public sealed class ProductoController : ControllerBase
             carbohidratos     = result.Carbohidratos,
             grasas            = result.Grasas,
             gramajeExtraido   = result.GramajeExtraido,
+            informacionNutricional = result.InformacionNutricional is null ? null : ToNutritionResponse(result.InformacionNutricional),
         });
     }
 
@@ -105,4 +108,19 @@ public sealed class ProductoController : ControllerBase
             r.Ubicacion,
         }));
     }
+
+    private static NutritionInfoResponse ToNutritionResponse(NutritionInfoResult nutrition) =>
+        new(
+            nutrition.Calorias,
+            nutrition.Proteinas,
+            nutrition.Carbohidratos,
+            nutrition.Grasas,
+            nutrition.Porcion,
+            nutrition.Base,
+            nutrition.Items.Select(item => new NutritionInfoItemResponse(
+                item.Nombre,
+                item.Valor,
+                item.Unidad,
+                item.PorcentajeDiario,
+                item.Orden)).ToArray());
 }

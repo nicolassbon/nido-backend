@@ -1,3 +1,5 @@
+using Nido.Application.Alacena;
+
 namespace Nido.Application.Productos;
 
 public sealed record LookupExternalProductoResult(
@@ -18,5 +20,6 @@ public sealed record LookupExternalProductoResult(
     decimal? Carbohidratos = null,
     decimal? Grasas        = null,
     // Gramaje extraído del nombre del producto (ej: "290" de "Producto 290g")
-    decimal? GramajeExtraido = null
+    decimal? GramajeExtraido = null,
+    NutritionInfoResult? InformacionNutricional = null
 );

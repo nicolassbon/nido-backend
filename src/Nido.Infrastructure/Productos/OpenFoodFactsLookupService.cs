@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nido.Application.Alacena;
 using Nido.Application.Productos;
 
 namespace Nido.Infrastructure.Productos;
@@ -72,6 +73,7 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
             var sanitized   = SanitizeName(p.ProductNameEs ?? p.ProductName ?? p.ProductNameEn ?? string.Empty);
             var deBranded   = StripTrailingBrand(sanitized, p.Brands ?? string.Empty);
             var (cleanName, gramaje) = ExtractGramaje(deBranded);
+            var nutrition = ToNutritionInfo(n);
 
             return new LookupExternalProductoResult(
                 Name:              cleanName,
@@ -80,11 +82,12 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
                 CategoriesTags:    categories,
                 CategoriaSugerida: _categoryMapper.Map(categories),
                 FoundInDb:         true,
-                Calorias:          n?.EnergyKcal100g,
-                Proteinas:         n?.Proteins100g,
-                Carbohidratos:     n?.Carbohydrates100g,
-                Grasas:            n?.Fat100g,
-                GramajeExtraido:   gramaje
+                Calorias:          nutrition?.Calorias,
+                Proteinas:         nutrition?.Proteinas,
+                Carbohidratos:     nutrition?.Carbohidratos,
+                Grasas:            nutrition?.Grasas,
+                GramajeExtraido:   gramaje,
+                InformacionNutricional: nutrition
             );
         }
         catch (Exception ex)
@@ -212,6 +215,53 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
     private static LookupExternalProductoResult Empty() =>
         new(string.Empty, string.Empty, string.Empty, Array.Empty<string>(), ProductCategoryMapper.General, false, null, null, null, null, null);
 
+    private static NutritionInfoResult? ToNutritionInfo(OffNutriments? nutriments)
+    {
+        if (nutriments is null)
+        {
+            return null;
+        }
+
+        var items = new List<NutritionInfoItemResult>();
+        AddNutritionItem(items, "Valor energetico", nutriments.EnergyKcal100g, "kcal");
+        AddNutritionItem(items, "Proteinas", nutriments.Proteins100g, "g");
+        AddNutritionItem(items, "Carbohidratos", nutriments.Carbohydrates100g, "g");
+        AddNutritionItem(items, "Azucares", nutriments.Sugars100g, "g");
+        AddNutritionItem(items, "Grasas", nutriments.Fat100g, "g");
+        AddNutritionItem(items, "Grasas saturadas", nutriments.SaturatedFat100g, "g");
+        AddNutritionItem(items, "Fibra", nutriments.Fiber100g, "g");
+        AddNutritionItem(items, "Sodio", nutriments.Sodium100g * 1000, "mg");
+        AddNutritionItem(items, "Sal", nutriments.Salt100g, "g");
+
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        return new NutritionInfoResult(
+            nutriments.EnergyKcal100g,
+            nutriments.Proteins100g,
+            nutriments.Carbohydrates100g,
+            nutriments.Fat100g,
+            null,
+            "100 g",
+            items);
+    }
+
+    private static void AddNutritionItem(
+        List<NutritionInfoItemResult> items,
+        string name,
+        decimal? value,
+        string unit)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        items.Add(new NutritionInfoItemResult(name, value, unit, null, items.Count + 1));
+    }
+
     // ── DTOs de las APIs externas ────────────────────────────────────────────
 
     private sealed class OffApiResponse
@@ -244,6 +294,16 @@ public sealed class OpenFoodFactsLookupService : IExternalProductLookupService
         [JsonPropertyName("carbohydrates_100g")] public decimal? Carbohydrates100g { get; set; }
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         [JsonPropertyName("fat_100g")]           public decimal? Fat100g           { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("sugars_100g")]        public decimal? Sugars100g        { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("saturated-fat_100g")] public decimal? SaturatedFat100g  { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("fiber_100g")]         public decimal? Fiber100g         { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("sodium_100g")]        public decimal? Sodium100g        { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonPropertyName("salt_100g")]          public decimal? Salt100g          { get; set; }
     }
 
     private sealed class UpcItemDbResponse

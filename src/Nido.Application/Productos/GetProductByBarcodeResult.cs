@@ -1,3 +1,5 @@
+using Nido.Application.Alacena;
+
 namespace Nido.Application.Productos;
 
 public sealed record GetProductByBarcodeResult(
@@ -14,5 +16,6 @@ public sealed record GetProductByBarcodeResult(
     decimal? Calorias = null,
     decimal? Proteinas = null,
     decimal? Carbohidratos = null,
-    decimal? Grasas = null
+    decimal? Grasas = null,
+    NutritionInfoResult? InformacionNutricional = null
 );

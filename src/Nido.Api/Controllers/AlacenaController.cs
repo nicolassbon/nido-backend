@@ -97,7 +97,8 @@ public sealed class AlacenaController : ControllerBase
                 Calorias: request.Calorias,
                 Proteinas: request.Proteinas,
                 Carbohidratos: request.Carbohidratos,
-                Grasas: request.Grasas),
+                Grasas: request.Grasas,
+                InformacionNutricional: ToSaveNutritionModel(request.InformacionNutricional)),
             ct);
 
         return CreatedAtAction(nameof(GetProductos), ToResponse(created));
@@ -178,21 +179,7 @@ public sealed class AlacenaController : ControllerBase
             new SaveNutritionInfoCommand(
                 id,
                 currentUser.HogarId,
-                new SaveNutritionInfoRequestModel(
-                    request.Calorias,
-                    request.Proteinas,
-                    request.Carbohidratos,
-                    request.Grasas,
-                    request.Porcion,
-                    request.Base,
-                    (request.Items ?? Array.Empty<SaveNutritionInfoItemRequest>())
-                        .Select(item => new SaveNutritionInfoItemRequestModel(
-                            item.Nombre,
-                            item.Valor,
-                            item.Unidad,
-                            item.PorcentajeDiario,
-                            item.Orden))
-                        .ToArray())),
+                ToSaveNutritionModel(request)!),
             ct);
 
         return result is null ? NotFound() : Ok(ToNutritionResponse(result));
@@ -269,6 +256,25 @@ public sealed class AlacenaController : ControllerBase
                 item.Unidad,
                 item.PorcentajeDiario,
                 item.Orden)).ToArray());
+
+    private static SaveNutritionInfoRequestModel? ToSaveNutritionModel(SaveNutritionInfoRequest? request) =>
+        request is null
+            ? null
+            : new SaveNutritionInfoRequestModel(
+                request.Calorias,
+                request.Proteinas,
+                request.Carbohidratos,
+                request.Grasas,
+                request.Porcion,
+                request.Base,
+                (request.Items ?? Array.Empty<SaveNutritionInfoItemRequest>())
+                    .Select(item => new SaveNutritionInfoItemRequestModel(
+                        item.Nombre,
+                        item.Valor,
+                        item.Unidad,
+                        item.PorcentajeDiario,
+                        item.Orden))
+                    .ToArray());
 
     private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)
     {

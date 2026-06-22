@@ -18,5 +18,6 @@ public sealed record ProductoResponse(
     decimal? Calorias = null,
     decimal? Proteinas = null,
     decimal? Carbohidratos = null,
-    decimal? Grasas = null
+    decimal? Grasas = null,
+    NutritionInfoResponse? InformacionNutricional = null
 );
