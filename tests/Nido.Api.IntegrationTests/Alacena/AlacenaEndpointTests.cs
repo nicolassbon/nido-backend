@@ -114,6 +114,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var fetched = await getResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(fetched);
         Assert.Equal(3, fetched!.CantidadEnvases);
+        Assert.Equal(1m, fetched.CantidadCompraEstandar);
+        Assert.Equal("unidad", fetched.UnidadCompraEstandar);
 
         var listResponse = await _client.GetAsync("/api/alacena/productos");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
@@ -193,6 +195,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
         Assert.Equal("https://img.test/yerba.png", product.ImagenUrl);
+        Assert.Equal(1.5m, product.CantidadCompraEstandar);
+        Assert.Equal("kg", product.UnidadCompraEstandar);
     }
 
     [Fact]
@@ -233,6 +237,10 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(existingProductId, stock.ProductoId);
         Assert.Equal("kg", stock.UnidadMedida);
         Assert.Equal(1m, stock.CantidadActual);
+
+        var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
+        Assert.Equal(1m, product.CantidadCompraEstandar);
+        Assert.Equal("kg", product.UnidadCompraEstandar);
     }
 
     [Fact]
@@ -767,6 +775,20 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed record CategoriaBody(Guid Id, string Nombre, int? TtlDias);
     private sealed record UnidadMedidaBody(Guid Id, string Codigo, string Nombre);
-    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
+    private sealed record StockItemBody(
+        Guid Id,
+        Guid ProductoId,
+        string Nombre,
+        string? Imagen,
+        string? CodigoBarras,
+        string Ubicacion,
+        decimal Cantidad,
+        string? UnidadMedida,
+        string? FechaVencimiento,
+        bool EstaAbierto,
+        decimal PorcentajeConsumido,
+        int CantidadEnvases,
+        decimal? CantidadCompraEstandar,
+        string? UnidadCompraEstandar);
     private sealed record StockMovementBody(Guid Id, Guid? ProductoId, string ProductoNombre, decimal Cantidad, string? UnidadMedida, string Motivo, DateTime FechaConsumo, Guid? UsuarioId);
 }

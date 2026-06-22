@@ -61,7 +61,9 @@ public sealed class CreateStockHomeHandler
             command.Calorias,
             command.Proteinas,
             command.Carbohidratos,
-            command.Grasas);
+            command.Grasas,
+            command.CantidadActual,
+            command.UnidadMedida);
 
         var cantidadEnvases = command.CantidadEnvases < 1 ? 1 : command.CantidadEnvases;
 

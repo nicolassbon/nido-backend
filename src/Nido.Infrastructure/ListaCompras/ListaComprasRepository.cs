@@ -245,7 +245,8 @@ public sealed class ListaComprasRepository : IListaComprasRepository
                 item.CompradoPor,
                 item.AgregadoAlInventario == true,
                 resolved.CategoriaNombre,
-                resolved.IconoSvg);
+                resolved.IconoSvg,
+                resolved.Icono);
         }).ToList();
     }
 

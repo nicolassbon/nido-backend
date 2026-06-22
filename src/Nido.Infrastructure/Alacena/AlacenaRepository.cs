@@ -56,6 +56,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
     public async Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
     {
         var resolvedCategoriaId = await ResolveCategoryIdAsync(request.CategoriaId, request.Nombre, ct);
+        var normalizedUnit = NormalizeUnit(request.UnidadMedida);
         Producto? producto = null;
         if (!string.IsNullOrWhiteSpace(request.CodigoBarras))
         {
@@ -79,12 +80,17 @@ public sealed class AlacenaRepository : IAlacenaRepository
                 Nombre = request.Nombre,
                 CategoriaId = resolvedCategoriaId,
                 CodigoBarras = request.CodigoBarras,
-                ImagenUrl = request.Imagen
+                ImagenUrl = request.Imagen,
+                CantidadCompraEstandar = request.Cantidad,
+                UnidadCompraEstandar = normalizedUnit
             };
             _db.Productos.Add(producto);
         }
         else
         {
+            producto.CantidadCompraEstandar = request.Cantidad;
+            producto.UnidadCompraEstandar = normalizedUnit;
+
             if (request.CategoriaId is not null && request.CategoriaId != Guid.Empty && producto.CategoriaId != request.CategoriaId)
             {
                 producto.CategoriaId = request.CategoriaId;
@@ -129,7 +135,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             CargadoPor = request.UsuarioId,
             UpdatedBy = request.UsuarioId,
             CantidadActual = request.Cantidad,
-            UnidadMedida = NormalizeUnit(request.UnidadMedida),
+            UnidadMedida = normalizedUnit,
             FechaVencimiento = fechaVencimiento,
             Ubicacion = request.Ubicacion,
             EstaAbierto = request.EstaAbierto,

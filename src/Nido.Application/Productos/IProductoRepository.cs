@@ -19,5 +19,7 @@ public interface IProductoRepository
         decimal? calorias = null,
         decimal? proteinas = null,
         decimal? carbohidratos = null,
-        decimal? grasas = null);
+        decimal? grasas = null,
+        decimal? cantidadCompraEstandar = null,
+        string? unidadCompraEstandar = null);
 }
