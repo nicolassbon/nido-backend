@@ -122,4 +122,3 @@ namespace Nido.Infrastructure.Migrations
         }
     }
 }
-

@@ -6,19 +6,11 @@ internal sealed class RecordingOnboardingRepository : IOnboardingRepository
 {
     public Guid UsuarioId { get; } = Guid.NewGuid();
     public Guid HogarId { get; } = Guid.NewGuid();
-    public bool IsMember { get; set; } = true;
-    public bool IsOwner { get; set; } = true;
     public List<Guid> RestriccionesGuardadas { get; } = [];
     public List<Guid> MetasGuardadas { get; } = [];
     public List<RepresentedMemberInput> MembersGuardados { get; } = [];
     public List<EquipmentInput> EquipmentsGuardados { get; } = [];
     public List<(int StepNumber, bool Skipped)> MarkedSteps { get; } = [];
-
-    public Task<bool> IsUserHouseholdMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken)
-        => Task.FromResult(IsMember);
-
-    public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken)
-        => Task.FromResult(IsOwner);
 
     public Task ReplaceRepresentedMembersAsync(Guid hogarId, IReadOnlyList<RepresentedMemberInput> members, CancellationToken cancellationToken)
     {

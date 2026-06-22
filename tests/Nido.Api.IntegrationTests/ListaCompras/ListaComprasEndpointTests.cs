@@ -181,8 +181,8 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
 
         var historyBeforeResponse = await _client.GetAsync("/api/lista-compras/historial");
         var historyBefore = await historyBeforeResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
-        Assert.Single(historyBefore!);
-        Assert.Equal("kg", historyBefore[0].Unidad);
+        var beforeItem = Assert.Single(historyBefore!);
+        Assert.Equal("kg", beforeItem.Unidad);
 
         var markAddedResponse = await _client.PatchAsync($"/api/lista-compras/items/{added.Id}/agregado-inventario", null);
         Assert.Equal(HttpStatusCode.NoContent, markAddedResponse.StatusCode);
@@ -245,4 +245,3 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden);
     private sealed record HistorialItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor);
 }
-

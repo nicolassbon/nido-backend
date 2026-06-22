@@ -9,5 +9,9 @@ public sealed record CreateStockHomeCommand(
     string? FechaVencimiento,
     Guid HogarId,
     Guid UsuarioIngresoId,
-    int CantidadEnvases = 1
+    int CantidadEnvases = 1,
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null
 );

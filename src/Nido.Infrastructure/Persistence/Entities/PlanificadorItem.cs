@@ -4,6 +4,7 @@ public partial class PlanificadorItem
 {
     public Guid     Id          { get; set; }
     public Guid     SemanaId    { get; set; }
+    public Guid?    TareaId     { get; set; }
     public DateOnly Fecha       { get; set; }
     public string   TipoComida  { get; set; } = null!; // desayuno | almuerzo | cena | tarea
     public Guid?    RecetaId    { get; set; }
@@ -16,5 +17,6 @@ public partial class PlanificadorItem
 
     public virtual PlanificadorSemana Semana { get; set; } = null!;
     public virtual Receta?            Receta { get; set; }
+    public virtual Tarea?             Tarea { get; set; }
     public virtual Usuario            CreadoPorNavigation { get; set; } = null!;
 }

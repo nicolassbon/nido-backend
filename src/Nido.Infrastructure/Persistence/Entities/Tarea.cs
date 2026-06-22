@@ -26,6 +26,7 @@ public partial class Tarea
     public DateTime CreatedAt { get; set; }
 
     public virtual ICollection<AsignacionesTarea> AsignacionesTareas { get; set; } = new List<AsignacionesTarea>();
+    public virtual ICollection<PlanificadorItem> PlanificadorItems { get; set; } = new List<PlanificadorItem>();
 
     public virtual Usuario? CompletadoPorNavigation { get; set; }
 

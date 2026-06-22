@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.IntegrationTests.Auth;
+using Nido.Infrastructure.Persistence;
 
 namespace Nido.Api.IntegrationTests.Tareas;
 
@@ -265,6 +268,136 @@ public sealed class TareasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.DoesNotContain(misTareas!, t => t.Id == tarea.Id);
     }
 
+    [Fact]
+    public async Task CreateTarea_WhenAsignadoAIsUserFromDifferentHousehold_Returns404AndCreatesNoSideEffects()
+    {
+        var owner = await AuthenticateAsync(_client, "tareas-assign-cross-owner");
+        using var intruderClient = _factory.CreateClient();
+        var intruder = await AuthenticateAsync(intruderClient, "tareas-assign-cross-intruder");
+
+        var response = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Tarea con assignee externo",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = intruder.UsuarioId,
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem!.Title);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var ownerTareas = await db.Tareas
+            .Where(t => t.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerTareas);
+
+        var intruderAssignments = await db.AsignacionesTareas
+            .Where(a => a.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderAssignments);
+
+        var intruderNotifications = await db.Notificaciones
+            .Where(n => n.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderNotifications);
+
+        var intruderOutbox = await db.TelegramOutboxMessages
+            .Where(o => o.HogarId == owner.HogarId || o.HogarId == intruder.HogarId)
+            .ToListAsync();
+        Assert.Empty(intruderOutbox);
+    }
+
+    [Fact]
+    public async Task CreateTarea_WhenAsignadoAIsNonExistentUser_Returns404AndCreatesNoSideEffects()
+    {
+        var owner = await AuthenticateAsync(_client, "tareas-assign-ghost-owner");
+
+        var response = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Tarea con assignee inexistente",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = Guid.NewGuid(),
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem!.Title);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var ownerTareas = await db.Tareas
+            .Where(t => t.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerTareas);
+
+        var ownerAssignments = await db.AsignacionesTareas
+            .Where(a => a.UsuarioId == owner.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(ownerAssignments);
+
+        var ownerNotifications = await db.Notificaciones
+            .Where(n => n.UsuarioId == owner.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(ownerNotifications);
+    }
+
+    [Fact]
+    public async Task AsignarTarea_WhenAsignadoAIsUserFromDifferentHousehold_Returns404AndCreatesNoSideEffects()
+    {
+        var owner = await AuthenticateAsync(_client, "tareas-reassign-cross-owner");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Tarea legitima sin asignar",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        using var intruderClient = _factory.CreateClient();
+        var intruder = await AuthenticateAsync(intruderClient, "tareas-reassign-cross-intruder");
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/tareas/{tarea!.Id}/asignar",
+            new { UsuarioId = intruder.UsuarioId });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("NOT_HOUSEHOLD_MEMBER", problem!.Title);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var intruderAssignments = await db.AsignacionesTareas
+            .Where(a => a.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderAssignments);
+
+        var intruderNotifications = await db.Notificaciones
+            .Where(n => n.UsuarioId == intruder.UsuarioId)
+            .ToListAsync();
+        Assert.Empty(intruderNotifications);
+
+        var ownerTarea = await db.Tareas
+            .SingleAsync(t => t.Id == tarea.Id);
+        Assert.Empty(ownerTarea.AsignacionesTareas);
+
+        var ownerOutbox = await db.TelegramOutboxMessages
+            .Where(o => o.HogarId == owner.HogarId)
+            .ToListAsync();
+        Assert.Empty(ownerOutbox);
+    }
+
     private async Task<AuthenticatedUser> AuthenticateAsync(HttpClient client, string prefix, string name = "Test User")
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
@@ -296,4 +429,5 @@ public sealed class TareasEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record MiembroDistBody(Guid UsuarioId, string Nombre, int Completadas);
     private sealed record DistribucionDiaBody(string Dia, DateTime Fecha, List<MiembroDistBody> Miembros);
     private sealed record DistribucionBody(List<DistribucionDiaBody> Dias);
+    private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

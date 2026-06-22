@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Infrastructure.Persistence.Entities;
@@ -49,6 +52,7 @@ public partial class NidoDbContext : DbContext
                 // Capture required values before starting the background thread
                 var targetUsuarioId = notif.UsuarioId;
                 var targetMensaje = notif.Mensaje ?? string.Empty;
+                var targetTipo = notif.Tipo ?? string.Empty;
 
                 // Send push notification in background using an isolated DI scope
                 _ = Task.Run(async () =>
@@ -66,6 +70,52 @@ public partial class NidoDbContext : DbContext
                         Console.WriteLine($"Error sending background push notification: {ex.Message}");
                     }
                 }, CancellationToken.None);
+
+                // Send Telegram notification in background if it matches target types
+                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo")
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using (var scope = _serviceProvider.CreateScope())
+                            {
+                                var context = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+                                // Fetch active Telegram chat links for the user where they are still a member of the Hogar
+                                var activeLinks = await context.TelegramChatLinks
+                                    .AsNoTracking()
+                                    .Where(l => l.UsuarioId == targetUsuarioId && l.UnpairedAt == null)
+                                    .Join(context.MiembrosHogars.AsNoTracking(),
+                                          l => new { l.UsuarioId, l.HogarId },
+                                          m => new { m.UsuarioId, m.HogarId },
+                                          (l, m) => new { l.HogarId, l.ChatId })
+                                    .ToListAsync();
+
+                                if (activeLinks.Count > 0)
+                                {
+                                    var batcher = scope.ServiceProvider.GetRequiredService<Nido.Application.Telegram.Messaging.ITelegramNotificationBatcher>();
+                                    var payloadJson = System.Text.Json.JsonSerializer.Serialize(new { text = targetMensaje });
+
+                                    foreach (var link in activeLinks)
+                                    {
+                                        await batcher.EnqueueEventAsync(
+                                            link.HogarId,
+                                            link.ChatId,
+                                            targetTipo,
+                                            payloadJson,
+                                            isCritical: false,
+                                            CancellationToken.None);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error sending background Telegram notification: {ex.Message}");
+                        }
+                    }, CancellationToken.None);
+                }
             }
         }
 
@@ -89,6 +139,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<Hogare> Hogares { get; set; }
 
     public virtual DbSet<InfoNutricionalProducto> InfoNutricionalProductos { get; set; }
+
+    public virtual DbSet<InfoNutricionalProductoDetalle> InfoNutricionalProductoDetalles { get; set; }
 
     public virtual DbSet<InfoNutricionalRecetum> InfoNutricionalReceta { get; set; }
 
@@ -155,7 +207,6 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<PlanificadorSemana> PlanificadorSemanas { get; set; }
 
     public virtual DbSet<PlanificadorItem> PlanificadorItems { get; set; }
-
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -405,6 +456,12 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Grasas)
                 .HasPrecision(10, 2)
                 .HasColumnName("grasas");
+            entity.Property(e => e.Porcion)
+                .HasMaxLength(100)
+                .HasColumnName("porcion");
+            entity.Property(e => e.Base)
+                .HasMaxLength(100)
+                .HasColumnName("base");
             entity.Property(e => e.ProductoId).HasColumnName("producto_id");
             entity.Property(e => e.Proteinas)
                 .HasPrecision(10, 2)
@@ -414,6 +471,38 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.ProductoId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("info_nutricional_producto_producto_id_fkey");
+        });
+
+        modelBuilder.Entity<InfoNutricionalProductoDetalle>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("info_nutricional_producto_detalle_pkey");
+
+            entity.ToTable("info_nutricional_producto_detalle");
+
+            entity.HasIndex(e => e.InfoNutricionalProductoId, "idx_info_nutricional_producto_detalle_info_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.InfoNutricionalProductoId).HasColumnName("info_nutricional_producto_id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(150)
+                .HasColumnName("nombre");
+            entity.Property(e => e.Valor)
+                .HasPrecision(10, 2)
+                .HasColumnName("valor");
+            entity.Property(e => e.Unidad)
+                .HasMaxLength(30)
+                .HasColumnName("unidad");
+            entity.Property(e => e.PorcentajeDiario)
+                .HasPrecision(6, 2)
+                .HasColumnName("porcentaje_diario");
+            entity.Property(e => e.Orden).HasColumnName("orden");
+
+            entity.HasOne(d => d.InfoNutricionalProducto).WithMany(p => p.Detalles)
+                .HasForeignKey(d => d.InfoNutricionalProductoId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("info_nutricional_producto_detalle_info_id_fkey");
         });
 
         modelBuilder.Entity<InfoNutricionalRecetum>(entity =>
@@ -1308,6 +1397,9 @@ public partial class NidoDbContext : DbContext
 
             entity.HasIndex(e => e.UsuarioId, "idx_suscripciones_push_usuario");
 
+            entity.HasIndex(e => new { e.UsuarioId, e.Endpoint }, "ux_suscripciones_push_usuario_endpoint")
+                .IsUnique();
+
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("uuid_generate_v4()")
                 .HasColumnName("id");
@@ -1372,8 +1464,10 @@ public partial class NidoDbContext : DbContext
             entity.ToTable("planificador_item");
             entity.HasIndex(e => e.SemanaId, "idx_planificador_item_semana");
             entity.HasIndex(e => e.Fecha, "idx_planificador_item_fecha");
+            entity.HasIndex(e => e.TareaId, "idx_planificador_item_tarea");
             entity.Property(e => e.Id).HasDefaultValueSql("uuid_generate_v4()").HasColumnName("id");
             entity.Property(e => e.SemanaId).HasColumnName("semana_id");
+            entity.Property(e => e.TareaId).HasColumnName("tarea_id");
             entity.Property(e => e.Fecha).HasColumnName("fecha");
             entity.Property(e => e.TipoComida).HasMaxLength(20).HasColumnName("tipo_comida");
             entity.Property(e => e.RecetaId).HasColumnName("receta_id");
@@ -1393,11 +1487,34 @@ public partial class NidoDbContext : DbContext
             entity.HasOne(d => d.Receta).WithMany()
                 .HasForeignKey(d => d.RecetaId)
                 .HasConstraintName("planificador_item_receta_id_fkey");
+            entity.HasOne(d => d.Tarea).WithMany(p => p.PlanificadorItems)
+                .HasForeignKey(d => d.TareaId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("planificador_item_tarea_id_fkey");
             entity.HasOne(d => d.CreadoPorNavigation).WithMany()
                 .HasForeignKey(d => d.CreadoPor)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("planificador_item_creado_por_fkey");
         });
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+                        v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+                        v => DateTime.SpecifyKind(v, DateTimeKind.Utc)));
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
+                        v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)),
+                        v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)));
+                }
+            }
+        }
 
         OnModelCreatingPartial(modelBuilder);
     }

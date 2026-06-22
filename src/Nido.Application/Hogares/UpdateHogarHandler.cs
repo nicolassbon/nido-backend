@@ -1,3 +1,4 @@
+using Nido.Application.Common.Security;
 using Nido.Application.Hogares.Exceptions;
 
 namespace Nido.Application.Hogares;
@@ -10,18 +11,17 @@ public sealed class UpdateHogarHandler
     private const int MaxNombreLength = 80;
 
     private readonly IHogarRepository _hogarRepository;
-    private readonly IInvitacionRepository _invitacionRepository;
+    private readonly IHouseholdMembershipService _membershipService;
 
-    public UpdateHogarHandler(IHogarRepository hogarRepository, IInvitacionRepository invitacionRepository)
+    public UpdateHogarHandler(IHogarRepository hogarRepository, IHouseholdMembershipService membershipService)
     {
         _hogarRepository = hogarRepository;
-        _invitacionRepository = invitacionRepository;
+        _membershipService = membershipService;
     }
 
     public async Task<HogarInfo> Handle(UpdateHogarCommand command, CancellationToken ct)
     {
-        if (!await _invitacionRepository.IsUserHouseholdOwnerAsync(command.CallerUsuarioId, command.HogarId, ct))
-            throw new NotHouseholdOwnerException();
+        await _membershipService.EnsureOwnerAsync(command.CallerUsuarioId, command.HogarId, ct);
 
         var nombre = command.Nombre?.Trim() ?? string.Empty;
         if (nombre.Length < MinNombreLength || nombre.Length > MaxNombreLength)

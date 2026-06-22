@@ -34,6 +34,8 @@ public interface IListaComprasRepository
 
     Task<IReadOnlyList<ListaCompraGrupoResult>> GetActiveAsync(Guid hogarId, CancellationToken ct);
 
+    Task<IReadOnlyList<ListaCompraGrupoResult>> GetActiveByListAsync(Guid hogarId, Guid listaId, CancellationToken ct);
+
     Task<IReadOnlyList<ListaCompraHistorialItemResult>> GetHistorialAsync(Guid hogarId, CancellationToken ct);
 
     Task<IReadOnlyList<ListaCompraGrupoResult>> ReplaceGroupAsync(
@@ -66,4 +68,3 @@ public interface IListaComprasRepository
 
     Task ClearActiveAsync(Guid hogarId, CancellationToken ct);
 }
-
