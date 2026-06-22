@@ -12,6 +12,8 @@ public static class DependencyInjection
         services.AddScoped<UpdateStockItemHandler>();
         services.AddScoped<DeleteStockItemHandler>();
         services.AddScoped<GetStockMovementsHandler>();
+        services.AddScoped<ScanNutritionInfoHandler>();
+        services.AddScoped<SaveNutritionInfoHandler>();
         return services;
     }
 }

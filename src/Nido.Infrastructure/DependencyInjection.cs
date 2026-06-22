@@ -70,6 +70,8 @@ using Nido.Infrastructure.Telegram;
 using Nido.Infrastructure.Telegram.Webhook;
 using Nido.Infrastructure.Telegram.Messaging;
 using Resend;
+using Nido.Application.Tickets;
+using Nido.Infrastructure.Tickets;
 
 namespace Nido.Infrastructure;
 
@@ -113,6 +115,7 @@ public static class DependencyInjection
         services.AddTransient<IResend, ResendClient>();
         services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<IAlacenaRepository, AlacenaRepository>();
+        services.AddScoped<INutritionInfoRepository, ProductNutritionRepository>();
         services.AddScoped<IListaComprasRepository, ListaComprasRepository>();
         services.AddScoped<IProductoRepository, ProductoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
@@ -148,6 +151,9 @@ public static class DependencyInjection
         services.AddScoped<ICatalogImageRepository, ElectrodomesticoRepository>();
         services.AddScoped<IRecipeImageRepository, RecetaRepository>();
         services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
+        //google document ai
+        services.AddOptions<GoogleDocumentAiOptions>()
+    .Bind(configuration.GetSection(GoogleDocumentAiOptions.SectionName));
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
@@ -217,6 +223,8 @@ public static class DependencyInjection
         services.AddScoped<IPlanificadorRepository, PlanificadorRepository>();
         services.AddScoped<PlanificadorHandler>();
 
+        services.AddScoped<IReceiptParser, GoogleDocumentAiReceiptParser>();
+        services.AddScoped<INutritionLabelParser, GoogleDocumentAiNutritionLabelParser>();
         return services;
     }
 

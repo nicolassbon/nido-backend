@@ -28,6 +28,9 @@ public sealed class AlacenaRepository : IAlacenaRepository
             .ThenInclude(producto => producto.Categoria)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.InfoNutricionalProductos)
+            .ThenInclude(info => info.Detalles)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
             .ToListAsync(ct);
 
         return items.Select(stock => ToResult(stock, stock.Producto)).ToList();
@@ -40,6 +43,9 @@ public sealed class AlacenaRepository : IAlacenaRepository
             .Where(stock => stock.Id == id && stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
+            .ThenInclude(info => info.Detalles)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.InfoNutricionalProductos)
             .FirstOrDefaultAsync(ct);
@@ -88,23 +94,14 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
         // Información nutricional (del escaneo). Se guarda a nivel Producto.
         // Para un producto existente, sólo se completa si todavía no la tiene.
-        var hasNutrition = request.Calorias.HasValue || request.Proteinas.HasValue
-            || request.Carbohidratos.HasValue || request.Grasas.HasValue;
+        var hasNutrition = HasNutrition(request);
         if (hasNutrition)
         {
             var alreadyHasNutrition = !isNewProducto
                 && await _db.Set<InfoNutricionalProducto>().AnyAsync(n => n.ProductoId == producto.Id, ct);
             if (!alreadyHasNutrition)
             {
-                var nutri = new InfoNutricionalProducto
-                {
-                    Id = Guid.NewGuid(),
-                    ProductoId = producto.Id,
-                    Calorias = request.Calorias,
-                    Proteinas = request.Proteinas,
-                    Carbohidratos = request.Carbohidratos,
-                    Grasas = request.Grasas
-                };
+                var nutri = BuildNutrition(producto.Id, request);
                 _db.Set<InfoNutricionalProducto>().Add(nutri);
                 producto.InfoNutricionalProductos.Add(nutri);
             }
@@ -211,10 +208,145 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.PorcentajeConsumido,
             stock.CantidadEnvases,
             string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga,
-            nutri?.Calorias,
-            nutri?.Proteinas,
-            nutri?.Carbohidratos,
-            nutri?.Grasas);
+            ToNutritionResult(producto.InfoNutricionalProductos?.FirstOrDefault()));
+    }
+
+    private static NutritionInfoResult? ToNutritionResult(InfoNutricionalProducto? info)
+    {
+        if (info is null)
+        {
+            return null;
+        }
+
+        var items = info.Detalles
+            .OrderBy(detalle => detalle.Orden)
+            .ThenBy(detalle => detalle.Nombre)
+            .Select(detalle => new NutritionInfoItemResult(
+                detalle.Nombre,
+                detalle.Valor,
+                detalle.Unidad,
+                detalle.PorcentajeDiario,
+                detalle.Orden))
+            .ToArray();
+
+        if (items.Length == 0)
+        {
+            items = MacroItems(info.Calorias, info.Proteinas, info.Carbohidratos, info.Grasas);
+        }
+
+        return new NutritionInfoResult(
+            info.Calorias,
+            info.Proteinas,
+            info.Carbohidratos,
+            info.Grasas,
+            info.Porcion,
+            info.Base,
+            items);
+    }
+
+    private static bool HasNutrition(CreateStockItemRequestModel request)
+    {
+        var info = request.InformacionNutricional;
+        return request.Calorias.HasValue
+            || request.Proteinas.HasValue
+            || request.Carbohidratos.HasValue
+            || request.Grasas.HasValue
+            || info?.Calorias is not null
+            || info?.Proteinas is not null
+            || info?.Carbohidratos is not null
+            || info?.Grasas is not null
+            || !string.IsNullOrWhiteSpace(info?.Porcion)
+            || !string.IsNullOrWhiteSpace(info?.Base)
+            || (info?.Items.Any(item => !string.IsNullOrWhiteSpace(item.Nombre)) ?? false);
+    }
+
+    private static InfoNutricionalProducto BuildNutrition(Guid productoId, CreateStockItemRequestModel request)
+    {
+        var info = request.InformacionNutricional;
+        var nutri = new InfoNutricionalProducto
+        {
+            Id = Guid.NewGuid(),
+            ProductoId = productoId,
+            Calorias = info?.Calorias ?? request.Calorias,
+            Proteinas = info?.Proteinas ?? request.Proteinas,
+            Carbohidratos = info?.Carbohidratos ?? request.Carbohidratos,
+            Grasas = info?.Grasas ?? request.Grasas,
+            Porcion = NormalizeText(info?.Porcion, 100),
+            Base = NormalizeText(info?.Base, 100)
+        };
+
+        var details = info?.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Nombre))
+            .OrderBy(item => item.Orden)
+            .Select((item, index) => new InfoNutricionalProductoDetalle
+            {
+                Id = Guid.NewGuid(),
+                InfoNutricionalProductoId = nutri.Id,
+                Nombre = NormalizeText(item.Nombre, 150) ?? string.Empty,
+                Valor = item.Valor,
+                Unidad = NormalizeText(item.Unidad, 30),
+                PorcentajeDiario = item.PorcentajeDiario,
+                Orden = item.Orden > 0 ? item.Orden : index + 1
+            })
+            .ToList() ?? new List<InfoNutricionalProductoDetalle>();
+
+        if (details.Count == 0)
+        {
+            details = MacroItems(nutri.Calorias, nutri.Proteinas, nutri.Carbohidratos, nutri.Grasas)
+                .Select(item => new InfoNutricionalProductoDetalle
+                {
+                    Id = Guid.NewGuid(),
+                    InfoNutricionalProductoId = nutri.Id,
+                    Nombre = item.Nombre,
+                    Valor = item.Valor,
+                    Unidad = item.Unidad,
+                    PorcentajeDiario = item.PorcentajeDiario,
+                    Orden = item.Orden
+                })
+                .ToList();
+        }
+
+        foreach (var detail in details)
+        {
+            nutri.Detalles.Add(detail);
+        }
+
+        return nutri;
+    }
+
+    private static NutritionInfoItemResult[] MacroItems(
+        decimal? calorias,
+        decimal? proteinas,
+        decimal? carbohidratos,
+        decimal? grasas)
+    {
+        var items = new List<NutritionInfoItemResult>();
+        AddMacro(items, "Valor energetico", calorias, "kcal");
+        AddMacro(items, "Proteinas", proteinas, "g");
+        AddMacro(items, "Carbohidratos", carbohidratos, "g");
+        AddMacro(items, "Grasas", grasas, "g");
+        return items.ToArray();
+    }
+
+    private static void AddMacro(List<NutritionInfoItemResult> items, string nombre, decimal? valor, string unidad)
+    {
+        if (!valor.HasValue)
+        {
+            return;
+        }
+
+        items.Add(new NutritionInfoItemResult(nombre, valor, unidad, null, items.Count + 1));
+    }
+
+    private static string? NormalizeText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     private static string NormalizeUnit(string? unit)

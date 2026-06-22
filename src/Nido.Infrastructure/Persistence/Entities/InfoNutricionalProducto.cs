@@ -17,5 +17,11 @@ public partial class InfoNutricionalProducto
 
     public decimal? Grasas { get; set; }
 
+    public string? Porcion { get; set; }
+
+    public string? Base { get; set; }
+
     public virtual Producto Producto { get; set; } = null!;
+
+    public virtual ICollection<InfoNutricionalProductoDetalle> Detalles { get; set; } = new List<InfoNutricionalProductoDetalle>();
 }

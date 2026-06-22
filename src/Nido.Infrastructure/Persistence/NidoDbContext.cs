@@ -140,6 +140,8 @@ public partial class NidoDbContext : DbContext
 
     public virtual DbSet<InfoNutricionalProducto> InfoNutricionalProductos { get; set; }
 
+    public virtual DbSet<InfoNutricionalProductoDetalle> InfoNutricionalProductoDetalles { get; set; }
+
     public virtual DbSet<InfoNutricionalRecetum> InfoNutricionalReceta { get; set; }
 
     public virtual DbSet<IngredientesRecetum> IngredientesReceta { get; set; }
@@ -454,6 +456,12 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Grasas)
                 .HasPrecision(10, 2)
                 .HasColumnName("grasas");
+            entity.Property(e => e.Porcion)
+                .HasMaxLength(100)
+                .HasColumnName("porcion");
+            entity.Property(e => e.Base)
+                .HasMaxLength(100)
+                .HasColumnName("base");
             entity.Property(e => e.ProductoId).HasColumnName("producto_id");
             entity.Property(e => e.Proteinas)
                 .HasPrecision(10, 2)
@@ -463,6 +471,38 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.ProductoId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("info_nutricional_producto_producto_id_fkey");
+        });
+
+        modelBuilder.Entity<InfoNutricionalProductoDetalle>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("info_nutricional_producto_detalle_pkey");
+
+            entity.ToTable("info_nutricional_producto_detalle");
+
+            entity.HasIndex(e => e.InfoNutricionalProductoId, "idx_info_nutricional_producto_detalle_info_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.InfoNutricionalProductoId).HasColumnName("info_nutricional_producto_id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(150)
+                .HasColumnName("nombre");
+            entity.Property(e => e.Valor)
+                .HasPrecision(10, 2)
+                .HasColumnName("valor");
+            entity.Property(e => e.Unidad)
+                .HasMaxLength(30)
+                .HasColumnName("unidad");
+            entity.Property(e => e.PorcentajeDiario)
+                .HasPrecision(6, 2)
+                .HasColumnName("porcentaje_diario");
+            entity.Property(e => e.Orden).HasColumnName("orden");
+
+            entity.HasOne(d => d.InfoNutricionalProducto).WithMany(p => p.Detalles)
+                .HasForeignKey(d => d.InfoNutricionalProductoId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("info_nutricional_producto_detalle_info_id_fkey");
         });
 
         modelBuilder.Entity<InfoNutricionalRecetum>(entity =>

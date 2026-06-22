@@ -2,9 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text;
 using Nido.Application.Common.Assets;
+using Nido.Application.Alacena;
 using Nido.Application.Productos;
 using Nido.Application.Productos.UploadProductImage;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Productos;
 
@@ -31,6 +33,7 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
         // Nutrición guardada del producto (si la tiene).
         var nutri = await _db.InfoNutricionalProductos
             .AsNoTracking()
+            .Include(i => i.Detalles)
             .FirstOrDefaultAsync(i => i.ProductoId == producto.Id, ct);
 
         // Última compra de este producto en el hogar, para pre-llenar gramaje + unidad.
@@ -64,7 +67,8 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
             nutri?.Calorias,
             nutri?.Proteinas,
             nutri?.Carbohidratos,
-            nutri?.Grasas);
+            nutri?.Grasas,
+            ToNutritionResult(nutri));
     }
 
     public async Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
@@ -166,6 +170,63 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
         }
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static NutritionInfoResult? ToNutritionResult(InfoNutricionalProducto? info)
+    {
+        if (info is null)
+        {
+            return null;
+        }
+
+        var items = info.Detalles
+            .OrderBy(item => item.Orden)
+            .ThenBy(item => item.Nombre)
+            .Select(item => new NutritionInfoItemResult(
+                item.Nombre,
+                item.Valor,
+                item.Unidad,
+                item.PorcentajeDiario,
+                item.Orden))
+            .ToArray();
+
+        if (items.Length == 0)
+        {
+            items = MacroItems(info.Calorias, info.Proteinas, info.Carbohidratos, info.Grasas);
+        }
+
+        return new NutritionInfoResult(
+            info.Calorias,
+            info.Proteinas,
+            info.Carbohidratos,
+            info.Grasas,
+            info.Porcion,
+            info.Base,
+            items);
+    }
+
+    private static NutritionInfoItemResult[] MacroItems(
+        decimal? calorias,
+        decimal? proteinas,
+        decimal? carbohidratos,
+        decimal? grasas)
+    {
+        var items = new List<NutritionInfoItemResult>();
+        AddMacro(items, "Valor energetico", calorias, "kcal");
+        AddMacro(items, "Proteinas", proteinas, "g");
+        AddMacro(items, "Carbohidratos", carbohidratos, "g");
+        AddMacro(items, "Grasas", grasas, "g");
+        return items.ToArray();
+    }
+
+    private static void AddMacro(List<NutritionInfoItemResult> items, string nombre, decimal? valor, string unidad)
+    {
+        if (!valor.HasValue)
+        {
+            return;
+        }
+
+        items.Add(new NutritionInfoItemResult(nombre, valor, unidad, null, items.Count + 1));
     }
 
     public async Task<ProductImageTarget?> GetImageTargetAsync(Guid productId, Guid hogarId, CancellationToken cancellationToken)

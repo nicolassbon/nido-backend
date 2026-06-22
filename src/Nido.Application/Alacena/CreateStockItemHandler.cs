@@ -40,7 +40,8 @@ public sealed class CreateStockItemHandler
             command.Calorias,
             command.Proteinas,
             command.Carbohidratos,
-            command.Grasas);
+            command.Grasas,
+            command.InformacionNutricional);
 
         return await _repository.CreateAsync(request, ct);
     }
