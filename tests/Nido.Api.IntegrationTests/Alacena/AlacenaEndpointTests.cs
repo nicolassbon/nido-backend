@@ -384,6 +384,97 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task GetProducto_WhenProductHasNutrition_ReturnsNutritionInDetailAndList()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-nutrition-detail");
+        var stockId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var nutritionId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productId,
+                Nombre = "Yogur con nutricion"
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = user.HogarId,
+                ProductoId = productId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CantidadActual = 1m,
+                UnidadMedida = "unidad",
+                Ubicacion = "Heladera",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m
+            });
+            db.InfoNutricionalProductos.Add(new InfoNutricionalProducto
+            {
+                Id = nutritionId,
+                ProductoId = productId,
+                Calorias = 117m,
+                Proteinas = 6.1m,
+                Carbohidratos = 9.6m,
+                Grasas = 6m,
+                Porcion = "Porcion 200 ml",
+                Base = "Por porcion",
+                Detalles =
+                {
+                    new InfoNutricionalProductoDetalle
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = "Carbohidratos",
+                        Valor = 9.6m,
+                        Unidad = "g",
+                        PorcentajeDiario = 3m,
+                        Orden = 1
+                    },
+                    new InfoNutricionalProductoDetalle
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = "Proteinas",
+                        Valor = 6.1m,
+                        Unidad = "g",
+                        PorcentajeDiario = 8m,
+                        Orden = 2
+                    },
+                    new InfoNutricionalProductoDetalle
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = "Grasas",
+                        Valor = 6m,
+                        Unidad = "g",
+                        PorcentajeDiario = 11m,
+                        Orden = 3
+                    }
+                }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var detailResponse = await _client.GetAsync($"/api/alacena/productos/{stockId}");
+
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<StockItemBody>();
+        Assert.NotNull(detail?.InformacionNutricional);
+        Assert.Equal("Por porcion", detail!.InformacionNutricional!.Base);
+        Assert.Contains(detail.InformacionNutricional.Items, item => item.Nombre == "Carbohidratos" && item.Valor == 9.6m);
+        Assert.Contains(detail.InformacionNutricional.Items, item => item.Nombre == "Proteinas" && item.Valor == 6.1m);
+
+        var listResponse = await _client.GetAsync("/api/alacena/productos");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<StockItemBody>>();
+        var listed = Assert.Single(list!, item => item.Id == stockId);
+        Assert.NotNull(listed.InformacionNutricional);
+        Assert.Contains(listed.InformacionNutricional!.Items, item => item.Nombre == "Grasas" && item.Valor == 6m);
+    }
+
+    [Fact]
     public async Task CreateProducto_WhenDateIsInvalid_ReturnsBadRequest()
     {
         await RegisterAndAuthenticateAsync(_client, "alacena-invalid-date");
@@ -789,6 +880,21 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         decimal PorcentajeConsumido,
         int CantidadEnvases,
         decimal? CantidadCompraEstandar,
-        string? UnidadCompraEstandar);
+        string? UnidadCompraEstandar,
+        NutritionInfoBody? InformacionNutricional = null);
+    private sealed record NutritionInfoBody(
+        decimal? Calorias,
+        decimal? Proteinas,
+        decimal? Carbohidratos,
+        decimal? Grasas,
+        string? Porcion,
+        string? Base,
+        IReadOnlyList<NutritionInfoItemBody> Items);
+    private sealed record NutritionInfoItemBody(
+        string Nombre,
+        decimal? Valor,
+        string? Unidad,
+        decimal? PorcentajeDiario,
+        int Orden);
     private sealed record StockMovementBody(Guid Id, Guid? ProductoId, string ProductoNombre, decimal Cantidad, string? UnidadMedida, string Motivo, DateTime FechaConsumo, Guid? UsuarioId);
 }
