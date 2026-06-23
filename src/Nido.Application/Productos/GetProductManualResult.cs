@@ -14,5 +14,8 @@ public sealed record GetProductManualResult(
     string? FechaVencimiento,
     bool EstaAbierto,
     decimal PorcentajeConsumido,
-    int CantidadEnvases
+    int CantidadEnvases,
+    string? IconoSvg = null,
+    decimal? CantidadCompraEstandar = null,
+    string? UnidadCompraEstandar = null
 );

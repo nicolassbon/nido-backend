@@ -34,13 +34,6 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         "molido", "molida", "molidos", "molidas", "opcional", "picado", "picada", "picados", "picadas", "rallado", "rallada"
     ];
 
-    private const decimal GenericGramsPerCup = 100m;
-    private const decimal MillilitersPerCup = 240m;
-    private const decimal MillilitersPerGlass = 250m;
-    private const decimal MillilitersPerPinch = 0.3m;
-    private const decimal GenericGramsPerUnit = 100m;
-    private const decimal GenericMillilitersPerUnit = 100m;
-
     private readonly NidoDbContext _db;
     private readonly IResenaRecetaRepository _resenaRepository;
     private readonly IPublicAssetUrlResolver _assetUrlResolver;
@@ -184,7 +177,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
 
         foreach (var ingrediente in receta.IngredientesReceta)
         {
-            var consumo = GetIngredientConsumption(ingrediente);
+            var consumo = RecipeUnitConverter.GetIngredientConsumption(ingrediente.Cantidad, ingrediente.Unidad);
             if (!consumo.HasValue)
                 continue;
 
@@ -252,7 +245,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 continue;
 
             var disponible = item.CantidadActual.Value;
-            var cantidadEnUnidadStock = ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida, productoNombre);
+            var cantidadEnUnidadStock = RecipeUnitConverter.ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida, productoNombre);
 
             if (!cantidadEnUnidadStock.HasValue)
                 continue;
@@ -265,7 +258,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             if (disponible <= cantidadEnUnidadStock.Value)
             {
                 // Envase agotado: queda con cantidad=0 y abierto para descarte manual.
-                restante -= ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente, productoNombre) ?? 0;
+                restante -= RecipeUnitConverter.ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente, productoNombre) ?? 0;
                 item.CantidadActual      = 0;
                 item.PorcentajeConsumido = 100m;
             }
@@ -346,24 +339,6 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
         return token;
     }
 
-    private static IngredientConsumption? GetIngredientConsumption(IngredientesRecetum ingrediente)
-    {
-        if (ingrediente.Cantidad.HasValue && ingrediente.Cantidad.Value > 0)
-        {
-            if (TryReadLeadingQuantity(ingrediente.Unidad, out var embeddedQuantity, out var unit)
-                && AreSameQuantity(ingrediente.Cantidad.Value, embeddedQuantity))
-            {
-                return new IngredientConsumption(ingrediente.Cantidad.Value, unit);
-            }
-
-            return new IngredientConsumption(ingrediente.Cantidad.Value, ingrediente.Unidad);
-        }
-
-        return TryReadLeadingQuantity(ingrediente.Unidad, out var quantityFromUnit, out var unitFromUnit)
-            ? new IngredientConsumption(quantityFromUnit, unitFromUnit)
-            : null;
-    }
-
     private RecetaResult ToResult(
         Receta receta,
         IReadOnlySet<Guid> productosEnStock,
@@ -395,6 +370,10 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                 .Select(ingrediente =>
                 {
                     var compraEstandar = ResolvePurchaseStandard(ingrediente, productosCompraEstandar);
+                    var listaCompras = RecipeUnitConverter.ToShoppingListQuantity(
+                        ingrediente.Cantidad,
+                        ingrediente.Unidad,
+                        BuildIngredientLookupName(ingrediente));
                     return new RecetaIngredienteResult(
                         ingrediente.Id,
                         ingrediente.ProductoId,
@@ -404,6 +383,8 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
                         ingrediente.Unidad,
                         compraEstandar?.Cantidad,
                         compraEstandar?.Unidad,
+                        listaCompras?.Cantidad,
+                        listaCompras?.Unidad,
                         ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value),
                         DetectAlergenos(ingrediente));
                 })
@@ -569,242 +550,6 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
             .FirstOrDefault();
     }
 
-    private static decimal? ConvertQuantity(decimal quantity, string? fromUnit, string? toUnit, string? ingredientName = null)
-    {
-        var from = NormalizeUnit(fromUnit);
-        var to = NormalizeUnit(toUnit);
-
-        if (from.Family == to.Family)
-            return quantity * from.Factor / to.Factor;
-
-        if (from.Family == "volume" && to.Family == "mass")
-        {
-            var volumeToMassDensity = GetDensityGramsPerMlOrDefault(ingredientName);
-            var milliliters = quantity * from.Factor;
-            var grams = milliliters * volumeToMassDensity;
-            return grams / to.Factor;
-        }
-
-        if (from.Family == "mass" && to.Family == "volume")
-        {
-            var massToVolumeDensity = GetDensityGramsPerMlOrDefault(ingredientName);
-            var grams = quantity * from.Factor;
-            var milliliters = grams / massToVolumeDensity;
-            return milliliters / to.Factor;
-        }
-
-        if (from.Family == "count" && to.Family == "mass")
-            return quantity * GenericGramsPerUnit / to.Factor;
-
-        if (from.Family == "count" && to.Family == "volume")
-            return quantity * GenericMillilitersPerUnit / to.Factor;
-
-        if (from.Family == "mass" && to.Family == "count")
-            return quantity * from.Factor / GenericGramsPerUnit;
-
-        if (from.Family == "volume" && to.Family == "count")
-            return quantity * from.Factor / GenericMillilitersPerUnit;
-
-        return null;
-    }
-
-    private static decimal GetDensityGramsPerMlOrDefault(string? ingredientName)
-        => TryGetDensityGramsPerMl(ingredientName, out var gramsPerMl)
-            ? gramsPerMl
-            : GenericGramsPerCup / MillilitersPerCup;
-
-    private static bool TryGetDensityGramsPerMl(string? ingredientName, out decimal gramsPerMl)
-    {
-        var normalized = Normalize(ingredientName ?? string.Empty);
-
-        gramsPerMl = normalized switch
-        {
-            var name when name.Contains("harina", StringComparison.Ordinal) => 120m / 240m,
-            var name when name.Contains("arroz", StringComparison.Ordinal) => 198m / 240m,
-            var name when name.Contains("arveja", StringComparison.Ordinal) => 160m / 240m,
-            var name when name.Contains("pasa", StringComparison.Ordinal) => 149m / 240m,
-            var name when name.Contains("cebolla", StringComparison.Ordinal) => 142m / 240m,
-            var name when name.Contains("queso", StringComparison.Ordinal) => 113m / 240m,
-            var name when name.Contains("manteca", StringComparison.Ordinal)
-                || name.Contains("mantequilla", StringComparison.Ordinal) => 226m / 240m,
-            var name when name.Contains("aceite", StringComparison.Ordinal) => 200m / 240m,
-            var name when name.Contains("leche", StringComparison.Ordinal) => 227m / 240m,
-            var name when name.Contains("agua", StringComparison.Ordinal)
-                || name.Contains("caldo", StringComparison.Ordinal)
-                || name.Contains("jugo", StringComparison.Ordinal)
-                || name.Contains("salsa", StringComparison.Ordinal) => 1m,
-            var name when ContainsWord(name, "sal") => 18m / 15m,
-            var name when name.Contains("azucar", StringComparison.Ordinal) => 198m / 240m,
-            var name when name.Contains("hongo", StringComparison.Ordinal)
-                || name.Contains("champinon", StringComparison.Ordinal)
-                || name.Contains("champignon", StringComparison.Ordinal) => 78m / 240m,
-            var name when name.Contains("zanahoria", StringComparison.Ordinal) => 142m / 240m,
-            var name when name.Contains("apio", StringComparison.Ordinal) => 142m / 240m,
-            _ => 0m
-        };
-
-        return gramsPerMl > 0;
-    }
-
-    private static bool ContainsWord(string value, string word)
-    {
-        var padded = $" {value} ";
-        return padded.Contains($" {word} ", StringComparison.Ordinal)
-            || padded.Contains($" {word}.", StringComparison.Ordinal)
-            || padded.Contains($" {word},", StringComparison.Ordinal);
-    }
-
-    private static UnitInfo NormalizeUnit(string? unit)
-    {
-        var multiplier = 1m;
-        var unitValue = unit;
-        if (TryReadLeadingQuantity(unit, out var quantity, out var unitWithoutQuantity))
-        {
-            multiplier = quantity;
-            unitValue = unitWithoutQuantity;
-        }
-
-        var normalized = Normalize(unitValue ?? string.Empty)
-            .Replace(".", string.Empty, StringComparison.Ordinal)
-            .Replace(" ", string.Empty, StringComparison.Ordinal);
-
-        var normalizedUnit = normalized switch
-        {
-            "" or "unidad" or "unidades" or "unid" or "u" or "ud"
-                or "diente" or "dientes" or "hoja" or "hojas" or "lata" or "latas"
-                or "paquete" or "paquetes" or "pieza" or "piezas" or "pote" or "potes"
-                or "frasco" or "frascos" or "rodaja" or "rodajas" or "sobre" or "sobres"
-                or "tallo" or "tallos" => new UnitInfo("count", 1m),
-            "mg" or "miligramo" or "miligramos" => new UnitInfo("mass", 0.001m),
-            "g" or "gr" or "grs" or "gramo" or "gramos" => new UnitInfo("mass", 1m),
-            "kg" or "kilo" or "kilos" or "kilogramo" or "kilogramos" => new UnitInfo("mass", 1000m),
-            "oz" or "onza" or "onzas" => new UnitInfo("mass", 28.3495m),
-            "lb" or "lbs" or "libra" or "libras" => new UnitInfo("mass", 453.592m),
-            "pizca" or "pizcas" or "pinch" => new UnitInfo("volume", MillilitersPerPinch),
-            "ml" or "mililitro" or "mililitros" or "cc" or "cm3" => new UnitInfo("volume", 1m),
-            "cl" or "centilitro" or "centilitros" => new UnitInfo("volume", 10m),
-            "dl" or "decilitro" or "decilitros" => new UnitInfo("volume", 100m),
-            "l" or "lt" or "lts" or "litro" or "litros" => new UnitInfo("volume", 1000m),
-            "cdta" or "cdtas" or "cdita" or "cditas" or "cucharadita" or "cucharaditas"
-                or "tsp" or "teaspoon" or "teaspoons" => new UnitInfo("volume", 5m),
-            "cda" or "cdas" or "cucharada" or "cucharadas"
-                or "tbsp" or "tablespoon" or "tablespoons" => new UnitInfo("volume", 15m),
-            "chorrito" or "chorritos" or "splash" => new UnitInfo("volume", 15m),
-            "taza" or "tazas" or "cup" or "cups" => new UnitInfo("volume", MillilitersPerCup),
-            "vaso" or "vasos" or "glass" or "glasses" => new UnitInfo("volume", MillilitersPerGlass),
-            _ => new UnitInfo($"custom:{normalized}", 1m)
-        };
-
-        return normalizedUnit with { Factor = normalizedUnit.Factor * multiplier };
-    }
-
-    private static bool TryReadLeadingQuantity(string? value, out decimal quantity, out string unit)
-    {
-        quantity = 0;
-        unit = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var text = value.Trim();
-        if (TryReadUnicodeFraction(text[0], out var unicodeFraction))
-        {
-            var remaining = text[1..].Trim();
-            if (string.IsNullOrWhiteSpace(remaining))
-                return false;
-
-            quantity = unicodeFraction;
-            unit = remaining;
-            return true;
-        }
-
-        var firstTokenLength = 0;
-        while (firstTokenLength < text.Length && IsQuantityChar(text[firstTokenLength]))
-        {
-            firstTokenLength++;
-        }
-
-        if (firstTokenLength == 0)
-            return false;
-
-        var firstToken = text[..firstTokenLength];
-        if (!TryParseQuantityToken(firstToken, out var parsedQuantity))
-            return false;
-
-        var rest = text[firstTokenLength..].TrimStart();
-        if (TryConsumeFractionToken(rest, out var fraction, out var restAfterFraction))
-        {
-            parsedQuantity += fraction;
-            rest = restAfterFraction.TrimStart();
-        }
-
-        if (string.IsNullOrWhiteSpace(rest))
-            return false;
-
-        quantity = parsedQuantity;
-        unit = rest;
-        return true;
-    }
-
-    private static bool TryConsumeFractionToken(string value, out decimal fraction, out string rest)
-    {
-        fraction = 0;
-        rest = value;
-
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var text = value.TrimStart();
-        if (TryReadUnicodeFraction(text[0], out fraction))
-        {
-            rest = text[1..];
-            return true;
-        }
-
-        var tokenLength = 0;
-        while (tokenLength < text.Length && IsQuantityChar(text[tokenLength]))
-        {
-            tokenLength++;
-        }
-
-        if (tokenLength == 0)
-            return false;
-
-        var token = text[..tokenLength];
-        if (!token.Contains('/', StringComparison.Ordinal) || !TryParseQuantityToken(token, out fraction))
-            return false;
-
-        rest = text[tokenLength..];
-        return true;
-    }
-
-    private static bool TryParseQuantityToken(string token, out decimal quantity)
-    {
-        quantity = 0;
-
-        if (string.IsNullOrWhiteSpace(token))
-            return false;
-
-        var normalized = token.Trim().Replace(',', '.');
-        if (normalized.Contains('/', StringComparison.Ordinal))
-        {
-            var parts = normalized.Split('/', 2);
-            if (parts.Length != 2
-                || !decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out var numerator)
-                || !decimal.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out var denominator)
-                || denominator == 0)
-            {
-                return false;
-            }
-
-            quantity = numerator / denominator;
-            return quantity > 0;
-        }
-
-        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out quantity)
-            && quantity > 0;
-    }
-
     private static bool TryReadUnicodeFraction(char value, out decimal quantity)
     {
         quantity = value switch
@@ -830,10 +575,7 @@ public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
     private static bool AreSameQuantity(decimal left, decimal right)
         => Math.Abs(left - right) < 0.0001m;
 
-    private readonly record struct IngredientConsumption(decimal Cantidad, string? Unidad);
     private readonly record struct ProductoCompraEstandar(Guid Id, string Nombre, decimal Cantidad, string Unidad);
-
-    private readonly record struct UnitInfo(string Family, decimal Factor);
 
     private readonly record struct UrgenciaReceta(
         bool TieneProductosPorVencer,

@@ -19,7 +19,10 @@ public sealed record ListaCompraItemResponse(
     string? Unidad,
     bool Comprado,
     DateTime? CompradoEn,
-    int Orden);
+    int Orden,
+    string? CategoriaNombre = null,
+    string? IconoSvg = null,
+    string? Icono = null);
 
 public sealed record ListaCompraHistorialItemResponse(
     Guid Id,
@@ -29,4 +32,8 @@ public sealed record ListaCompraHistorialItemResponse(
     string? Unidad,
     string GrupoNombre,
     DateTime CompradoEn,
-    Guid? CompradoPor);
+    Guid? CompradoPor,
+    bool AgregadoAlInventario,
+    string? CategoriaNombre = null,
+    string? IconoSvg = null,
+    string? Icono = null);

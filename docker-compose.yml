@@ -48,9 +48,9 @@ services:
       - Frontend__BaseUrl=${Frontend__BaseUrl}
       - Jwt__Key=${Jwt__Key}
       - Google__ClientId=${Google__ClientId}
-      - Vapid__PublicKey=${Vapid__PublicKey}
-      - Vapid__PrivateKey=${Vapid__PrivateKey}
-      - Vapid__Subject=${Vapid__Subject}
+      - Vapid__PublicKey=${Vapid__PublicKey:-}
+      - Vapid__PrivateKey=${Vapid__PrivateKey:-}
+      - Vapid__Subject=${Vapid__Subject:-}
       - Spaces__Enabled=${Spaces__Enabled}
       - Spaces__Bucket=${Spaces__Bucket}
       - Spaces__PublicBaseUrl=${Spaces__PublicBaseUrl}
@@ -93,7 +93,7 @@ services:
       context: ./caddy
     container_name: nido-caddy
     environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
     ports:
       - "80:80"
       - "443:443"

@@ -107,7 +107,9 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
         decimal? calorias = null,
         decimal? proteinas = null,
         decimal? carbohidratos = null,
-        decimal? grasas = null)
+        decimal? grasas = null,
+        decimal? cantidadCompraEstandar = null,
+        string? unidadCompraEstandar = null)
     {
         var nuevo = new Nido.Infrastructure.Persistence.Entities.Producto
         {
@@ -115,6 +117,8 @@ public sealed class ProductoRepository : IProductoRepository, IProductImageRepos
             Nombre = nombre.Trim(),
             CategoriaId = categoriaId == Guid.Empty ? null : categoriaId,
             ImagenUrl = null,
+            CantidadCompraEstandar = cantidadCompraEstandar,
+            UnidadCompraEstandar = string.IsNullOrWhiteSpace(unidadCompraEstandar) ? null : unidadCompraEstandar.Trim(),
         };
 
         _db.Productos.Add(nuevo);

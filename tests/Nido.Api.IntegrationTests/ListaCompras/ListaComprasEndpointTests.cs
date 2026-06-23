@@ -49,6 +49,7 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
         var group = Assert.Single(groups!);
         Assert.Equal("Tarta de verduras", group.GrupoNombre);
         Assert.Equal(["Harina", "Acelga"], group.Items.Select(item => item.Nombre).ToArray());
+        Assert.Equal("wheat", group.Items.Single(item => item.Nombre == "Harina").Icono);
 
         var purchasedId = group.Items[1].Id;
         var markResponse = await _client.PatchAsJsonAsync($"/api/lista-compras/items/{purchasedId}/comprado", new { });
@@ -111,6 +112,43 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     }
 
     [Fact]
+    public async Task ActiveListItems_ReturnKeywordResolvedIcons()
+    {
+        await RegisterAndAuthenticateAsync(_client, "lista-icons");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/listas-compra", new
+        {
+            nombre = "Compra iconos"
+        });
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ListaBody>();
+
+        var harinaResponse = await _client.PostAsJsonAsync($"/api/listas-compra/{created!.Id}/items", new
+        {
+            nombre = "Harina",
+            cantidad = (decimal?)500m,
+            unidad = "g"
+        });
+        Assert.Equal(HttpStatusCode.OK, harinaResponse.StatusCode);
+
+        var pimientaResponse = await _client.PostAsJsonAsync($"/api/listas-compra/{created.Id}/items", new
+        {
+            nombre = "Pimienta negra a gusto para el relleno",
+            cantidad = (decimal?)null,
+            unidad = (string?)null
+        });
+        Assert.Equal(HttpStatusCode.OK, pimientaResponse.StatusCode);
+
+        var listsResponse = await _client.GetAsync("/api/listas-compra");
+        Assert.Equal(HttpStatusCode.OK, listsResponse.StatusCode);
+        var lists = await listsResponse.Content.ReadFromJsonAsync<List<ListaBody>>();
+        var list = Assert.Single(lists!);
+
+        Assert.Equal("wheat", list.Items.Single(item => item.Nombre == "Harina").Icono);
+        Assert.Equal("leaf", list.Items.Single(item => item.Nombre == "Pimienta negra a gusto para el relleno").Icono);
+    }
+
+    [Fact]
     public async Task RemoveAndClear_HideActiveItemsButKeepPurchasedHistory()
     {
         await RegisterAndAuthenticateAsync(_client, "lista-clear");
@@ -158,7 +196,7 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     }
 
     [Fact]
-    public async Task MarkAgregadoInventario_RemovesItemFromHistory()
+    public async Task MarkAgregadoInventario_KeepsItemInHistoryAndMarksAsAgregado()
     {
         await RegisterAndAuthenticateAsync(_client, "lista-inventario");
 
@@ -183,13 +221,16 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
         var historyBefore = await historyBeforeResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
         var beforeItem = Assert.Single(historyBefore!);
         Assert.Equal("kg", beforeItem.Unidad);
+        Assert.False(beforeItem.AgregadoAlInventario);
 
         var markAddedResponse = await _client.PatchAsync($"/api/lista-compras/items/{added.Id}/agregado-inventario", null);
         Assert.Equal(HttpStatusCode.NoContent, markAddedResponse.StatusCode);
 
         var historyAfterResponse = await _client.GetAsync("/api/lista-compras/historial");
         var historyAfter = await historyAfterResponse.Content.ReadFromJsonAsync<List<HistorialItemBody>>();
-        Assert.Empty(historyAfter!);
+        var afterItem = Assert.Single(historyAfter!);
+        Assert.Equal("Azucar", afterItem.Nombre);
+        Assert.True(afterItem.AgregadoAlInventario);
     }
 
     [Fact]
@@ -242,6 +283,6 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ListaBody(Guid Id, string Nombre, DateTime CreatedAt, DateTime? UpdatedAt, List<ListaItemBody> Items);
     private sealed record ListaGrupoBody(string GrupoNombre, List<ListaItemBody> Items);
-    private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden);
-    private sealed record HistorialItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor);
+    private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden, string? CategoriaNombre = null, string? IconoSvg = null, string? Icono = null);
+    private sealed record HistorialItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor, bool AgregadoAlInventario);
 }

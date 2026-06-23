@@ -6,6 +6,13 @@ namespace Nido.Infrastructure.Alacena;
 
 public sealed class CatalogoRepository
 {
+    private static readonly HashSet<string> LegacyCategoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Almacén",
+        "Baño",
+        "Carnes"
+    };
+
     private readonly NidoDbContext _db;
 
     public CatalogoRepository(NidoDbContext db) => _db = db;
@@ -14,8 +21,9 @@ public sealed class CatalogoRepository
     {
         var categorias = await _db.CategoriasProductos
             .AsNoTracking()
+            .Where(c => !LegacyCategoryNames.Contains(c.Nombre))
             .OrderBy(c => c.Nombre)
-            .Select(c => new CategoriaResult(c.Id, c.Nombre, c.TtlDias))
+            .Select(c => new CategoriaResult(c.Id, c.Nombre, c.TtlDias, c.IconoSvg, c.Icono))
             .ToListAsync(ct);
 
         return categorias
