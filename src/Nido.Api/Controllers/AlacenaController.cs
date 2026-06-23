@@ -225,24 +225,31 @@ public sealed class AlacenaController : ControllerBase
 
     private static StockItemResponse ToResponse(StockItemResult item) =>
         new(
-            item.Id,
-            item.ProductoId,
-            item.Nombre,
-            item.Imagen,
-            item.CodigoBarras,
-            item.CategoriaNombre,
-            item.Ubicacion,
-            item.Cantidad,
-            item.UnidadMedida,
-            item.FechaVencimiento,
-            item.EstaAbierto,
-            item.PorcentajeConsumido,
-            item.CantidadEnvases,
-            item.OrigenCarga,
-            item.IconoSvg,
-            item.Icono,
-            item.CantidadCompraEstandar,
-            item.UnidadCompraEstandar
+            Id: item.Id,
+            ProductoId: item.ProductoId,
+            Nombre: item.Nombre,
+            Imagen: item.Imagen,
+            CodigoBarras: item.CodigoBarras,
+            CategoriaNombre: item.CategoriaNombre,
+            Ubicacion: item.Ubicacion,
+            Cantidad: item.Cantidad,
+            UnidadMedida: item.UnidadMedida,
+            FechaVencimiento: item.FechaVencimiento,
+            EstaAbierto: item.EstaAbierto,
+            PorcentajeConsumido: item.PorcentajeConsumido,
+            CantidadEnvases: item.CantidadEnvases,
+            OrigenCarga: item.OrigenCarga,
+            IconoSvg: item.IconoSvg,
+            Icono: item.Icono,
+            CantidadCompraEstandar: item.CantidadCompraEstandar,
+            UnidadCompraEstandar: item.UnidadCompraEstandar,
+            InformacionNutricional: item.InformacionNutricional is null
+                ? null
+                : ToNutritionResponse(item.InformacionNutricional),
+            Calorias: item.Calorias,
+            Proteinas: item.Proteinas,
+            Carbohidratos: item.Carbohidratos,
+            Grasas: item.Grasas
         );
 
     private static NutritionInfoResponse ToNutritionResponse(NutritionInfoResult nutrition) =>
