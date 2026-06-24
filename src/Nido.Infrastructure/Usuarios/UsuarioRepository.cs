@@ -26,7 +26,7 @@ public sealed class UsuarioRepository : IUsuarioRepository
         if (entity == null)
             return null;
 
-        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.FotoUrl, entity.CreatedAt);
+        return new Usuario(entity.Id, entity.Nombre, entity.Email, entity.Sexo, entity.Telefono, entity.FotoStorageKey, entity.CreatedAt, entity.FotoUpdatedAt);
     }
 
     public async Task<IReadOnlyList<string>> GetRestriccionesUsuarioAsync(Guid usuarioId, string tipo, CancellationToken cancellationToken)
@@ -38,6 +38,26 @@ public sealed class UsuarioRepository : IUsuarioRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<PerfilStatsResult> GetStatsAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken)
+    {
+        var tareasCompletadas = await _dbContext.Tareas
+            .AsNoTracking()
+            .CountAsync(x => x.HogarId == hogarId && x.CompletadoPor == usuarioId, cancellationToken);
+
+        var productosEscaneados = await _dbContext.StockHogars
+            .AsNoTracking()
+            .CountAsync(x =>
+                x.HogarId == hogarId
+                && x.CargadoPor == usuarioId
+                && !string.IsNullOrWhiteSpace(x.Producto.CodigoBarras), cancellationToken);
+
+        var logros = await _dbContext.LogrosUsuarios
+            .AsNoTracking()
+            .CountAsync(x => x.UsuarioId == usuarioId, cancellationToken);
+
+        return new PerfilStatsResult(tareasCompletadas, productosEscaneados, logros);
+    }
+
     public async Task UpdateAsync(Usuario usuario, CancellationToken cancellationToken)
     {
         var entity = await _dbContext.Usuarios.FirstOrDefaultAsync(x => x.Id == usuario.Id, cancellationToken)
@@ -47,7 +67,7 @@ public sealed class UsuarioRepository : IUsuarioRepository
         entity.Sexo = usuario.Sexo;
         entity.Telefono = usuario.Telefono;
         entity.FotoStorageKey = usuario.FotoStorageKey;
-        entity.FotoUrl = usuario.FotoUrl;
+        entity.FotoUpdatedAt = usuario.FotoUpdatedAt;
         entity.UpdatedAt = DateTime.UtcNow;
 
         _dbContext.Usuarios.Update(entity);

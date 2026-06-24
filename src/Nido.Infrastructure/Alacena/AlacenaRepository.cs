@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text;
 using Nido.Application.Alacena;
+using Nido.Application.Common.Assets;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -10,21 +11,29 @@ namespace Nido.Infrastructure.Alacena;
 public sealed class AlacenaRepository : IAlacenaRepository
 {
     private readonly NidoDbContext _db;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public AlacenaRepository(NidoDbContext db)
+    public AlacenaRepository(NidoDbContext db, IPublicAssetUrlResolver assetUrlResolver)
     {
         _db = db;
+        _assetUrlResolver = assetUrlResolver;
     }
 
     public async Task<IReadOnlyList<StockItemResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
     {
-        return await _db.StockHogars
+        var items = await _db.StockHogars
             .AsNoTracking()
             .Where(stock => stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
-            .Select(stock => ToResult(stock, stock.Producto))
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
+            .ThenInclude(info => info.Detalles)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
             .ToListAsync(ct);
+
+        return items.Select(stock => ToResult(stock, stock.Producto)).ToList();
     }
 
     public async Task<StockItemResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
@@ -34,6 +43,11 @@ public sealed class AlacenaRepository : IAlacenaRepository
             .Where(stock => stock.Id == id && stock.HogarId == hogarId)
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
+            .ThenInclude(info => info.Detalles)
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
             .FirstOrDefaultAsync(ct);
 
         return item is null ? null : ToResult(item, item.Producto);
@@ -41,10 +55,21 @@ public sealed class AlacenaRepository : IAlacenaRepository
 
     public async Task<StockItemResult> CreateAsync(CreateStockItemRequestModel request, CancellationToken ct)
     {
+        var resolvedCategoriaId = await ResolveCategoryIdAsync(request.CategoriaId, request.Nombre, ct);
+        var normalizedUnit = NormalizeUnit(request.UnidadMedida);
         Producto? producto = null;
         if (!string.IsNullOrWhiteSpace(request.CodigoBarras))
         {
             producto = await _db.Productos.FirstOrDefaultAsync(p => p.CodigoBarras == request.CodigoBarras, ct);
+        }
+
+        var isNewProducto = producto is null;
+
+        if (producto is null)
+        {
+            var normalizedName = NormalizeName(request.Nombre);
+            var productos = await _db.Productos.ToListAsync(ct);
+            producto = productos.FirstOrDefault(p => NormalizeName(p.Nombre) == normalizedName);
         }
 
         if (producto is null)
@@ -53,14 +78,47 @@ public sealed class AlacenaRepository : IAlacenaRepository
             {
                 Id = Guid.NewGuid(),
                 Nombre = request.Nombre,
+                CategoriaId = resolvedCategoriaId,
                 CodigoBarras = request.CodigoBarras,
-                ImagenUrl = request.Imagen
+                ImagenUrl = request.Imagen,
+                CantidadCompraEstandar = request.Cantidad,
+                UnidadCompraEstandar = normalizedUnit
             };
             _db.Productos.Add(producto);
         }
-        else if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+        else
         {
-            producto.ImagenUrl = request.Imagen;
+            producto.CantidadCompraEstandar = request.Cantidad;
+            producto.UnidadCompraEstandar = normalizedUnit;
+
+            if (request.CategoriaId is not null && request.CategoriaId != Guid.Empty && producto.CategoriaId != request.CategoriaId)
+            {
+                producto.CategoriaId = request.CategoriaId;
+            }
+            else if (producto.CategoriaId is null && resolvedCategoriaId is not null)
+            {
+                producto.CategoriaId = resolvedCategoriaId;
+            }
+
+            if (string.IsNullOrWhiteSpace(producto.ImagenUrl) && !string.IsNullOrWhiteSpace(request.Imagen))
+            {
+                producto.ImagenUrl = request.Imagen;
+            }
+        }
+
+        // Información nutricional (del escaneo). Se guarda a nivel Producto.
+        // Para un producto existente, sólo se completa si todavía no la tiene.
+        var hasNutrition = HasNutrition(request);
+        if (hasNutrition)
+        {
+            var alreadyHasNutrition = !isNewProducto
+                && await _db.Set<InfoNutricionalProducto>().AnyAsync(n => n.ProductoId == producto.Id, ct);
+            if (!alreadyHasNutrition)
+            {
+                var nutri = BuildNutrition(producto.Id, request);
+                _db.Set<InfoNutricionalProducto>().Add(nutri);
+                producto.InfoNutricionalProductos.Add(nutri);
+            }
         }
 
         DateOnly? fechaVencimiento = null;
@@ -77,11 +135,13 @@ public sealed class AlacenaRepository : IAlacenaRepository
             CargadoPor = request.UsuarioId,
             UpdatedBy = request.UsuarioId,
             CantidadActual = request.Cantidad,
-            UnidadMedida = NormalizeUnit(request.UnidadMedida),
+            UnidadMedida = normalizedUnit,
             FechaVencimiento = fechaVencimiento,
             Ubicacion = request.Ubicacion,
             EstaAbierto = request.EstaAbierto,
-            PorcentajeConsumido = request.PorcentajeConsumido
+            PorcentajeConsumido = request.PorcentajeConsumido,
+            CantidadEnvases = request.CantidadEnvases < 1 ? 1 : request.CantidadEnvases,
+            OrigenCarga = request.OrigenCarga
         };
 
         _db.StockHogars.Add(stock);
@@ -95,7 +155,9 @@ public sealed class AlacenaRepository : IAlacenaRepository
         var item = await _db.StockHogars
             .Include(stock => stock.Producto)
             .ThenInclude(producto => producto.Categoria)
-            .FirstOrDefaultAsync(stock => stock.Id == request.Id, ct);
+            .Include(stock => stock.Producto)
+            .ThenInclude(producto => producto.InfoNutricionalProductos)
+            .FirstOrDefaultAsync(stock => stock.Id == request.Id && stock.HogarId == request.HogarId, ct);
 
         if (item is null)
         {
@@ -114,6 +176,8 @@ public sealed class AlacenaRepository : IAlacenaRepository
             item.EstaAbierto = request.EstaAbierto.Value;
         if (request.PorcentajeConsumido.HasValue)
             item.PorcentajeConsumido = request.PorcentajeConsumido.Value;
+        if (request.CantidadEnvases.HasValue)
+            item.CantidadEnvases = request.CantidadEnvases.Value < 1 ? 1 : request.CantidadEnvases.Value;
         if (request.FechaVencimiento is not null)
             item.FechaVencimiento = DateOnly.TryParse(request.FechaVencimiento, out var parsed) ? parsed : null;
 
@@ -125,9 +189,11 @@ public sealed class AlacenaRepository : IAlacenaRepository
         return ToResult(item, item.Producto);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    public async Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct)
     {
-        var item = await _db.StockHogars.FindAsync([id], ct);
+        var item = await _db.StockHogars
+            .FirstOrDefaultAsync(stock => stock.Id == id && stock.HogarId == hogarId, ct);
+
         if (item is null)
         {
             return false;
@@ -138,12 +204,14 @@ public sealed class AlacenaRepository : IAlacenaRepository
         return true;
     }
 
-    private static StockItemResult ToResult(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Producto producto)
-        => new(
+    private StockItemResult ToResult(Nido.Infrastructure.Persistence.Entities.StockHogar stock, Producto producto)
+    {
+        var nutri = producto.InfoNutricionalProductos?.FirstOrDefault();
+        return new(
             stock.Id,
             stock.ProductoId,
             producto.Nombre,
-            producto.ImagenUrl,
+            _assetUrlResolver.Resolve(producto.ImagenUrl),
             producto.CodigoBarras,
             producto.Categoria?.Nombre,
             stock.Ubicacion,
@@ -151,10 +219,259 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.UnidadMedida,
             stock.FechaVencimiento?.ToString("yyyy-MM-dd"),
             stock.EstaAbierto,
-            stock.PorcentajeConsumido);
+            stock.PorcentajeConsumido,
+            stock.CantidadEnvases,
+            string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga,
+            producto.Categoria?.IconoSvg,
+            producto.Categoria?.Icono,
+            producto.CantidadCompraEstandar,
+            producto.UnidadCompraEstandar,
+            ToNutritionResult(producto.InfoNutricionalProductos?.FirstOrDefault()));
+    }
+
+    private static NutritionInfoResult? ToNutritionResult(InfoNutricionalProducto? info)
+    {
+        if (info is null)
+        {
+            return null;
+        }
+
+        var items = info.Detalles
+            .OrderBy(detalle => detalle.Orden)
+            .ThenBy(detalle => detalle.Nombre)
+            .Select(detalle => new NutritionInfoItemResult(
+                detalle.Nombre,
+                detalle.Valor,
+                detalle.Unidad,
+                detalle.PorcentajeDiario,
+                detalle.Orden))
+            .ToArray();
+
+        if (items.Length == 0)
+        {
+            items = MacroItems(info.Calorias, info.Proteinas, info.Carbohidratos, info.Grasas);
+        }
+
+        return new NutritionInfoResult(
+            info.Calorias,
+            info.Proteinas,
+            info.Carbohidratos,
+            info.Grasas,
+            info.Porcion,
+            info.Base,
+            items);
+    }
+
+    private static bool HasNutrition(CreateStockItemRequestModel request)
+    {
+        var info = request.InformacionNutricional;
+        return request.Calorias.HasValue
+            || request.Proteinas.HasValue
+            || request.Carbohidratos.HasValue
+            || request.Grasas.HasValue
+            || info?.Calorias is not null
+            || info?.Proteinas is not null
+            || info?.Carbohidratos is not null
+            || info?.Grasas is not null
+            || !string.IsNullOrWhiteSpace(info?.Porcion)
+            || !string.IsNullOrWhiteSpace(info?.Base)
+            || (info?.Items.Any(item => !string.IsNullOrWhiteSpace(item.Nombre)) ?? false);
+    }
+
+    private static InfoNutricionalProducto BuildNutrition(Guid productoId, CreateStockItemRequestModel request)
+    {
+        var info = request.InformacionNutricional;
+        var nutri = new InfoNutricionalProducto
+        {
+            Id = Guid.NewGuid(),
+            ProductoId = productoId,
+            Calorias = info?.Calorias ?? request.Calorias,
+            Proteinas = info?.Proteinas ?? request.Proteinas,
+            Carbohidratos = info?.Carbohidratos ?? request.Carbohidratos,
+            Grasas = info?.Grasas ?? request.Grasas,
+            Porcion = NormalizeText(info?.Porcion, 100),
+            Base = NormalizeText(info?.Base, 100)
+        };
+
+        var details = info?.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Nombre))
+            .OrderBy(item => item.Orden)
+            .Select((item, index) => new InfoNutricionalProductoDetalle
+            {
+                Id = Guid.NewGuid(),
+                InfoNutricionalProductoId = nutri.Id,
+                Nombre = NormalizeText(item.Nombre, 150) ?? string.Empty,
+                Valor = item.Valor,
+                Unidad = NormalizeText(item.Unidad, 30),
+                PorcentajeDiario = item.PorcentajeDiario,
+                Orden = item.Orden > 0 ? item.Orden : index + 1
+            })
+            .ToList() ?? new List<InfoNutricionalProductoDetalle>();
+
+        if (details.Count == 0)
+        {
+            details = MacroItems(nutri.Calorias, nutri.Proteinas, nutri.Carbohidratos, nutri.Grasas)
+                .Select(item => new InfoNutricionalProductoDetalle
+                {
+                    Id = Guid.NewGuid(),
+                    InfoNutricionalProductoId = nutri.Id,
+                    Nombre = item.Nombre,
+                    Valor = item.Valor,
+                    Unidad = item.Unidad,
+                    PorcentajeDiario = item.PorcentajeDiario,
+                    Orden = item.Orden
+                })
+                .ToList();
+        }
+
+        foreach (var detail in details)
+        {
+            nutri.Detalles.Add(detail);
+        }
+
+        return nutri;
+    }
+
+    private static NutritionInfoItemResult[] MacroItems(
+        decimal? calorias,
+        decimal? proteinas,
+        decimal? carbohidratos,
+        decimal? grasas)
+    {
+        var items = new List<NutritionInfoItemResult>();
+        AddMacro(items, "Valor energetico", calorias, "kcal");
+        AddMacro(items, "Proteinas", proteinas, "g");
+        AddMacro(items, "Carbohidratos", carbohidratos, "g");
+        AddMacro(items, "Grasas", grasas, "g");
+        return items.ToArray();
+    }
+
+    private static void AddMacro(List<NutritionInfoItemResult> items, string nombre, decimal? valor, string unidad)
+    {
+        if (!valor.HasValue)
+        {
+            return;
+        }
+
+        items.Add(new NutritionInfoItemResult(nombre, valor, unidad, null, items.Count + 1));
+    }
+
+    private static string? NormalizeText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
 
     private static string NormalizeUnit(string? unit)
         => string.IsNullOrWhiteSpace(unit) ? "unidad" : unit.Trim();
+
+    private async Task<Guid?> ResolveCategoryIdAsync(Guid? requestedCategoryId, string productName, CancellationToken ct)
+    {
+        if (requestedCategoryId is not null && requestedCategoryId != Guid.Empty)
+        {
+            return requestedCategoryId;
+        }
+
+        var categoryName = InferCategoryNameByKeyword(NormalizeName(productName));
+        if (categoryName is null)
+        {
+            return null;
+        }
+
+        return await _db.CategoriasProductos
+            .AsNoTracking()
+            .Where(categoria => categoria.Nombre == categoryName)
+            .Select(categoria => (Guid?)categoria.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static string? InferCategoryNameByKeyword(string normalizedName)
+    {
+        if (ContainsAny(normalizedName, "leche", "queso", "yogur", "crema", "manteca", "lacteo", "ricota", "dulce de leche"))
+            return "Lácteos";
+        if (ContainsAny(normalizedName, "pollo", "ave", "gallina"))
+            return "Pollo y Aves";
+        if (ContainsAny(normalizedName, "cerdo", "bondiola", "panceta", "jamon", "chorizo", "salchicha"))
+            return "Carnes Porcinas";
+        if (ContainsAny(normalizedName, "pescado", "atun", "merluza", "marisco", "camaron", "langostino"))
+            return "Pescados y Mariscos";
+        if (ContainsAny(normalizedName, "carne", "vaca", "bife", "milanesa", "asado", "lomo", "nalga", "cuadril"))
+            return "Carnes Vacunas";
+        if (ContainsAny(normalizedName, "manzana", "banana", "naranja", "limon", "frutilla", "uva", "pera", "durazno", "cereza", "fruta"))
+            return "Frutas";
+        if (ContainsAny(normalizedName, "ajo en polvo", "cebolla en polvo", "pimenton", "aji molido"))
+            return "Condimentos";
+        if (ContainsAny(normalizedName, "tomate", "zanahoria", "cebolla", "lechuga", "papa", "batata", "morron", "ajo", "verdura", "zapallo", "espinaca", "acelga"))
+            return "Verduras";
+        if (ContainsAny(normalizedName, "lenteja", "garbanzo", "poroto", "arveja", "legumbre", "soja"))
+            return "Legumbres";
+        if (ContainsAny(normalizedName, "pan", "factura", "medialuna", "tostada", "galleta de agua"))
+            return "Panificados";
+        if (ContainsAny(normalizedName, "fideo", "pasta", "spaghetti", "raviol", "ñoqui", "noqui"))
+            return "Pastas";
+        if (ContainsAny(normalizedName, "arroz"))
+            return "Arroz";
+        if (ContainsAny(normalizedName, "cereal", "avena", "granola", "copos"))
+            return "Cereales";
+        if (ContainsAny(normalizedName, "harina", "maicena", "fecula"))
+            return "Harinas";
+        if (ContainsAny(normalizedName, "azucar", "edulcorante", "miel", "endulzante"))
+            return "Azúcar y Endulzantes";
+        if (ContainsAny(normalizedName, "chocolate", "levadura", "esencia", "reposteria", "polvo de hornear", "coco rallado"))
+            return "Repostería";
+        if (ContainsAny(normalizedName, "aceite"))
+            return "Aceites";
+        if (ContainsAny(normalizedName, "sal", "pimienta", "oregano", "condimento", "especia", "caldo"))
+            return "Condimentos";
+        if (ContainsAny(normalizedName, "salsa", "aderezo", "mayonesa", "ketchup", "mostaza", "vinagre", "aceto"))
+            return "Salsas y Aderezos";
+        if (ContainsAny(normalizedName, "huevo"))
+            return "Huevos";
+        if (ContainsAny(normalizedName, "congelado", "hielo", "helado", "freezer"))
+            return "Congelados";
+        if (ContainsAny(normalizedName, "papas fritas", "snack", "nachos", "chips", "mani"))
+            return "Snacks";
+        if (ContainsAny(normalizedName, "caramelo", "gomita", "alfajor", "golosina", "turron"))
+            return "Golosinas";
+        if (ContainsAny(normalizedName, "cerveza", "vino", "fernet", "sidra", "whisky", "alcoholica"))
+            return "Bebidas Alcohólicas";
+        if (ContainsAny(normalizedName, "agua", "jugo", "gaseosa", "soda", "coca", "bebida", "te", "cafe"))
+            return "Bebidas";
+        if (ContainsAny(normalizedName, "conserva", "lata", "atun", "tomate perita", "mermelada"))
+            return "Conservas";
+        if (ContainsAny(normalizedName, "diet", "light", "proteina", "dietetico"))
+            return "Productos Dietéticos";
+        if (ContainsAny(normalizedName, "sin tacc", "gluten free", "gluten-free", "celiaco"))
+            return "Productos Sin TACC";
+        if (ContainsAny(normalizedName, "detergente", "jabon", "limpieza", "lavandina", "desinfectante", "trapo", "esponja", "suavizante"))
+            return "Limpieza";
+        if (ContainsAny(normalizedName, "shampoo", "acondicionador", "papel higienico", "dentifrico", "desodorante", "baño", "bano", "jabon de tocador"))
+            return "Higiene Personal";
+        if (ContainsAny(normalizedName, "perro", "gato", "mascota", "alimento balanceado"))
+            return "Mascotas";
+        if (ContainsAny(normalizedName, "pañal", "panal", "bebe", "mamadera", "oleo calcareo"))
+            return "Bebés";
+
+        return "Otros";
+    }
+
+    private static bool ContainsAny(string source, params string[] keywords)
+    {
+        foreach (var keyword in keywords)
+        {
+            if (source.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private async Task UpdateProductReferenceAsync(Nido.Infrastructure.Persistence.Entities.StockHogar item, string nombre, CancellationToken ct)
     {

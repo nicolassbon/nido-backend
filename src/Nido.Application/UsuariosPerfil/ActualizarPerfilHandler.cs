@@ -1,12 +1,14 @@
 
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Common.Storage;
 
 namespace Nido.Application.UsuariosPerfil;
 
 public sealed class ActualizarPerfilHandler(
     UsuariosPerfil.IUsuarioRepository usuarioRepository,
     IProfileImageProcessor profileImageProcessor,
-    IProfileImageStorage profileImageStorage)
+    IFileStorageService fileStorageService,
+    StorageKeyFactory storageKeyFactory)
 {
     public async Task HandleAsync(UsuariosPerfil.ActualizarPerfilCommand command, CancellationToken cancellationToken)
     {
@@ -14,30 +16,37 @@ public sealed class ActualizarPerfilHandler(
             ?? throw new Exception("Usuario no encontrado");
 
         string? newFotoStorageKey = usuario.FotoStorageKey;
+        DateTime? fotoUpdatedAt = usuario.FotoUpdatedAt;
+        string? oldFotoStorageKey = null;
 
         if (command.Foto is not null)
         {
             var processed = await profileImageProcessor.ProcessAsync(command.Foto, cancellationToken);
-            var storageKey = $"usuarios/{usuario.Id}/profile/{Guid.NewGuid():N}.webp";
-            await profileImageStorage.UploadAsync(storageKey, processed.Content, processed.ContentType, cancellationToken);
+            var storageKey = storageKeyFactory.ForAvatar(usuario.Id);
 
-            if (!string.IsNullOrWhiteSpace(usuario.FotoStorageKey))
-            {
-                try
-                {
-                    await profileImageStorage.DeleteAsync(usuario.FotoStorageKey, CancellationToken.None);
-                }
-                catch
-                {
-                    // Ignore or log error
-                }
-            }
+            await using var stream = new MemoryStream(processed.Content);
+            await fileStorageService.UploadAsync(stream, storageKey, processed.ContentType, cancellationToken);
+
+            oldFotoStorageKey = usuario.FotoStorageKey;
 
             newFotoStorageKey = storageKey;
+            fotoUpdatedAt = DateTime.UtcNow;
         }
 
-        usuario.ActualizarPerfil(command.Nombre, command.Sexo, command.Telefono, newFotoStorageKey);
+        usuario.ActualizarPerfil(command.Nombre, command.Sexo, command.Telefono, newFotoStorageKey, fotoUpdatedAt);
 
         await usuarioRepository.UpdateAsync(usuario, cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(oldFotoStorageKey))
+        {
+            try
+            {
+                await fileStorageService.DeleteAsync(oldFotoStorageKey, CancellationToken.None);
+            }
+            catch
+            {
+                // Non-critical cleanup failure — log in future
+            }
+        }
     }
 }

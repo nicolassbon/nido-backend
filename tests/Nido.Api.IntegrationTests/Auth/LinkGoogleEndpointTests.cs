@@ -1,4 +1,4 @@
-using Nido.Application.Auth.Google.Link;
+﻿using Nido.Application.Auth.Google.Link;
 using Nido.Application.Auth.Google.Login;
 using System.Net;
 using System.Net.Http.Headers;
@@ -92,7 +92,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
             (userId, _) = await repo.CreateUserWithPasswordAsync(
                 Guid.NewGuid(),
                 Guid.NewGuid(),
-                "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+                "Test User", email, hasher.Hash(password), "M", null, true, CancellationToken.None);
 
             var db = scope.ServiceProvider.GetRequiredService<Nido.Infrastructure.Persistence.NidoDbContext>();
             var user = await db.Usuarios.FindAsync(userId);
@@ -174,7 +174,7 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         using var scope = _factory.Services.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-        await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, CancellationToken.None);
+        await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Test User", email, hasher.Hash(password), "M", null, true, CancellationToken.None);
     }
 
     private async Task<string> LoginAsync(string email, string password)

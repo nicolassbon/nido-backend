@@ -19,6 +19,8 @@ public partial class Gasto
 
     public DateOnly Fecha { get; set; }
 
+    public Guid? FacturaId { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public virtual Hogare Hogar { get; set; } = null!;

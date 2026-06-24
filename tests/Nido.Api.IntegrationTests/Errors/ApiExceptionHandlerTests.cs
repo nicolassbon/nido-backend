@@ -8,6 +8,7 @@ using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Hogares.Exceptions;
+using Nido.Application.Telegram.Exceptions;
 using Nido.Api.Errors;
 
 namespace Nido.Api.IntegrationTests.Errors;
@@ -57,20 +58,6 @@ public sealed class ApiExceptionHandlerTests
     }
 
     [Fact]
-    public async Task TryHandle_MapsNotSoleOwnerException_To409Conflict()
-    {
-        var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
-        var context = new DefaultHttpContext();
-        context.Response.Body = new MemoryStream();
-
-        var exception = new NotSoleOwnerException();
-        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
-
-        Assert.True(result);
-        Assert.Equal(409, context.Response.StatusCode);
-    }
-
-    [Fact]
     public async Task TryHandle_MapsNoHouseholdAssociatedException_To500()
     {
         var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
@@ -96,6 +83,62 @@ public sealed class ApiExceptionHandlerTests
 
         Assert.True(result);
         Assert.Equal(404, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TryHandle_MapsTelegramPairingTokenNotFoundException_To404()
+    {
+        var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var exception = new TelegramPairingTokenNotFoundException();
+        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(404, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TryHandle_MapsTelegramConfigurationException_To503ServiceUnavailable()
+    {
+        var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var exception = new TelegramConfigurationException("Telegram:BotUsername is required for Telegram pairing.");
+        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(503, context.Response.StatusCode);
+    }
+
+    public static TheoryData<Exception, int> TelegramExceptionMappings => new()
+    {
+        { new TelegramChatNotLinkedException(), 404 },
+        { new TelegramHogarAccessDeniedException(), 403 },
+        { new TelegramPairingTokenAlreadyConsumedException(), 410 },
+        { new TelegramPairingTokenExpiredException(), 410 },
+        { new TelegramPairingTokenRevokedException(), 410 },
+        { new TelegramPairingCodeNotFoundException(), 404 },
+        { new TelegramPairingCodeExpiredException(), 410 },
+        { new TelegramPairingCodeRevokedException(), 410 },
+        { new TelegramPairingCodeUnavailableException(), 503 },
+        { new TelegramPairingRateLimitExceededException(), 429 },
+    };
+
+    [Theory]
+    [MemberData(nameof(TelegramExceptionMappings))]
+    public async Task TryHandle_MapsTelegramExceptions_ToExpectedStatus(Exception exception, int expectedStatus)
+    {
+        var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
     }
 
     private sealed class FakeProblemDetailsService : IProblemDetailsService

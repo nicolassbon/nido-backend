@@ -1,0 +1,6 @@
+api.nidoapp.online {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+    reverse_proxy nido-api:8080
+}

@@ -12,5 +12,16 @@ public sealed record StockItemResult(
     string? UnidadMedida,
     string? FechaVencimiento,
     bool EstaAbierto,
-    decimal PorcentajeConsumido
+    decimal PorcentajeConsumido,
+    int CantidadEnvases,
+    string OrigenCarga = StockLoadOrigins.Manual,
+    string? IconoSvg = null,
+    string? Icono = null,
+    decimal? CantidadCompraEstandar = null,
+    string? UnidadCompraEstandar = null,
+    NutritionInfoResult? InformacionNutricional = null,
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null
 );

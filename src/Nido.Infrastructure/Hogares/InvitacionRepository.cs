@@ -17,9 +17,6 @@ public sealed class InvitacionRepository : IInvitacionRepository
         _profileImagePublicUrlResolver = profileImagePublicUrlResolver;
     }
 
-    public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.Rol == "owner", ct);
-
     public Task<int> CountRealMembersAsync(Guid hogarId, CancellationToken ct)
         => _db.MiembrosHogars.CountAsync(m => m.HogarId == hogarId && m.NombreRepresentado == null, ct);
 
@@ -57,54 +54,26 @@ public sealed class InvitacionRepository : IInvitacionRepository
     public Task<bool> IsUserInAnyHouseholdAsync(Guid usuarioId, CancellationToken ct)
         => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.NombreRepresentado == null, ct);
 
-    public async Task<bool> IsUserSoleOwnerAsync(Guid usuarioId, CancellationToken ct)
+    public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.NombreRepresentado == null, ct);
+
+    public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.Rol == "owner" && m.NombreRepresentado == null, ct);
+
+    public async Task AddUserToHouseholdAsync(Guid usuarioId, Guid toHogarId, string token, CancellationToken ct)
     {
-        var hogarId = await _db.MiembrosHogars
-            .Where(m => m.UsuarioId == usuarioId && m.NombreRepresentado == null)
-            .Select(m => m.HogarId)
-            .FirstOrDefaultAsync(ct);
-
-        if (hogarId == Guid.Empty) return true;
-
-
-        var isOwner = await _db.MiembrosHogars.AnyAsync(m => m.HogarId == hogarId && m.UsuarioId == usuarioId && m.Rol == "owner", ct);
-        if (!isOwner) return false;
-
-        var realMemberCount = await _db.MiembrosHogars.CountAsync(m => m.HogarId == hogarId && m.NombreRepresentado == null, ct);
-        return realMemberCount == 1;
-    }
-
-    public async Task<Guid> GetUserCurrentHogarIdAsync(Guid usuarioId, CancellationToken ct)
-    {
-        return await _db.MiembrosHogars
-            .Where(m => m.UsuarioId == usuarioId && m.NombreRepresentado == null)
-            .Select(m => m.HogarId)
-            .FirstOrDefaultAsync(ct);
-    }
-
-    public async Task MoveUserToHouseholdAsync(Guid usuarioId, Guid fromHogarId, Guid toHogarId, string token, CancellationToken ct)
-    {
-
-        var oldMemberships = await _db.MiembrosHogars
-            .Where(m => m.HogarId == fromHogarId)
-            .ToListAsync(ct);
-        _db.MiembrosHogars.RemoveRange(oldMemberships);
-
-
         _db.MiembrosHogars.Add(new MiembrosHogar
         {
             Id = Guid.NewGuid(),
             UsuarioId = usuarioId,
             HogarId = toHogarId,
-            Rol = "conviviente",
+            Rol = "integrante",
             Puntos = 0
         });
-
 
         var inv = await _db.InvitacionesHogars.FirstOrDefaultAsync(i => i.Token == token, ct);
         if (inv is not null)
             inv.Estado = "aceptada";
-
 
         var existingState = await _db.OnboardingStates
             .AnyAsync(s => s.UsuarioId == usuarioId && s.HogarId == toHogarId, ct);
@@ -130,7 +99,7 @@ public sealed class InvitacionRepository : IInvitacionRepository
             .Join(_db.Usuarios,
                 m => m.UsuarioId,
                 u => u.Id,
-                (m, u) => new { u.Id, u.Nombre, u.Email, m.Rol, u.FotoStorageKey, u.FotoUrl })
+                (m, u) => new { u.Id, u.Nombre, u.Email, m.Rol, u.FotoStorageKey, u.FotoUpdatedAt })
             .ToListAsync(ct);
 
         var userIds = members.Select(x => x.Id).ToList();
@@ -152,10 +121,10 @@ public sealed class InvitacionRepository : IInvitacionRepository
                 x.Id,
                 x.Nombre,
                 x.Email,
-                x.Rol,
+                x.Rol == "conviviente" ? "integrante" : x.Rol,
                 !string.IsNullOrWhiteSpace(x.FotoStorageKey)
-                    ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey)
-                    : x.FotoUrl,
+                ? _profileImagePublicUrlResolver.Resolve(x.FotoStorageKey, x.FotoUpdatedAt)
+                : null,
                 alergiasByUser.GetValueOrDefault(x.Id, [])))
             .ToList();
     }
@@ -169,9 +138,6 @@ public sealed class InvitacionRepository : IInvitacionRepository
         return (user.Email, user.Nombre);
     }
 
-    public Task<bool> IsMemberOfHouseholdAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-        => _db.MiembrosHogars.AnyAsync(m => m.UsuarioId == usuarioId && m.HogarId == hogarId && m.NombreRepresentado == null, ct);
-
     public async Task RemoveMiembroAsync(Guid hogarId, Guid targetUsuarioId, CancellationToken ct)
     {
         var membership = await _db.MiembrosHogars
@@ -180,26 +146,32 @@ public sealed class InvitacionRepository : IInvitacionRepository
         if (membership is not null)
             _db.MiembrosHogars.Remove(membership);
 
-        var userNombre = await _db.Usuarios
-            .Where(u => u.Id == targetUsuarioId)
-            .Select(u => u.Nombre)
-            .FirstAsync(ct);
+        var tieneOtrosHogares = await _db.MiembrosHogars
+            .AnyAsync(m => m.UsuarioId == targetUsuarioId && m.HogarId != hogarId && m.NombreRepresentado == null, ct);
 
-        var nuevoHogar = new Persistence.Entities.Hogare
+        if (!tieneOtrosHogares)
         {
-            Id = Guid.NewGuid(),
-            Nombre = $"Hogar de {userNombre}",
-            CreatedAt = DateTime.UtcNow
-        };
-        _db.Hogares.Add(nuevoHogar);
-        _db.MiembrosHogars.Add(new Persistence.Entities.MiembrosHogar
-        {
-            Id = Guid.NewGuid(),
-            UsuarioId = targetUsuarioId,
-            HogarId = nuevoHogar.Id,
-            Rol = "owner",
-            Puntos = 0
-        });
+            var userNombre = await _db.Usuarios
+                .Where(u => u.Id == targetUsuarioId)
+                .Select(u => u.Nombre)
+                .FirstAsync(ct);
+
+            var nuevoHogar = new Persistence.Entities.Hogare
+            {
+                Id = Guid.NewGuid(),
+                Nombre = $"Hogar de {userNombre}",
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.Hogares.Add(nuevoHogar);
+            _db.MiembrosHogars.Add(new Persistence.Entities.MiembrosHogar
+            {
+                Id = Guid.NewGuid(),
+                UsuarioId = targetUsuarioId,
+                HogarId = nuevoHogar.Id,
+                Rol = "owner",
+                Puntos = 0
+            });
+        }
 
         await _db.SaveChangesAsync(ct);
     }

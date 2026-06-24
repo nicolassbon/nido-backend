@@ -21,17 +21,13 @@ public partial class Usuario
 
     public string? Telefono { get; set; }
 
-    public string? FotoUrl { get; set; }
-
     public string? FotoStorageKey { get; set; }
 
-    public string? FotoContentType { get; set; }
+    public DateTime? FotoUpdatedAt { get; set; }
 
-    public int? FotoWidth { get; set; }
+    public bool AceptaTerminos { get; set; }
 
-    public int? FotoHeight { get; set; }
-
-    public long? FotoSizeBytes { get; set; }
+    public DateTime? AceptaTerminosAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
