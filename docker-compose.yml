@@ -63,6 +63,7 @@ services:
       - GoogleDocumentAi__ProcessorId=${GoogleDocumentAi__ProcessorId}
       - GoogleDocumentAi__ReceiptProcessorId=${GoogleDocumentAi__ReceiptProcessorId}
       - GoogleDocumentAi__NutritionProcessorId=${GoogleDocumentAi__NutritionProcessorId}
+      - Ia__BaseUrl=${Ia__BaseUrl:-http://host.docker.internal:5000}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/nido-document-ai.json}
       - Telegram__BotToken=${Telegram__BotToken}
       - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
@@ -76,9 +77,6 @@ services:
         source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-./secrets/nido-document-ai.json}
         target: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/nido-document-ai.json}
         read_only: true
-
-
-      
     depends_on:
       postgres:
         condition: service_healthy

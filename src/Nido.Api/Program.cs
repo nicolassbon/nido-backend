@@ -179,6 +179,12 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
     options.Secure = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
 
+builder.Services.AddHttpClient("NidoIa", client =>
+{
+    var baseUrl = builder.Configuration["Ia:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
+});
+
 var app = builder.Build();
 
 if (!app.Environment.IsProduction())
