@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -18,6 +18,7 @@ services:
       start_period: 15s
 
   nido-migrator:
+    image: ${NIDO_MIGRATOR_IMAGE:-nido-migrator:local}
     build:
       context: .
       target: migrator
@@ -31,13 +32,14 @@ services:
         condition: service_healthy
 
   nido-api:
+    image: ${NIDO_API_IMAGE:-nido-api:local}
     build:
       context: .
       target: runtime
     container_name: nido-api
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - RESEND_API_KEY=${RESEND_API_KEY}
@@ -46,16 +48,65 @@ services:
       - Frontend__BaseUrl=${Frontend__BaseUrl}
       - Jwt__Key=${Jwt__Key}
       - Google__ClientId=${Google__ClientId}
-      - ProfileImages__PublicBaseUrl=${ProfileImages__PublicBaseUrl}
+      - Vapid__PublicKey=${Vapid__PublicKey:-}
+      - Vapid__PrivateKey=${Vapid__PrivateKey:-}
+      - Vapid__Subject=${Vapid__Subject:-}
+      - Spaces__Enabled=${Spaces__Enabled}
+      - Spaces__Bucket=${Spaces__Bucket}
+      - Spaces__PublicBaseUrl=${Spaces__PublicBaseUrl}
+      - Spaces__Endpoint=${Spaces__Endpoint}
+      - Spaces__Region=${Spaces__Region}
+      - Spaces__AccessKey=${Spaces__AccessKey}
+      - Spaces__SecretKey=${Spaces__SecretKey}
+      - GoogleDocumentAi__ProjectId=${GoogleDocumentAi__ProjectId}
+      - GoogleDocumentAi__Location=${GoogleDocumentAi__Location}
+      - GoogleDocumentAi__ProcessorId=${GoogleDocumentAi__ProcessorId}
+      - GoogleDocumentAi__ReceiptProcessorId=${GoogleDocumentAi__ReceiptProcessorId}
+      - GoogleDocumentAi__NutritionProcessorId=${GoogleDocumentAi__NutritionProcessorId}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/nido-document-ai.json}
+      - Telegram__BotToken=${Telegram__BotToken}
+      - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
+      - Telegram__BotUsername=${Telegram__BotUsername}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./src/Nido.Api/wwwroot/uploads:/app/wwwroot/uploads
+
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-./secrets/nido-document-ai.json}
+        target: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/nido-document-ai.json}
+        read_only: true
+
+
+      
     depends_on:
       postgres:
         condition: service_healthy
       nido-migrator:
         condition: service_completed_successfully
 
+  nido-caddy:
+    profiles:
+      - production
+    image: ${NIDO_CADDY_IMAGE:-nido-caddy:local}
+    build:
+      context: ./caddy
+    container_name: nido-caddy
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - nido-api
+    restart: unless-stopped
+
 volumes:
   postgres-data:
+  caddy-data:
+  caddy-config:

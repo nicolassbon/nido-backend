@@ -11,6 +11,8 @@ public partial class Hogare
 
     public DateTime CreatedAt { get; set; }
 
+    public bool ModoAhorro { get; set; }
+
     public virtual ICollection<Electrodomestico> Electrodomesticos { get; set; } = new List<Electrodomestico>();
 
     public virtual ICollection<Gasto> Gastos { get; set; } = new List<Gasto>();
@@ -18,6 +20,10 @@ public partial class Hogare
     public virtual ICollection<InvitacionesHogar> InvitacionesHogars { get; set; } = new List<InvitacionesHogar>();
 
     public virtual ICollection<ListaCompra> ListaCompras { get; set; } = new List<ListaCompra>();
+
+    public virtual ICollection<ListaCompraHogar> ListasCompraHogar { get; set; } = new List<ListaCompraHogar>();
+
+    public virtual ICollection<RecetaGuardadaHogar> RecetasGuardadasHogar { get; set; } = new List<RecetaGuardadaHogar>();
 
     public virtual ICollection<LogrosHogar> LogrosHogars { get; set; } = new List<LogrosHogar>();
 

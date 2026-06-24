@@ -2,11 +2,17 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Application.Alacena.Exceptions;
 using Nido.Application.Auth.Exceptions;
+using Nido.Application.CatalogoElectrodomesticos.UploadCatalogImage;
+using Nido.Application.Common.Images;
 using Nido.Application.Electrodomesticos.Exceptions;
+using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Hogares.Exceptions;
 using Nido.Application.Onboarding.Exceptions;
 using Nido.Application.Preferencias.Exceptions;
 using Nido.Application.Productos.Exceptions;
+using Nido.Application.Productos.UploadProductImage;
+using Nido.Application.Recetas.UploadRecipeImage;
+using Nido.Application.Telegram.Exceptions;
 using Nido.Domain.Exceptions;
 
 namespace Nido.Api.Errors;
@@ -39,8 +45,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         {
             Status = status,
             Title = title,
-            Detail = status == StatusCodes.Status500InternalServerError 
-                ? "An unexpected error occurred." 
+            Detail = status == StatusCodes.Status500InternalServerError && exception is not ImageStorageConfigurationException
+                ? "An unexpected error occurred."
                 : exception.Message
         };
 
@@ -73,6 +79,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         AccountLinkRequiredException => (StatusCodes.Status409Conflict, "Conflict"),
         UserNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
         UserNotInHouseholdException => (StatusCodes.Status404NotFound, "Not found"),
+        TermsNotAcceptedException => (StatusCodes.Status400BadRequest, "Validation error"),
 
         // Onboarding exceptions
         BoundaryViolationException => (StatusCodes.Status403Forbidden, "Forbidden"),
@@ -90,10 +97,12 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         InvitationExpiredException => (StatusCodes.Status410Gone, "Gone"),
         MaxMembersExceededException => (StatusCodes.Status409Conflict, "Conflict"),
         AlreadyMemberException => (StatusCodes.Status409Conflict, "Conflict"),
-        NotSoleOwnerException => (StatusCodes.Status409Conflict, "Conflict"),
         NotHouseholdOwnerException => (StatusCodes.Status403Forbidden, "Forbidden"),
         NotHouseholdMemberException => (StatusCodes.Status404NotFound, "Not found"),
         CannotRemoveSelfException => (StatusCodes.Status400BadRequest, "Validation error"),
+        NotHogarOwnerException => (StatusCodes.Status403Forbidden, "Forbidden"),
+        CannotDeleteActiveHogarException => (StatusCodes.Status409Conflict, "Conflict"),
+        UltimoHogarException => (StatusCodes.Status409Conflict, "Conflict"),
 
         // Alacena exceptions
         InvalidStockItemDateException => (StatusCodes.Status400BadRequest, "Validation error"),
@@ -101,10 +110,33 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         // Productos exceptions
         MissingProductFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
+        ProductImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        ElectrodomesticoImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        CatalogImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        RecipeImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        MissingImageFileException => (StatusCodes.Status400BadRequest, "Validation error"),
+        UnsupportedImageTypeException => (StatusCodes.Status400BadRequest, "Validation error"),
+        ImageSizeExceededException => (StatusCodes.Status413PayloadTooLarge, "Validation error"),
+        ImageStorageFailureException => (StatusCodes.Status502BadGateway, "Storage error"),
+        ImageStorageConfigurationException => (StatusCodes.Status500InternalServerError, "Configuration error"),
 
         // Preferencias exceptions
         MissingPreferenceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
         InvalidPreferenceRangeException => (StatusCodes.Status400BadRequest, "Validation error"),
+
+        // Telegram exceptions
+        TelegramChatNotLinkedException => (StatusCodes.Status404NotFound, "Not found"),
+        TelegramPairingTokenNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        TelegramPairingCodeNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+        TelegramHogarAccessDeniedException => (StatusCodes.Status403Forbidden, "Forbidden"),
+        TelegramPairingTokenAlreadyConsumedException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingTokenExpiredException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingTokenRevokedException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingCodeExpiredException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingCodeRevokedException => (StatusCodes.Status410Gone, "Gone"),
+        TelegramPairingRateLimitExceededException => (StatusCodes.Status429TooManyRequests, "Too many requests"),
+        TelegramConfigurationException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
+        TelegramPairingCodeUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
 
         // Catch-all for remaining infrastructure-level validation errors
         ArgumentException => (StatusCodes.Status400BadRequest, "Validation error"),

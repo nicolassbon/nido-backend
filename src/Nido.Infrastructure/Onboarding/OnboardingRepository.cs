@@ -14,12 +14,6 @@ public sealed class OnboardingRepository : IOnboardingRepository
         _dbContext = dbContext;
     }
 
-    public Task<bool> IsUserHouseholdMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken)
-        => _dbContext.MiembrosHogars.AnyAsync(x => x.UsuarioId == usuarioId && x.HogarId == hogarId, cancellationToken);
-
-    public Task<bool> IsUserHouseholdOwnerAsync(Guid usuarioId, Guid hogarId, CancellationToken cancellationToken)
-        => _dbContext.MiembrosHogars.AnyAsync(x => x.UsuarioId == usuarioId && x.HogarId == hogarId && x.Rol == "owner", cancellationToken);
-
     public async Task ReplaceRepresentedMembersAsync(Guid hogarId, IReadOnlyList<RepresentedMemberInput> members, CancellationToken cancellationToken)
     {
         var existing = await _dbContext.MiembrosHogars.Where(x => x.HogarId == hogarId && x.NombreRepresentado != null).ToListAsync(cancellationToken);

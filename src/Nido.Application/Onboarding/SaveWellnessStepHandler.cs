@@ -1,3 +1,4 @@
+using Nido.Application.Common.Security;
 using Nido.Application.Onboarding.Exceptions;
 
 namespace Nido.Application.Onboarding;
@@ -5,20 +6,23 @@ namespace Nido.Application.Onboarding;
 public sealed class SaveWellnessStepHandler
 {
     private readonly IOnboardingRepository _repository;
+    private readonly IHouseholdMembershipService _membershipService;
 
-    public SaveWellnessStepHandler(IOnboardingRepository repository)
+    public SaveWellnessStepHandler(IOnboardingRepository repository, IHouseholdMembershipService membershipService)
     {
         _repository = repository;
+        _membershipService = membershipService;
     }
 
     public async Task Handle(SaveWellnessStepCommand command, CancellationToken cancellationToken)
     {
         OnboardingBoundaryGuard.EnsureClientIdsMatchClaims(command.UsuarioId, command.HogarId, command.ClientUsuarioId, command.ClientHogarId);
 
-        if (!await _repository.IsUserHouseholdMemberAsync(command.UsuarioId, command.HogarId, cancellationToken))
-        {
-            throw new HouseholdAccessDeniedException();
-        }
+        await _membershipService.EnsureMemberAsync(
+            command.UsuarioId,
+            command.HogarId,
+            static () => new HouseholdAccessDeniedException(),
+            cancellationToken);
 
         if (!command.Skip)
         {

@@ -79,6 +79,68 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("categorias_producto", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ConsumoProducto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<Guid?>("CategoriaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("categoria_id");
+
+                    b.Property<DateTime>("FechaConsumo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_consumo");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("motivo");
+
+                    b.Property<Guid?>("ProductoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("producto_id");
+
+                    b.Property<string>("ProductoNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("producto_nombre");
+
+                    b.Property<string>("UnidadMedida")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("unidad_medida");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("HogarId", "FechaConsumo")
+                        .HasDatabaseName("ix_consumos_producto_hogar_fecha");
+
+                    b.HasIndex("HogarId", "ProductoId", "FechaConsumo")
+                        .HasDatabaseName("ix_consumos_producto_hogar_producto_fecha");
+
+                    b.ToTable("consumos_producto", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Electrodomestico", b =>
                 {
                     b.Property<Guid>("Id")
@@ -177,6 +239,70 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("electrodomesticos_catalogo", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("ArchivoStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("archivo_storage_key");
+
+                    b.Property<Guid>("CreadoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creado_por");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateOnly?>("FechaVencimiento")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_vencimiento");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<decimal?>("Monto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("monto");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nombre");
+
+                    b.Property<bool>("Pagada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("pagada");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("facturas_pkey");
+
+                    b.HasIndex("CreadoPor");
+
+                    b.HasIndex(new[] { "HogarId" }, "idx_facturas_hogar");
+
+                    b.ToTable("facturas", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Gasto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -200,6 +326,10 @@ namespace Nido.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("descripcion");
+
+                    b.Property<Guid?>("FacturaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("factura_id");
 
                     b.Property<DateOnly>("Fecha")
                         .HasColumnType("date")
@@ -259,6 +389,12 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("ModoAhorro")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("modo_ahorro");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -402,11 +538,6 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
-                    b.Property<string>("Codigo")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("codigo");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -479,13 +610,53 @@ namespace Nido.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("comprado");
 
+                    b.Property<DateTime?>("CompradoEn")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("comprado_en");
+
+                    b.Property<Guid?>("CompradoPor")
+                        .HasColumnType("uuid")
+                        .HasColumnName("comprado_por");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasDefaultValueSql("now()")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("GrupoNombre")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("Productos agregados")
+                        .HasColumnName("grupo_nombre");
+
                     b.Property<Guid>("HogarId")
                         .HasColumnType("uuid")
                         .HasColumnName("hogar_id");
 
+                    b.Property<int>("Orden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("orden");
+
                     b.Property<Guid>("ProductoId")
                         .HasColumnType("uuid")
                         .HasColumnName("producto_id");
+
+                    b.Property<string>("ProductoNombreSnapshot")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasDefaultValue("")
+                        .HasColumnName("producto_nombre_snapshot");
+
+                    b.Property<DateTime?>("RemovidoDeListaAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("removido_de_lista_at");
 
                     b.Property<string>("Unidad")
                         .HasMaxLength(100)
@@ -496,6 +667,8 @@ namespace Nido.Infrastructure.Migrations
                         .HasName("lista_compras_pkey");
 
                     b.HasIndex("AgregadoPor");
+
+                    b.HasIndex("CompradoPor");
 
                     b.HasIndex("ProductoId");
 
@@ -651,6 +824,47 @@ namespace Nido.Infrastructure.Migrations
                     b.HasIndex(new[] { "UsuarioId" }, "idx_miembros_hogar_usuario");
 
                     b.ToTable("miembros_hogar", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.NotaReceta", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<Guid>("RecetaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receta_id");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("texto");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HogarId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("RecetaId", "HogarId")
+                        .HasDatabaseName("ix_notas_receta_receta_hogar");
+
+                    b.ToTable("notas_receta", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Notificacione", b =>
@@ -863,6 +1077,84 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("password_reset_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PresupuestoMensual", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<int>("Anio")
+                        .HasColumnType("integer")
+                        .HasColumnName("anio");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("monto");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("presupuestos_mensuales_pkey");
+
+                    b.HasIndex(new[] { "HogarId", "Anio", "Mes" }, "ux_presupuestos_hogar_anio_mes")
+                        .IsUnique();
+
+                    b.ToTable("presupuestos_mensuales", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ProcessedTelegramUpdate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("processed_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("UpdateHash")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("update_hash");
+
+                    b.Property<long>("UpdateId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("update_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdateId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_processed_telegram_updates_update_id");
+
+                    b.ToTable("processed_telegram_updates", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Producto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -880,6 +1172,11 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("codigo_barras");
 
+                    b.Property<decimal?>("CantidadCompraEstandar")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("cantidad_compra_estandar");
+
                     b.Property<string>("ImagenUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -890,6 +1187,11 @@ namespace Nido.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("nombre");
+
+                    b.Property<string>("UnidadCompraEstandar")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("unidad_compra_estandar");
 
                     b.HasKey("Id")
                         .HasName("productos_pkey");
@@ -1069,6 +1371,10 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
                     b.Property<int?>("Puntuacion")
                         .HasColumnType("integer")
                         .HasColumnName("puntuacion");
@@ -1077,6 +1383,10 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("receta_id");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
                     b.Property<Guid>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
@@ -1084,9 +1394,17 @@ namespace Nido.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("resenias_receta_pkey");
 
-                    b.HasIndex("RecetaId");
+                    b.HasIndex("HogarId");
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("RecetaId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("resenias_receta_receta_id_usuario_id_key");
+
+                    b.HasIndex("RecetaId", "HogarId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_resenias_receta_hogar_usuario");
 
                     b.ToTable("resenias_receta", (string)null);
                 });
@@ -1147,6 +1465,12 @@ namespace Nido.Infrastructure.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("cantidad_actual");
+
+                    b.Property<int>("CantidadEnvases")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("cantidad_envases");
 
                     b.Property<Guid>("CargadoPor")
                         .HasColumnType("uuid")
@@ -1218,6 +1542,50 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("stock_hogar", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.SuscripcionPush", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("auth");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("endpoint");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("p256dh");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("suscripciones_push_pkey");
+
+                    b.HasIndex(new[] { "UsuarioId" }, "idx_suscripciones_push_usuario");
+
+                    b.HasIndex(new[] { "UsuarioId", "Endpoint" }, "ux_suscripciones_push_usuario_endpoint")
+                        .IsUnique();
+
+                    b.ToTable("suscripciones_push", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Tarea", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1226,7 +1594,7 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
 
-                    b.Property<Guid>("CompletadoPor")
+                    b.Property<Guid?>("CompletadoPor")
                         .HasColumnType("uuid")
                         .HasColumnName("completado_por");
 
@@ -1279,6 +1647,312 @@ namespace Nido.Infrastructure.Migrations
                     b.ToTable("tareas", (string)null);
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("telegram_batches", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_telegram_batches_status", "status >= 0 AND status <= 4");
+                        });
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramChatLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<long>("ChatId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("chat_id");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<DateTime>("PairedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("paired_at");
+
+                    b.Property<DateTime?>("UnpairedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("unpaired_at");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_telegram_chat_links_active_chat_id")
+                        .HasFilter("unpaired_at IS NULL");
+
+                    b.HasIndex("HogarId");
+
+                    b.HasIndex("UsuarioId", "HogarId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_telegram_chat_links_active_usuario_hogar")
+                        .HasFilter("unpaired_at IS NULL");
+
+                    b.ToTable("telegram_chat_links", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramConversationStateEntity", b =>
+                {
+                    b.Property<long>("ChatId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("chat_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("ChatId"));
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<DateTime>("LastInteractionAtUtc")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("last_interaction_at_utc");
+
+                    b.Property<string>("MenuId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("menu_id");
+
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("text")
+                        .HasColumnName("payload_json");
+
+                    b.HasKey("ChatId");
+
+                    b.HasIndex("ExpiresAtUtc")
+                        .HasDatabaseName("ix_telegram_conversation_states_expires_at_utc");
+
+                    b.ToTable("telegram_conversation_states", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramOutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<long>("ChatId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("chat_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("locked_until");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("message_type");
+
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payload_json");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("HogarId", "ChatId", "MessageType")
+                        .IsUnique()
+                        .HasDatabaseName("uq_telegram_outbox_messages_pending")
+                        .HasFilter("status = 0");
+
+                    b.ToTable("telegram_outbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramPairingCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique()
+                        .HasDatabaseName("uq_telegram_pairing_codes_hash");
+
+                    b.HasIndex("HogarId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("telegram_pairing_codes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_telegram_pairing_codes_attempt_count", "attempt_count <= 5");
+                        });
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramPairingToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HogarId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("uq_telegram_pairing_tokens_hash");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("telegram_pairing_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Usuario", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1286,6 +1960,16 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id")
                         .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<bool>("AceptaTerminos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("acepta_terminos");
+
+                    b.Property<DateTime?>("AceptaTerminosAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acepta_terminos_at");
 
                     b.Property<int>("AlertaVencimientoDias")
                         .ValueGeneratedOnAdd()
@@ -1305,32 +1989,14 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
-                    b.Property<string>("FotoContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("foto_content_type");
-
-                    b.Property<int?>("FotoHeight")
-                        .HasColumnType("integer")
-                        .HasColumnName("foto_height");
-
-                    b.Property<long?>("FotoSizeBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("foto_size_bytes");
-
                     b.Property<string>("FotoStorageKey")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("foto_storage_key");
 
-                    b.Property<string>("FotoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("foto_url");
-
-                    b.Property<int?>("FotoWidth")
-                        .HasColumnType("integer")
-                        .HasColumnName("foto_width");
+                    b.Property<DateTime?>("FotoUpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("foto_updated_at");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -1402,6 +2068,24 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ConsumoProducto", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Producto");
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Electrodomestico", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.ElectrodomesticoCatalogo", "Catalogo")
@@ -1416,6 +2100,25 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("electrodomesticos_hogar_id_fkey");
 
                     b.Navigation("Catalogo");
+
+                    b.Navigation("Hogar");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Factura", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")
+                        .WithMany()
+                        .HasForeignKey("CreadoPor")
+                        .IsRequired()
+                        .HasConstraintName("facturas_creado_por_fkey");
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .IsRequired()
+                        .HasConstraintName("facturas_hogar_id_fkey");
+
+                    b.Navigation("CreadoPorNavigation");
 
                     b.Navigation("Hogar");
                 });
@@ -1527,6 +2230,11 @@ namespace Nido.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("lista_compras_agregado_por_fkey");
 
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompradoPorNavigation")
+                        .WithMany()
+                        .HasForeignKey("CompradoPor")
+                        .HasConstraintName("lista_compras_comprado_por_fkey");
+
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
                         .WithMany("ListaCompras")
                         .HasForeignKey("HogarId")
@@ -1540,6 +2248,8 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("lista_compras_producto_id_fkey");
 
                     b.Navigation("AgregadoPorNavigation");
+
+                    b.Navigation("CompradoPorNavigation");
 
                     b.Navigation("Hogar");
 
@@ -1599,6 +2309,33 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("miembros_hogar_usuario_id_fkey");
 
                     b.Navigation("Hogar");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.NotaReceta", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
+                        .WithMany()
+                        .HasForeignKey("RecetaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Receta");
 
                     b.Navigation("Usuario");
                 });
@@ -1668,6 +2405,17 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PresupuestoMensual", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .IsRequired()
+                        .HasConstraintName("presupuestos_mensuales_hogar_id_fkey");
+
+                    b.Navigation("Hogar");
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Producto", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.CategoriasProducto", "Categoria")
@@ -1730,6 +2478,12 @@ namespace Nido.Infrastructure.Migrations
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.ReseniasRecetum", b =>
                 {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Receta", "Receta")
                         .WithMany("ReseniasReceta")
                         .HasForeignKey("RecetaId")
@@ -1741,6 +2495,8 @@ namespace Nido.Infrastructure.Migrations
                         .HasForeignKey("UsuarioId")
                         .IsRequired()
                         .HasConstraintName("resenias_receta_usuario_id_fkey");
+
+                    b.Navigation("Hogar");
 
                     b.Navigation("Receta");
 
@@ -1803,12 +2559,23 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("UpdatedByNavigation");
                 });
 
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.SuscripcionPush", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("suscripciones_push_usuario_id_fkey");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.Tarea", b =>
                 {
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CompletadoPorNavigation")
                         .WithMany("TareaCompletadoPorNavigations")
                         .HasForeignKey("CompletadoPor")
-                        .IsRequired()
                         .HasConstraintName("tareas_completado_por_fkey");
 
                     b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "CreadoPorNavigation")
@@ -1828,6 +2595,80 @@ namespace Nido.Infrastructure.Migrations
                     b.Navigation("CreadoPorNavigation");
 
                     b.Navigation("Hogar");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramChatLink", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("telegram_chat_links_hogar_id_fkey");
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("telegram_chat_links_usuario_id_fkey");
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramOutboxMessage", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.TelegramBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("telegram_outbox_messages_batch_id_fkey");
+
+                    b.Navigation("Batch");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramPairingCode", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("telegram_pairing_codes_hogar_id_fkey");
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("telegram_pairing_codes_usuario_id_fkey");
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.TelegramPairingToken", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", "Hogar")
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("telegram_pairing_tokens_hogar_id_fkey");
+
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("telegram_pairing_tokens_usuario_id_fkey");
+
+                    b.Navigation("Hogar");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.CategoriasProducto", b =>

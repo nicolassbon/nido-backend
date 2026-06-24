@@ -5,7 +5,6 @@ using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.ResetPassword;
-using Nido.Application.Common.ProfileImages;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
@@ -30,6 +29,7 @@ public sealed class AuthRepository : IAuthRepository
             data.UsuarioId, data.HogarId, data.Nombre, data.Email,
             string.Empty, "U", null,
             data.OauthProvider, data.OauthId,
+            aceptaTerminos: false,
             cancellationToken);
 
     public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithPasswordAsync(
@@ -39,12 +39,14 @@ public sealed class AuthRepository : IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
+        bool aceptaTerminos,
         CancellationToken cancellationToken)
         => CreateUserInternalAsync(
             usuarioId, hogarId, nombre, email,
-            passwordHash, sexo, profileImage,
+            passwordHash, sexo, fotoStorageKey,
             null, null,
+            aceptaTerminos,
             cancellationToken);
 
     private async Task<(Guid UsuarioId, Guid HogarId)> CreateUserInternalAsync(
@@ -54,11 +56,13 @@ public sealed class AuthRepository : IAuthRepository
         string email,
         string passwordHash,
         string sexo,
-        UserProfileImageMetadata? profileImage,
+        string? fotoStorageKey,
         string? oauthProvider,
         string? oauthId,
+        bool aceptaTerminos,
         CancellationToken cancellationToken)
     {
+        var ahora = DateTime.UtcNow;
         var usuario = new Usuario
         {
             Id = usuarioId,
@@ -66,16 +70,14 @@ public sealed class AuthRepository : IAuthRepository
             Email = email,
             PasswordHash = passwordHash,
             Sexo = sexo,
-            FotoUrl = null,
-            FotoStorageKey = profileImage?.StorageKey,
-            FotoContentType = profileImage?.ContentType,
-            FotoWidth = profileImage?.Width,
-            FotoHeight = profileImage?.Height,
-            FotoSizeBytes = profileImage?.Length,
+            FotoStorageKey = fotoStorageKey,
+            FotoUpdatedAt = fotoStorageKey is not null ? DateTime.UtcNow : null,
             OauthProvider = oauthProvider,
             OauthId = oauthId,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            AceptaTerminos = aceptaTerminos,
+            AceptaTerminosAt = aceptaTerminos ? ahora : null,
+            CreatedAt = ahora,
+            UpdatedAt = ahora
         };
 
         var hogar = new Hogare

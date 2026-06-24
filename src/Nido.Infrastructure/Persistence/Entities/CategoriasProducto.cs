@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Nido.Infrastructure.Persistence.Entities;
@@ -10,6 +10,10 @@ public partial class CategoriasProducto
     public string Nombre { get; set; } = null!;
 
     public int? TtlDias { get; set; }
+
+    public string? IconoSvg { get; set; }
+
+    public string? Icono { get; set; }
 
     public virtual ICollection<Producto> Productos { get; set; } = new List<Producto>();
 }

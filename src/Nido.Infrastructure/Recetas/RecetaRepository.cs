@@ -1,13 +1,15 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Common.Assets;
 using Nido.Application.Recetas;
+using Nido.Application.Recetas.UploadRecipeImage;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Recetas;
 
-public sealed class RecetaRepository : IRecetaRepository
+public sealed class RecetaRepository : IRecetaRepository, IRecipeImageRepository
 {
     private static readonly IReadOnlyDictionary<string, string[]> AllergenAliases = new Dictionary<string, string[]>
     {
@@ -32,19 +34,18 @@ public sealed class RecetaRepository : IRecetaRepository
         "molido", "molida", "molidos", "molidas", "opcional", "picado", "picada", "picados", "picadas", "rallado", "rallada"
     ];
 
-    private const decimal GenericGramsPerCup = 100m;
-    private const decimal MillilitersPerCup = 240m;
-    private const decimal GenericGramsPerUnit = 100m;
-    private const decimal GenericMillilitersPerUnit = 100m;
-
     private readonly NidoDbContext _db;
+    private readonly IResenaRecetaRepository _resenaRepository;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public RecetaRepository(NidoDbContext db)
+    public RecetaRepository(NidoDbContext db, IResenaRecetaRepository resenaRepository, IPublicAssetUrlResolver assetUrlResolver)
     {
         _db = db;
+        _resenaRepository = resenaRepository;
+        _assetUrlResolver = assetUrlResolver;
     }
 
-    public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, CancellationToken ct)
+    public async Task<IReadOnlyList<RecetaResult>> GetAllAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
     {
         var recetas = await _db.Recetas
             .AsNoTracking()
@@ -56,14 +57,40 @@ public sealed class RecetaRepository : IRecetaRepository
             .OrderBy(receta => receta.Nombre)
             .ToListAsync(ct);
 
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var diasAlerta = await GetDiasAlertaAsync(usuarioId, ct);
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
+        var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
+        var productosCompraEstandar = await GetProductosCompraEstandarAsync(ct);
         var vecesCocinadas = await GetVecesCocinadadasAsync(hogarId, ct);
+        var resumenes = await _resenaRepository.GetResumenesAsync(recetas.Select(r => r.Id), hogarId, ct);
+        var guardadas = await GetRecetasGuardadasIdsAsync(hogarId, ct);
 
         return recetas.Select(receta =>
-            ToResult(receta, productosEnStock, vecesCocinadas.GetValueOrDefault(receta.Id, 0))).ToList();
+            ToResult(
+                receta,
+                productosEnStock,
+                productosPorVencer,
+                productosCompraEstandar,
+                hoy,
+                vecesCocinadas.GetValueOrDefault(receta.Id, 0),
+                resumenes.GetValueOrDefault(receta.Id, new ResenaResumen(0m, 0)),
+                guardadas.Contains(receta.Id))).ToList();
     }
 
-    public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+    public async Task<IReadOnlyList<RecetaResult>> GetSavedAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
+    {
+        var savedIds = await GetRecetasGuardadasIdsAsync(hogarId, ct);
+        if (savedIds.Count == 0)
+        {
+            return [];
+        }
+
+        var all = await GetAllAsync(hogarId, usuarioId, ct);
+        return all.Where(receta => savedIds.Contains(receta.Id)).ToList();
+    }
+
+    public async Task<RecetaResult?> GetByIdAsync(Guid id, Guid hogarId, Guid usuarioId, CancellationToken ct)
     {
         var receta = await _db.Recetas
             .AsNoTracking()
@@ -78,12 +105,62 @@ public sealed class RecetaRepository : IRecetaRepository
         if (receta is null)
             return null;
 
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var diasAlerta = await GetDiasAlertaAsync(usuarioId, ct);
         var productosEnStock = await GetProductosEnStockAsync(hogarId, ct);
+        var productosPorVencer = await GetProductosPorVencerAsync(hogarId, hoy, diasAlerta, ct);
+        var productosCompraEstandar = await GetProductosCompraEstandarAsync(ct);
         var vecesCocinada = await _db.RecetasCocinadas
             .AsNoTracking()
             .CountAsync(rc => rc.RecetaId == id && rc.HogarId == hogarId, ct);
+        var resumen = await _resenaRepository.GetResumenAsync(id, hogarId, ct);
+        var guardada = await _db.RecetasGuardadasHogar
+            .AsNoTracking()
+            .AnyAsync(saved => saved.HogarId == hogarId && saved.RecetaId == id, ct);
 
-        return ToResult(receta, productosEnStock, vecesCocinada);
+        return ToResult(receta, productosEnStock, productosPorVencer, productosCompraEstandar, hoy, vecesCocinada, resumen, guardada);
+    }
+
+    public async Task<bool> SaveAsync(Guid recetaId, Guid hogarId, Guid usuarioId, CancellationToken ct)
+    {
+        var recetaExists = await _db.Recetas.AnyAsync(receta => receta.Id == recetaId, ct);
+        if (!recetaExists)
+        {
+            return false;
+        }
+
+        var alreadySaved = await _db.RecetasGuardadasHogar
+            .AnyAsync(saved => saved.HogarId == hogarId && saved.RecetaId == recetaId, ct);
+
+        if (!alreadySaved)
+        {
+            _db.RecetasGuardadasHogar.Add(new RecetaGuardadaHogar
+            {
+                HogarId = hogarId,
+                RecetaId = recetaId,
+                GuardadaPor = usuarioId,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> UnsaveAsync(Guid recetaId, Guid hogarId, CancellationToken ct)
+    {
+        var saved = await _db.RecetasGuardadasHogar
+            .FirstOrDefaultAsync(saved => saved.HogarId == hogarId && saved.RecetaId == recetaId, ct);
+
+        if (saved is null)
+        {
+            return false;
+        }
+
+        _db.RecetasGuardadasHogar.Remove(saved);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct)
@@ -100,7 +177,7 @@ public sealed class RecetaRepository : IRecetaRepository
 
         foreach (var ingrediente in receta.IngredientesReceta)
         {
-            var consumo = GetIngredientConsumption(ingrediente);
+            var consumo = RecipeUnitConverter.GetIngredientConsumption(ingrediente.Cantidad, ingrediente.Unidad);
             if (!consumo.HasValue)
                 continue;
 
@@ -168,21 +245,40 @@ public sealed class RecetaRepository : IRecetaRepository
                 continue;
 
             var disponible = item.CantidadActual.Value;
-            var cantidadEnUnidadStock = ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida, productoNombre);
+            var cantidadEnUnidadStock = RecipeUnitConverter.ConvertQuantity(restante, unidadIngrediente, item.UnidadMedida, productoNombre);
 
             if (!cantidadEnUnidadStock.HasValue)
                 continue;
 
+            // Siempre marcar como abierto al consumir (estuviera cerrado o no)
+            item.EstaAbierto = true;
+            item.UpdatedBy   = usuarioId;
+            item.UpdatedAt   = DateTime.UtcNow;
+
             if (disponible <= cantidadEnUnidadStock.Value)
             {
-                restante -= ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente, productoNombre) ?? 0;
-                _db.StockHogars.Remove(item);
+                // Envase agotado: queda con cantidad=0 y abierto para descarte manual.
+                restante -= RecipeUnitConverter.ConvertQuantity(disponible, item.UnidadMedida, unidadIngrediente, productoNombre) ?? 0;
+                item.CantidadActual      = 0;
+                item.PorcentajeConsumido = 100m;
             }
             else
             {
-                item.CantidadActual = disponible - cantidadEnUnidadStock.Value;
-                item.UpdatedBy = usuarioId;
-                item.UpdatedAt = DateTime.UtcNow;
+                // Reducción parcial:
+                //  - bajamos CantidadActual por el consumo
+                //  - recalculamos porcentajeConsumido respecto a la cantidad
+                //    original del envase (inferida desde el estado previo)
+                var nuevaCantidad = disponible - cantidadEnUnidadStock.Value;
+                var cantidadOriginal = item.PorcentajeConsumido < 100m
+                    ? disponible / ((100m - item.PorcentajeConsumido) / 100m)
+                    : disponible;
+
+                var nuevoPctConsumido = cantidadOriginal > 0m
+                    ? Math.Clamp(((cantidadOriginal - nuevaCantidad) / cantidadOriginal) * 100m, 0m, 99m)
+                    : item.PorcentajeConsumido;
+
+                item.CantidadActual      = nuevaCantidad;
+                item.PorcentajeConsumido = decimal.Round(nuevoPctConsumido, 2);
                 restante = 0;
             }
         }
@@ -243,27 +339,18 @@ public sealed class RecetaRepository : IRecetaRepository
         return token;
     }
 
-    private static IngredientConsumption? GetIngredientConsumption(IngredientesRecetum ingrediente)
-    {
-        if (ingrediente.Cantidad.HasValue && ingrediente.Cantidad.Value > 0)
-        {
-            if (TryReadLeadingQuantity(ingrediente.Unidad, out var embeddedQuantity, out var unit)
-                && AreSameQuantity(ingrediente.Cantidad.Value, embeddedQuantity))
-            {
-                return new IngredientConsumption(ingrediente.Cantidad.Value, unit);
-            }
-
-            return new IngredientConsumption(ingrediente.Cantidad.Value, ingrediente.Unidad);
-        }
-
-        return TryReadLeadingQuantity(ingrediente.Unidad, out var quantityFromUnit, out var unitFromUnit)
-            ? new IngredientConsumption(quantityFromUnit, unitFromUnit)
-            : null;
-    }
-
-    private static RecetaResult ToResult(Receta receta, IReadOnlySet<Guid> productosEnStock, int vecesCocinada)
+    private RecetaResult ToResult(
+        Receta receta,
+        IReadOnlySet<Guid> productosEnStock,
+        IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar> productosPorVencer,
+        IReadOnlyList<ProductoCompraEstandar> productosCompraEstandar,
+        DateOnly hoy,
+        int vecesCocinada,
+        ResenaResumen resumen,
+        bool guardada)
     {
         var nutricion = receta.InfoNutricionalReceta.FirstOrDefault();
+        var urgencia = CalculateUrgencia(receta, productosPorVencer, hoy);
 
         return new RecetaResult(
             receta.Id,
@@ -273,22 +360,34 @@ public sealed class RecetaRepository : IRecetaRepository
             receta.Dificultad,
             receta.Porciones,
             receta.FuenteId,
-            receta.ImagenUrl,
+            _assetUrlResolver.Resolve(receta.ImagenUrl),
             nutricion?.Calorias,
             nutricion?.Proteinas,
             nutricion?.Carbohidratos,
             nutricion?.Grasas,
             receta.IngredientesReceta
                 .OrderBy(ingrediente => ingrediente.NombreIngrediente)
-                .Select(ingrediente => new RecetaIngredienteResult(
-                    ingrediente.Id,
-                    ingrediente.ProductoId,
-                    ingrediente.NombreIngrediente,
-                    ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
-                    ingrediente.Cantidad,
-                    ingrediente.Unidad,
-                    ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value),
-                    DetectAlergenos(ingrediente)))
+                .Select(ingrediente =>
+                {
+                    var compraEstandar = ResolvePurchaseStandard(ingrediente, productosCompraEstandar);
+                    var listaCompras = RecipeUnitConverter.ToShoppingListQuantity(
+                        ingrediente.Cantidad,
+                        ingrediente.Unidad,
+                        BuildIngredientLookupName(ingrediente));
+                    return new RecetaIngredienteResult(
+                        ingrediente.Id,
+                        ingrediente.ProductoId,
+                        ingrediente.NombreIngrediente,
+                        ingrediente.Producto != null ? ingrediente.Producto.Nombre : null,
+                        ingrediente.Cantidad,
+                        ingrediente.Unidad,
+                        compraEstandar?.Cantidad,
+                        compraEstandar?.Unidad,
+                        listaCompras?.Cantidad,
+                        listaCompras?.Unidad,
+                        ingrediente.ProductoId.HasValue && productosEnStock.Contains(ingrediente.ProductoId.Value),
+                        DetectAlergenos(ingrediente));
+                })
                 .ToList(),
             receta.PasosReceta
                 .OrderBy(paso => paso.Orden)
@@ -303,7 +402,53 @@ public sealed class RecetaRepository : IRecetaRepository
                     electrodomestico.Id,
                     electrodomestico.TipoRequerido))
                 .ToList(),
-            vecesCocinada);
+            vecesCocinada,
+            resumen.Promedio,
+            resumen.Total,
+            urgencia.TieneProductosPorVencer,
+            urgencia.FechaVencimientoMasProxima?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            urgencia.DiasHastaVencimiento,
+            urgencia.ProductosPorVencer.Select(producto => new RecetaProductoPorVencerResult(
+                producto.ProductoId,
+                producto.Nombre,
+                producto.FechaVencimiento.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                producto.FechaVencimiento.DayNumber - hoy.DayNumber)).ToList(),
+            guardada);
+    }
+
+    private static UrgenciaReceta CalculateUrgencia(
+        Receta receta,
+        IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar> productosPorVencer,
+        DateOnly hoy)
+    {
+        var productosUrgentes = receta.IngredientesReceta
+            .SelectMany(ingrediente =>
+            {
+                var ingredientName = BuildIngredientLookupName(ingrediente);
+                return productosPorVencer
+                    .Where(stock => GetStockMatchScore(stock, ingrediente.ProductoId, ingredientName) > 0)
+                    .Select(stock => new ProductoPorVencerReceta(
+                        stock.ProductoId,
+                        stock.Producto?.Nombre ?? ingredientName,
+                        stock.FechaVencimiento!.Value));
+            })
+            .Where(producto => !string.IsNullOrWhiteSpace(producto.Nombre))
+            .GroupBy(producto => producto.ProductoId)
+            .Select(grupo => grupo
+                .OrderBy(producto => producto.FechaVencimiento)
+                .ThenBy(producto => producto.Nombre)
+                .First())
+            .OrderBy(producto => producto.FechaVencimiento)
+            .ThenBy(producto => producto.Nombre)
+            .ToList();
+
+        var fechaMasProxima = productosUrgentes
+            .Select(producto => (DateOnly?)producto.FechaVencimiento)
+            .FirstOrDefault();
+
+        return fechaMasProxima.HasValue
+            ? new UrgenciaReceta(true, fechaMasProxima.Value, fechaMasProxima.Value.DayNumber - hoy.DayNumber, productosUrgentes)
+            : new UrgenciaReceta(false, null, null, []);
     }
 
     private static IReadOnlyList<string> DetectAlergenos(IngredientesRecetum ingrediente)
@@ -361,239 +506,48 @@ public sealed class RecetaRepository : IRecetaRepository
         return builder.ToString().Trim();
     }
 
-    private static decimal? ConvertQuantity(decimal quantity, string? fromUnit, string? toUnit, string? ingredientName = null)
+    private async Task<IReadOnlyList<ProductoCompraEstandar>> GetProductosCompraEstandarAsync(CancellationToken ct)
     {
-        var from = NormalizeUnit(fromUnit);
-        var to = NormalizeUnit(toUnit);
-
-        if (from.Family == to.Family)
-            return quantity * from.Factor / to.Factor;
-
-        if (from.Family == "volume" && to.Family == "mass")
-        {
-            var volumeToMassDensity = GetDensityGramsPerMlOrDefault(ingredientName);
-            var milliliters = quantity * from.Factor;
-            var grams = milliliters * volumeToMassDensity;
-            return grams / to.Factor;
-        }
-
-        if (from.Family == "mass" && to.Family == "volume")
-        {
-            var massToVolumeDensity = GetDensityGramsPerMlOrDefault(ingredientName);
-            var grams = quantity * from.Factor;
-            var milliliters = grams / massToVolumeDensity;
-            return milliliters / to.Factor;
-        }
-
-        if (from.Family == "count" && to.Family == "mass")
-            return quantity * GenericGramsPerUnit / to.Factor;
-
-        if (from.Family == "count" && to.Family == "volume")
-            return quantity * GenericMillilitersPerUnit / to.Factor;
-
-        if (from.Family == "mass" && to.Family == "count")
-            return quantity * from.Factor / GenericGramsPerUnit;
-
-        if (from.Family == "volume" && to.Family == "count")
-            return quantity * from.Factor / GenericMillilitersPerUnit;
-
-        return null;
+        return await _db.Productos
+            .AsNoTracking()
+            .Where(producto =>
+                producto.CantidadCompraEstandar.HasValue &&
+                !string.IsNullOrWhiteSpace(producto.UnidadCompraEstandar))
+            .Select(producto => new ProductoCompraEstandar(
+                producto.Id,
+                producto.Nombre,
+                producto.CantidadCompraEstandar!.Value,
+                producto.UnidadCompraEstandar!))
+            .ToListAsync(ct);
     }
 
-    private static decimal GetDensityGramsPerMlOrDefault(string? ingredientName)
-        => TryGetDensityGramsPerMl(ingredientName, out var gramsPerMl)
-            ? gramsPerMl
-            : GenericGramsPerCup / MillilitersPerCup;
-
-    private static bool TryGetDensityGramsPerMl(string? ingredientName, out decimal gramsPerMl)
+    private static ProductoCompraEstandar? ResolvePurchaseStandard(
+        IngredientesRecetum ingrediente,
+        IReadOnlyList<ProductoCompraEstandar> productosCompraEstandar)
     {
-        var normalized = Normalize(ingredientName ?? string.Empty);
-
-        gramsPerMl = normalized switch
+        if (ingrediente.Producto is not null &&
+            ingrediente.Producto.CantidadCompraEstandar.HasValue &&
+            !string.IsNullOrWhiteSpace(ingrediente.Producto.UnidadCompraEstandar))
         {
-            var name when name.Contains("harina", StringComparison.Ordinal) => 120m / 240m,
-            var name when name.Contains("arroz", StringComparison.Ordinal) => 198m / 240m,
-            var name when name.Contains("arveja", StringComparison.Ordinal) => 160m / 240m,
-            var name when name.Contains("pasa", StringComparison.Ordinal) => 149m / 240m,
-            var name when name.Contains("cebolla", StringComparison.Ordinal) => 142m / 240m,
-            var name when name.Contains("queso", StringComparison.Ordinal) => 113m / 240m,
-            var name when name.Contains("manteca", StringComparison.Ordinal)
-                || name.Contains("mantequilla", StringComparison.Ordinal) => 226m / 240m,
-            var name when name.Contains("aceite", StringComparison.Ordinal) => 200m / 240m,
-            var name when name.Contains("leche", StringComparison.Ordinal) => 227m / 240m,
-            var name when name.Contains("agua", StringComparison.Ordinal)
-                || name.Contains("caldo", StringComparison.Ordinal)
-                || name.Contains("jugo", StringComparison.Ordinal)
-                || name.Contains("salsa", StringComparison.Ordinal) => 1m,
-            var name when ContainsWord(name, "sal") => 18m / 15m,
-            var name when name.Contains("azucar", StringComparison.Ordinal) => 198m / 240m,
-            var name when name.Contains("hongo", StringComparison.Ordinal)
-                || name.Contains("champinon", StringComparison.Ordinal)
-                || name.Contains("champignon", StringComparison.Ordinal) => 78m / 240m,
-            var name when name.Contains("zanahoria", StringComparison.Ordinal) => 142m / 240m,
-            var name when name.Contains("apio", StringComparison.Ordinal) => 142m / 240m,
-            _ => 0m
-        };
-
-        return gramsPerMl > 0;
-    }
-
-    private static bool ContainsWord(string value, string word)
-    {
-        var padded = $" {value} ";
-        return padded.Contains($" {word} ", StringComparison.Ordinal)
-            || padded.Contains($" {word}.", StringComparison.Ordinal)
-            || padded.Contains($" {word},", StringComparison.Ordinal);
-    }
-
-    private static UnitInfo NormalizeUnit(string? unit)
-    {
-        var multiplier = 1m;
-        var unitValue = unit;
-        if (TryReadLeadingQuantity(unit, out var quantity, out var unitWithoutQuantity))
-        {
-            multiplier = quantity;
-            unitValue = unitWithoutQuantity;
+            return new ProductoCompraEstandar(
+                ingrediente.Producto.Id,
+                ingrediente.Producto.Nombre,
+                ingrediente.Producto.CantidadCompraEstandar.Value,
+                ingrediente.Producto.UnidadCompraEstandar!);
         }
 
-        var normalized = Normalize(unitValue ?? string.Empty)
-            .Replace(".", string.Empty, StringComparison.Ordinal)
-            .Replace(" ", string.Empty, StringComparison.Ordinal);
-
-        var normalizedUnit = normalized switch
-        {
-            "" or "unidad" or "unidades" or "unid" or "u" or "ud"
-                or "diente" or "dientes" or "hoja" or "hojas" or "lata" or "latas"
-                or "paquete" or "paquetes" or "pieza" or "piezas" or "pote" or "potes"
-                or "frasco" or "frascos" or "rodaja" or "rodajas" or "sobre" or "sobres"
-                or "tallo" or "tallos" => new UnitInfo("count", 1m),
-            "mg" or "miligramo" or "miligramos" => new UnitInfo("mass", 0.001m),
-            "g" or "gr" or "grs" or "gramo" or "gramos" => new UnitInfo("mass", 1m),
-            "kg" or "kilo" or "kilos" or "kilogramo" or "kilogramos" => new UnitInfo("mass", 1000m),
-            "oz" or "onza" or "onzas" => new UnitInfo("mass", 28.3495m),
-            "lb" or "lbs" or "libra" or "libras" => new UnitInfo("mass", 453.592m),
-            "pizca" or "pizcas" or "pinch" => new UnitInfo("mass", 0.5m),
-            "ml" or "mililitro" or "mililitros" or "cc" or "cm3" => new UnitInfo("volume", 1m),
-            "cl" or "centilitro" or "centilitros" => new UnitInfo("volume", 10m),
-            "dl" or "decilitro" or "decilitros" => new UnitInfo("volume", 100m),
-            "l" or "lt" or "lts" or "litro" or "litros" => new UnitInfo("volume", 1000m),
-            "cdta" or "cdtas" or "cdita" or "cditas" or "cucharadita" or "cucharaditas"
-                or "tsp" or "teaspoon" or "teaspoons" => new UnitInfo("volume", 5m),
-            "cda" or "cdas" or "cucharada" or "cucharadas"
-                or "tbsp" or "tablespoon" or "tablespoons" => new UnitInfo("volume", 15m),
-            "chorrito" or "chorritos" or "splash" => new UnitInfo("volume", 15m),
-            "taza" or "tazas" or "cup" or "cups" => new UnitInfo("volume", MillilitersPerCup),
-            _ => new UnitInfo($"custom:{normalized}", 1m)
-        };
-
-        return normalizedUnit with { Factor = normalizedUnit.Factor * multiplier };
-    }
-
-    private static bool TryReadLeadingQuantity(string? value, out decimal quantity, out string unit)
-    {
-        quantity = 0;
-        unit = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var text = value.Trim();
-        if (TryReadUnicodeFraction(text[0], out var unicodeFraction))
-        {
-            var remaining = text[1..].Trim();
-            if (string.IsNullOrWhiteSpace(remaining))
-                return false;
-
-            quantity = unicodeFraction;
-            unit = remaining;
-            return true;
-        }
-
-        var firstTokenLength = 0;
-        while (firstTokenLength < text.Length && IsQuantityChar(text[firstTokenLength]))
-        {
-            firstTokenLength++;
-        }
-
-        if (firstTokenLength == 0)
-            return false;
-
-        var firstToken = text[..firstTokenLength];
-        if (!TryParseQuantityToken(firstToken, out var parsedQuantity))
-            return false;
-
-        var rest = text[firstTokenLength..].TrimStart();
-        if (TryConsumeFractionToken(rest, out var fraction, out var restAfterFraction))
-        {
-            parsedQuantity += fraction;
-            rest = restAfterFraction.TrimStart();
-        }
-
-        if (string.IsNullOrWhiteSpace(rest))
-            return false;
-
-        quantity = parsedQuantity;
-        unit = rest;
-        return true;
-    }
-
-    private static bool TryConsumeFractionToken(string value, out decimal fraction, out string rest)
-    {
-        fraction = 0;
-        rest = value;
-
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        var text = value.TrimStart();
-        if (TryReadUnicodeFraction(text[0], out fraction))
-        {
-            rest = text[1..];
-            return true;
-        }
-
-        var tokenLength = 0;
-        while (tokenLength < text.Length && IsQuantityChar(text[tokenLength]))
-        {
-            tokenLength++;
-        }
-
-        if (tokenLength == 0)
-            return false;
-
-        var token = text[..tokenLength];
-        if (!token.Contains('/', StringComparison.Ordinal) || !TryParseQuantityToken(token, out fraction))
-            return false;
-
-        rest = text[tokenLength..];
-        return true;
-    }
-
-    private static bool TryParseQuantityToken(string token, out decimal quantity)
-    {
-        quantity = 0;
-
-        if (string.IsNullOrWhiteSpace(token))
-            return false;
-
-        var normalized = token.Trim().Replace(',', '.');
-        if (normalized.Contains('/', StringComparison.Ordinal))
-        {
-            var parts = normalized.Split('/', 2);
-            if (parts.Length != 2
-                || !decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out var numerator)
-                || !decimal.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out var denominator)
-                || denominator == 0)
+        var ingredientName = BuildIngredientLookupName(ingrediente);
+        return productosCompraEstandar
+            .Select(producto => new
             {
-                return false;
-            }
-
-            quantity = numerator / denominator;
-            return quantity > 0;
-        }
-
-        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out quantity)
-            && quantity > 0;
+                Producto = producto,
+                Score = GetNameMatchScore(ingredientName, producto.Nombre)
+            })
+            .Where(match => match.Score >= 700)
+            .OrderByDescending(match => match.Score)
+            .ThenBy(match => match.Producto.Nombre.Length)
+            .Select(match => (ProductoCompraEstandar?)match.Producto)
+            .FirstOrDefault();
     }
 
     private static bool TryReadUnicodeFraction(char value, out decimal quantity)
@@ -621,9 +575,58 @@ public sealed class RecetaRepository : IRecetaRepository
     private static bool AreSameQuantity(decimal left, decimal right)
         => Math.Abs(left - right) < 0.0001m;
 
-    private readonly record struct IngredientConsumption(decimal Cantidad, string? Unidad);
+    private readonly record struct ProductoCompraEstandar(Guid Id, string Nombre, decimal Cantidad, string Unidad);
 
-    private readonly record struct UnitInfo(string Family, decimal Factor);
+    private readonly record struct UrgenciaReceta(
+        bool TieneProductosPorVencer,
+        DateOnly? FechaVencimientoMasProxima,
+        int? DiasHastaVencimiento,
+        IReadOnlyList<ProductoPorVencerReceta> ProductosPorVencer);
+
+    private readonly record struct ProductoPorVencerReceta(
+        Guid ProductoId,
+        string Nombre,
+        DateOnly FechaVencimiento);
+
+    private async Task<int> GetDiasAlertaAsync(Guid usuarioId, CancellationToken ct)
+    {
+        const int defaultDiasAlerta = 7;
+
+        if (usuarioId == Guid.Empty)
+            return defaultDiasAlerta;
+
+        var diasAlerta = await _db.Usuarios
+            .AsNoTracking()
+            .Where(usuario => usuario.Id == usuarioId)
+            .Select(usuario => (int?)usuario.AlertaVencimientoDias)
+            .FirstOrDefaultAsync(ct);
+
+        return diasAlerta.HasValue
+            ? Math.Clamp(diasAlerta.Value, 1, 365)
+            : defaultDiasAlerta;
+    }
+
+    private async Task<IReadOnlyList<Nido.Infrastructure.Persistence.Entities.StockHogar>> GetProductosPorVencerAsync(
+        Guid hogarId,
+        DateOnly hoy,
+        int diasAlerta,
+        CancellationToken ct)
+    {
+        if (hogarId == Guid.Empty)
+            return [];
+
+        var hasta = hoy.AddDays(diasAlerta);
+
+        return await _db.StockHogars
+            .AsNoTracking()
+            .Include(stock => stock.Producto)
+            .Where(stock => stock.HogarId == hogarId
+                         && (stock.CantidadActual == null || stock.CantidadActual > 0)
+                         && stock.FechaVencimiento.HasValue
+                         && stock.FechaVencimiento.Value >= hoy
+                         && stock.FechaVencimiento.Value <= hasta)
+            .ToListAsync(ct);
+    }
 
     private async Task<IReadOnlySet<Guid>> GetProductosEnStockAsync(Guid hogarId, CancellationToken ct)
     {
@@ -650,5 +653,34 @@ public sealed class RecetaRepository : IRecetaRepository
             .Where(rc => rc.HogarId == hogarId)
             .GroupBy(rc => rc.RecetaId)
             .ToDictionaryAsync(g => g.Key, g => g.Count(), ct);
+    }
+
+    private async Task<IReadOnlySet<Guid>> GetRecetasGuardadasIdsAsync(Guid hogarId, CancellationToken ct)
+    {
+        if (hogarId == Guid.Empty)
+            return new HashSet<Guid>();
+
+        var ids = await _db.RecetasGuardadasHogar
+            .AsNoTracking()
+            .Where(saved => saved.HogarId == hogarId)
+            .Select(saved => saved.RecetaId)
+            .ToListAsync(ct);
+
+        return ids.ToHashSet();
+    }
+
+    public async Task<RecipeImageTarget?> GetImageTargetAsync(Guid recipeId, CancellationToken cancellationToken)
+        => await _db.Recetas
+            .AsNoTracking()
+            .Where(x => x.Id == recipeId)
+            .Select(x => new RecipeImageTarget(x.Id, x.ImagenUrl))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task UpdateImageKeyAsync(Guid recipeId, string storageKey, CancellationToken cancellationToken)
+    {
+        var receta = await _db.Recetas.FirstOrDefaultAsync(x => x.Id == recipeId, cancellationToken)
+            ?? throw new RecipeImageTargetNotFoundException();
+        receta.ImagenUrl = storageKey;
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

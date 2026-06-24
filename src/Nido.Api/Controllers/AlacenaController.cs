@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
+using Nido.Api.ImageUploads;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
+using Nido.Application.Insights;
+using Nido.Infrastructure.Alacena;
 
 namespace Nido.Api.Controllers;
 
@@ -11,24 +14,37 @@ namespace Nido.Api.Controllers;
 [Route("api/alacena")]
 public sealed class AlacenaController : ControllerBase
 {
+    private const long MaxNutritionImageBytes = 10 * 1024 * 1024;
     private readonly GetStockItemsHandler _getStockItemsHandler;
     private readonly GetStockItemByIdHandler _getStockItemByIdHandler;
     private readonly CreateStockItemHandler _createStockItemHandler;
     private readonly UpdateStockItemHandler _updateStockItemHandler;
     private readonly DeleteStockItemHandler _deleteStockItemHandler;
+    private readonly GetStockMovementsHandler _getStockMovementsHandler;
+    private readonly ScanNutritionInfoHandler _scanNutritionInfoHandler;
+    private readonly SaveNutritionInfoHandler _saveNutritionInfoHandler;
+    private readonly CatalogoRepository _catalogoRepository;
 
     public AlacenaController(
         GetStockItemsHandler getStockItemsHandler,
         GetStockItemByIdHandler getStockItemByIdHandler,
         CreateStockItemHandler createStockItemHandler,
         UpdateStockItemHandler updateStockItemHandler,
-        DeleteStockItemHandler deleteStockItemHandler)
+        DeleteStockItemHandler deleteStockItemHandler,
+        GetStockMovementsHandler getStockMovementsHandler,
+        ScanNutritionInfoHandler scanNutritionInfoHandler,
+        SaveNutritionInfoHandler saveNutritionInfoHandler,
+        CatalogoRepository catalogoRepository)
     {
         _getStockItemsHandler = getStockItemsHandler;
         _getStockItemByIdHandler = getStockItemByIdHandler;
         _createStockItemHandler = createStockItemHandler;
         _updateStockItemHandler = updateStockItemHandler;
         _deleteStockItemHandler = deleteStockItemHandler;
+        _getStockMovementsHandler = getStockMovementsHandler;
+        _scanNutritionInfoHandler = scanNutritionInfoHandler;
+        _saveNutritionInfoHandler = saveNutritionInfoHandler;
+        _catalogoRepository = catalogoRepository;
     }
 
     [HttpGet("productos")]
@@ -67,6 +83,7 @@ public sealed class AlacenaController : ControllerBase
                 currentUser.HogarId,
                 currentUser.UsuarioId,
                 request.Nombre,
+                request.CategoriaId,
                 request.CodigoBarras,
                 request.Imagen,
                 request.Ubicacion,
@@ -74,7 +91,14 @@ public sealed class AlacenaController : ControllerBase
                 request.UnidadMedida,
                 request.FechaVencimiento,
                 request.EstaAbierto,
-                request.PorcentajeConsumido),
+                request.PorcentajeConsumido,
+                CantidadEnvases: request.CantidadEnvases ?? 1,
+                OrigenCarga: request.OrigenCarga,
+                Calorias: request.Calorias,
+                Proteinas: request.Proteinas,
+                Carbohidratos: request.Carbohidratos,
+                Grasas: request.Grasas,
+                InformacionNutricional: ToSaveNutritionModel(request.InformacionNutricional)),
             ct);
 
         return CreatedAtAction(nameof(GetProductos), ToResponse(created));
@@ -91,13 +115,15 @@ public sealed class AlacenaController : ControllerBase
             new UpdateStockItemCommand(
                 id,
                 currentUser.UsuarioId,
+                currentUser.HogarId,
                 request.Nombre,
                 request.Cantidad,
                 request.Ubicacion,
                 request.UnidadMedida,
                 request.FechaVencimiento,
                 request.EstaAbierto,
-                request.PorcentajeConsumido),
+                request.PorcentajeConsumido,
+                CantidadEnvases: request.CantidadEnvases),
             ct);
 
         if (updated is null) return NotFound();
@@ -108,29 +134,239 @@ public sealed class AlacenaController : ControllerBase
     [HttpDelete("productos/{id:guid}")]
     public async Task<IActionResult> DeleteProducto(
         Guid id,
+        [FromQuery] string? motivo,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
+        if (!TryMapDeleteMotivo(motivo, out var motivoConsumo))
+        {
+            return BadRequest(new { message = "El motivo debe ser 'consumido', 'descartado' o 'vencido'." });
+        }
+
         var deleted = await _deleteStockItemHandler.Handle(
-            new DeleteStockItemCommand(id), ct);
+            new DeleteStockItemCommand(id, currentUser.HogarId, currentUser.UsuarioId, motivoConsumo), ct);
 
         if (!deleted) return NotFound();
 
         return NoContent();
     }
 
+    [HttpPost("productos/{id:guid}/informacion-nutricional/scan")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ScanInformacionNutricional(
+        Guid id,
+        IFormFile? file,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var image = await ImageUploadFormReader.ReadAsync(file, MaxNutritionImageBytes, ct);
+
+        var result = await _scanNutritionInfoHandler.Handle(
+            new ScanNutritionInfoCommand(id, currentUser.HogarId, image),
+            ct);
+
+        return result is null ? NotFound() : Ok(ToNutritionResponse(result));
+    }
+
+    [HttpPut("productos/{id:guid}/informacion-nutricional")]
+    public async Task<IActionResult> SaveInformacionNutricional(
+        Guid id,
+        [FromBody] SaveNutritionInfoRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _saveNutritionInfoHandler.Handle(
+            new SaveNutritionInfoCommand(
+                id,
+                currentUser.HogarId,
+                ToSaveNutritionModel(request)!),
+            ct);
+
+        return result is null ? NotFound() : Ok(ToNutritionResponse(result));
+    }
+
+    [HttpGet("movimientos")]
+    public async Task<IActionResult> GetMovimientos(
+        [FromQuery] string? motivo,
+        [FromQuery] string? desde,
+        [FromQuery] string? hasta,
+        [FromQuery] string? q,
+        [FromQuery] int? limit,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        if (!TryMapMovimientoMotivo(motivo, out var motivoConsumo))
+        {
+            return BadRequest(new { message = "El motivo debe ser 'consumido', 'descartado', 'vencido' o 'cocinado'." });
+        }
+
+        if (!TryParseDate(desde, out var desdeDate))
+        {
+            return BadRequest(new { message = "La fecha 'desde' debe tener formato yyyy-MM-dd." });
+        }
+
+        if (!TryParseDate(hasta, out var hastaDate))
+        {
+            return BadRequest(new { message = "La fecha 'hasta' debe tener formato yyyy-MM-dd." });
+        }
+
+        var result = await _getStockMovementsHandler.Handle(
+            new GetStockMovementsQuery(
+                currentUser.HogarId,
+                motivoConsumo,
+                desdeDate,
+                hastaDate,
+                q,
+                limit ?? 100),
+            ct);
+
+        return Ok(result.Select(ToMovementResponse));
+    }
+
     private static StockItemResponse ToResponse(StockItemResult item) =>
+        new(
+            Id: item.Id,
+            ProductoId: item.ProductoId,
+            Nombre: item.Nombre,
+            Imagen: item.Imagen,
+            CodigoBarras: item.CodigoBarras,
+            CategoriaNombre: item.CategoriaNombre,
+            Ubicacion: item.Ubicacion,
+            Cantidad: item.Cantidad,
+            UnidadMedida: item.UnidadMedida,
+            FechaVencimiento: item.FechaVencimiento,
+            EstaAbierto: item.EstaAbierto,
+            PorcentajeConsumido: item.PorcentajeConsumido,
+            CantidadEnvases: item.CantidadEnvases,
+            OrigenCarga: item.OrigenCarga,
+            IconoSvg: item.IconoSvg,
+            Icono: item.Icono,
+            CantidadCompraEstandar: item.CantidadCompraEstandar,
+            UnidadCompraEstandar: item.UnidadCompraEstandar,
+            InformacionNutricional: item.InformacionNutricional is null
+                ? null
+                : ToNutritionResponse(item.InformacionNutricional),
+            Calorias: item.Calorias,
+            Proteinas: item.Proteinas,
+            Carbohidratos: item.Carbohidratos,
+            Grasas: item.Grasas
+        );
+
+    private static NutritionInfoResponse ToNutritionResponse(NutritionInfoResult nutrition) =>
+        new(
+            nutrition.Calorias,
+            nutrition.Proteinas,
+            nutrition.Carbohidratos,
+            nutrition.Grasas,
+            nutrition.Porcion,
+            nutrition.Base,
+            nutrition.Items.Select(item => new NutritionInfoItemResponse(
+                item.Nombre,
+                item.Valor,
+                item.Unidad,
+                item.PorcentajeDiario,
+                item.Orden)).ToArray());
+
+    private static SaveNutritionInfoRequestModel? ToSaveNutritionModel(SaveNutritionInfoRequest? request) =>
+        request is null
+            ? null
+            : new SaveNutritionInfoRequestModel(
+                request.Calorias,
+                request.Proteinas,
+                request.Carbohidratos,
+                request.Grasas,
+                request.Porcion,
+                request.Base,
+                (request.Items ?? Array.Empty<SaveNutritionInfoItemRequest>())
+                    .Select(item => new SaveNutritionInfoItemRequestModel(
+                        item.Nombre,
+                        item.Valor,
+                        item.Unidad,
+                        item.PorcentajeDiario,
+                        item.Orden))
+                    .ToArray());
+
+    private static bool TryMapDeleteMotivo(string? motivo, out string? motivoConsumo)
+    {
+        motivoConsumo = null;
+        if (string.IsNullOrWhiteSpace(motivo)) return true;
+
+        motivoConsumo = motivo.Trim().ToLowerInvariant() switch
+        {
+            "consumido" => ConsumoMotivos.Consumido,
+            "descartado" => ConsumoMotivos.Descartado,
+            "vencido" => ConsumoMotivos.Vencido,
+            "terminado" => ConsumoMotivos.Consumido,
+            _ => null
+        };
+
+        return motivoConsumo is not null;
+    }
+
+    private static bool TryMapMovimientoMotivo(string? motivo, out string? motivoConsumo)
+    {
+        motivoConsumo = null;
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Equals("todos", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        motivoConsumo = motivo.Trim().ToLowerInvariant() switch
+        {
+            "consumido" => ConsumoMotivos.Consumido,
+            "descartado" => ConsumoMotivos.Descartado,
+            "vencido" => ConsumoMotivos.Vencido,
+            "cocinado" => ConsumoMotivos.Cocinado,
+            "terminado" => ConsumoMotivos.Consumido,
+            _ => null
+        };
+
+        return motivoConsumo is not null;
+    }
+
+    private static bool TryParseDate(string? value, out DateOnly? date)
+    {
+        date = null;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+
+        if (!DateOnly.TryParseExact(value, "yyyy-MM-dd", out var parsed))
+        {
+            return false;
+        }
+
+        date = parsed;
+        return true;
+    }
+
+
+    [HttpGet("categorias")]
+    public async Task<IActionResult> GetCategorias(CancellationToken ct)
+    {
+        var result = await _catalogoRepository.GetCategoriasAsync(ct);
+        return Ok(result.Select(c => new { c.Id, c.Nombre, c.TtlDias, c.IconoSvg, c.Icono }));
+    }
+
+    [HttpGet("unidades-medida")]
+    public async Task<IActionResult> GetUnidadesMedida(CancellationToken ct)
+    {
+        var result = await _catalogoRepository.GetUnidadesMedidaAsync(ct);
+        return Ok(result.Select(u => new { u.Id, u.Codigo, u.Nombre }));
+    }
+
+    [HttpGet("ubicaciones")]
+    public async Task<IActionResult> GetUbicaciones(CancellationToken ct)
+    {
+        var result = await _catalogoRepository.GetUbicacionesAsync(ct);
+        return Ok(result.Select(u => new { u.Id, u.Nombre, u.Icono, u.Color }));
+    }
+    private static StockMovementResponse ToMovementResponse(StockMovementResult item) =>
         new(
             item.Id,
             item.ProductoId,
-            item.Nombre,
-            item.Imagen,
-            item.CodigoBarras,
-            item.CategoriaNombre,
-            item.Ubicacion,
+            item.ProductoNombre,
             item.Cantidad,
             item.UnidadMedida,
-            item.FechaVencimiento,
-            item.EstaAbierto,
-            item.PorcentajeConsumido
-        );
+            item.Motivo,
+            item.FechaConsumo,
+            item.UsuarioId);
 }
