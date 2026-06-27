@@ -61,7 +61,15 @@ public sealed class PushNotificationService : IPushNotificationService
                 icon = "/icon-192.png",
                 data = new
                 {
-                    url = urlRedirect ?? "/"
+                    url = urlRedirect ?? "/",
+                    onActionClick = new
+                    {
+                        @default = new
+                        {
+                            operation = "navigateLastFocusedOrOpen",
+                            url = urlRedirect ?? "/"
+                        }
+                    }
                 }
             }
         };

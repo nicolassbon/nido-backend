@@ -44,7 +44,9 @@ public partial class NidoDbContext : DbContext
 
                 var redirectUrl = notif.ReferenciaTipo switch
                 {
+                    "tarea" when notif.ReferenciaId.HasValue => $"/tareas?taskId={notif.ReferenciaId.Value}",
                     "tarea" => "/tareas",
+                    "alacena" when notif.ReferenciaId.HasValue => $"/alacena/{notif.ReferenciaId.Value}",
                     "alacena" => "/alacena",
                     _ => "/"
                 };
