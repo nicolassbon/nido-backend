@@ -1,4 +1,4 @@
-﻿using Amazon.Runtime;
+using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -225,6 +225,9 @@ public static class DependencyInjection
 
         services.AddScoped<IReceiptParser, GoogleDocumentAiReceiptParser>();
         services.AddScoped<INutritionLabelParser, GoogleDocumentAiNutritionLabelParser>();
+
+        services.AddHostedService<AlertaDiariaWorker>();
+
         return services;
     }
 
