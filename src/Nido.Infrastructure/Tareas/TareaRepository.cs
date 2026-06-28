@@ -344,8 +344,8 @@ public sealed class TareaRepository(
     {
         var frontendBaseUrl = configuration?["Frontend:BaseUrl"] ?? "http://localhost:4200";
         var redirectUrl = $"{frontendBaseUrl.TrimEnd('/')}/tareas?taskId={tareaId}";
-        var escapedMessage = System.Net.WebUtility.HtmlEncode(messageText);
-        var escapedUrl = System.Net.WebUtility.HtmlEncode(redirectUrl);
+        var escapedMessage = EscapeHtml(messageText);
+        var escapedUrl = EscapeHtml(redirectUrl);
         var formattedText = $"{escapedMessage}\n\n👉 <a href=\"{escapedUrl}\">Ver en Nido</a>";
 
         return JsonSerializer.Serialize(new
@@ -353,6 +353,14 @@ public sealed class TareaRepository(
             text = formattedText,
             parse_mode = "HTML"
         });
+    }
+
+    private static string EscapeHtml(string text)
+    {
+        return text
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
     }
 
     private static TareaResult MapToResult(Tarea t)

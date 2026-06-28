@@ -100,9 +100,13 @@ public partial class NidoDbContext : DbContext
                                     var config = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
                                     var frontendBaseUrl = config["Frontend:BaseUrl"] ?? "http://localhost:4200";
                                     var fullUrl = $"{frontendBaseUrl.TrimEnd('/')}{targetRedirectUrl}";
+                                    string EscapeHtml(string text) => text
+                                        .Replace("&", "&amp;")
+                                        .Replace("<", "&lt;")
+                                        .Replace(">", "&gt;");
 
-                                    var escapedMessage = System.Net.WebUtility.HtmlEncode(targetMensaje);
-                                    var escapedUrl = System.Net.WebUtility.HtmlEncode(fullUrl);
+                                    var escapedMessage = EscapeHtml(targetMensaje);
+                                    var escapedUrl = EscapeHtml(fullUrl);
                                     var formattedText = $"{escapedMessage}\n\n👉 <a href=\"{escapedUrl}\">Ver en Nido</a>";
 
                                     var batcher = scope.ServiceProvider.GetRequiredService<Nido.Application.Telegram.Messaging.ITelegramNotificationBatcher>();
