@@ -27,6 +27,18 @@ jobs:
       - name: Test
         run: dotnet test Nido.slnx --no-build --verbosity normal
 
+      - name: Build Docker image
+        run: |
+          n=0
+          until [ "$n" -ge 5 ]; do
+            docker build -t nido-api:test . && exit 0
+            n=$((n+1))
+            echo "::warning::docker build attempt $n failed (likely mcr.microsoft.com rate limit). Retrying in 30s..."
+            sleep 30
+          done
+          echo "::error::docker build failed after 5 attempts."
+          exit 1
+
   deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -105,14 +117,23 @@ jobs:
             printf '%s' '${{ secrets.ENV_FILE_B64 }}' | base64 -d > .env
             chmod 600 .env
 
-            export NIDO_API_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-api:latest'
-            export NIDO_MIGRATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:latest'
+            export NIDO_API_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-api:${{ github.sha }}'
+            export NIDO_MIGRATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:${{ github.sha }}'
             export NIDO_CADDY_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-caddy:latest'
             export ASPNETCORE_ENVIRONMENT=Production
 
             docker compose pull nido-api nido-migrator
             docker compose --profile production pull nido-caddy
             docker compose run --rm nido-migrator
+
+            docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = '\''public'\''
+                AND table_name = '\''planificador_item'\''
+                AND column_name = '\''tarea_id'\'';
+            "' | grep -qx 1
+
             docker compose --profile production up -d --remove-orphans nido-api nido-caddy
 
             attempts=10

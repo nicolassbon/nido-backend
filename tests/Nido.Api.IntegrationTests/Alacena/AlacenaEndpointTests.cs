@@ -42,8 +42,13 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(categorias);
 
         var nombres = categorias!.Select(c => c.Nombre).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("Arroces", nombres);
+        Assert.Contains("Lácteos", nombres);
+        Assert.Contains("Arroz", nombres);
         Assert.Contains("Pastas", nombres);
+        Assert.Contains("Verduras", nombres);
+        Assert.DoesNotContain("Almacén", nombres);
+        Assert.DoesNotContain("Baño", nombres);
+        Assert.DoesNotContain("Carnes", nombres);
         Assert.DoesNotContain("Arroces y pastas", nombres);
         Assert.DoesNotContain("Aceites y condimentos", nombres);
     }
@@ -109,6 +114,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var fetched = await getResponse.Content.ReadFromJsonAsync<StockItemBody>();
         Assert.NotNull(fetched);
         Assert.Equal(3, fetched!.CantidadEnvases);
+        Assert.Equal(1m, fetched.CantidadCompraEstandar);
+        Assert.Equal("unidad", fetched.UnidadCompraEstandar);
 
         var listResponse = await _client.GetAsync("/api/alacena/productos");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
@@ -188,6 +195,8 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
         Assert.Equal("https://img.test/yerba.png", product.ImagenUrl);
+        Assert.Equal(1.5m, product.CantidadCompraEstandar);
+        Assert.Equal("kg", product.UnidadCompraEstandar);
     }
 
     [Fact]
@@ -228,6 +237,101 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(existingProductId, stock.ProductoId);
         Assert.Equal("kg", stock.UnidadMedida);
         Assert.Equal(1m, stock.CantidadActual);
+
+        var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
+        Assert.Equal(1m, product.CantidadCompraEstandar);
+        Assert.Equal("kg", product.UnidadCompraEstandar);
+    }
+
+    [Fact]
+    public async Task CreateProducto_WhenExistingProductHasLegacyCategory_UpdatesToRequestedCategory()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-existing-category");
+        var legacyCategoryId = Guid.NewGuid();
+        var requestedCategoryId = Guid.NewGuid();
+        var existingProductId = Guid.NewGuid();
+        var suffix = Guid.NewGuid().ToString("N");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.CategoriasProductos.AddRange(
+                new CategoriasProducto
+                {
+                    Id = legacyCategoryId,
+                    Nombre = $"Categoria legacy test {suffix}",
+                    IconoSvg = "carnes.svg"
+                },
+                new CategoriasProducto
+                {
+                    Id = requestedCategoryId,
+                    Nombre = $"Categoria solicitada test {suffix}",
+                    IconoSvg = "carnes-vacunas.svg"
+                });
+            db.Productos.Add(new Producto
+            {
+                Id = existingProductId,
+                Nombre = "Carne",
+                CategoriaId = legacyCategoryId
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var createResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Carne",
+            categoriaId = requestedCategoryId,
+            codigoBarras = (string?)null,
+            imagen = (string?)null,
+            ubicacion = "Alacena",
+            cantidad = 1m,
+            unidadMedida = "kg",
+            fechaVencimiento = (string?)null,
+            estaAbierto = false,
+            porcentajeConsumido = 0m
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var stock = await verifyDb.StockHogars.SingleAsync(x => x.HogarId == user.HogarId);
+        Assert.Equal(existingProductId, stock.ProductoId);
+
+        var product = await verifyDb.Productos.SingleAsync(x => x.Id == existingProductId);
+        Assert.Equal(requestedCategoryId, product.CategoriaId);
+    }
+
+    [Fact]
+    public async Task CreateProducto_WhenCategoryIsMissing_InfersCategoryFromProductName()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-infer-category");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Verduras picadas",
+            categoriaId = (Guid?)null,
+            codigoBarras = (string?)null,
+            imagen = (string?)null,
+            ubicacion = "Alacena",
+            cantidad = 240m,
+            unidadMedida = "ml",
+            fechaVencimiento = (string?)null,
+            estaAbierto = false,
+            porcentajeConsumido = 0m
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var stock = await verifyDb.StockHogars
+            .Include(x => x.Producto)
+            .ThenInclude(x => x.Categoria)
+            .SingleAsync(x => x.HogarId == user.HogarId);
+
+        Assert.Equal("Verduras", stock.Producto.Categoria?.Nombre);
+        Assert.Equal("verduras.svg", stock.Producto.Categoria?.IconoSvg);
     }
 
     [Fact]
@@ -277,6 +381,97 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(item.Imagen);
         Assert.StartsWith("https://", item.Imagen, StringComparison.Ordinal);
         Assert.EndsWith(imageKey, item.Imagen, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetProducto_WhenProductHasNutrition_ReturnsNutritionInDetailAndList()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "alacena-nutrition-detail");
+        var stockId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var nutritionId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            db.Productos.Add(new Producto
+            {
+                Id = productId,
+                Nombre = "Yogur con nutricion"
+            });
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = stockId,
+                HogarId = user.HogarId,
+                ProductoId = productId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CantidadActual = 1m,
+                UnidadMedida = "unidad",
+                Ubicacion = "Heladera",
+                EstaAbierto = false,
+                PorcentajeConsumido = 0m
+            });
+            db.InfoNutricionalProductos.Add(new InfoNutricionalProducto
+            {
+                Id = nutritionId,
+                ProductoId = productId,
+                Calorias = 117m,
+                Proteinas = 6.1m,
+                Carbohidratos = 9.6m,
+                Grasas = 6m,
+                Porcion = "Porcion 200 ml",
+                Base = "Por porcion",
+                Detalles =
+                {
+                    new InfoNutricionalProductoDetalle
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = "Carbohidratos",
+                        Valor = 9.6m,
+                        Unidad = "g",
+                        PorcentajeDiario = 3m,
+                        Orden = 1
+                    },
+                    new InfoNutricionalProductoDetalle
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = "Proteinas",
+                        Valor = 6.1m,
+                        Unidad = "g",
+                        PorcentajeDiario = 8m,
+                        Orden = 2
+                    },
+                    new InfoNutricionalProductoDetalle
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = "Grasas",
+                        Valor = 6m,
+                        Unidad = "g",
+                        PorcentajeDiario = 11m,
+                        Orden = 3
+                    }
+                }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var detailResponse = await _client.GetAsync($"/api/alacena/productos/{stockId}");
+
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<StockItemBody>();
+        Assert.NotNull(detail?.InformacionNutricional);
+        Assert.Equal("Por porcion", detail!.InformacionNutricional!.Base);
+        Assert.Contains(detail.InformacionNutricional.Items, item => item.Nombre == "Carbohidratos" && item.Valor == 9.6m);
+        Assert.Contains(detail.InformacionNutricional.Items, item => item.Nombre == "Proteinas" && item.Valor == 6.1m);
+
+        var listResponse = await _client.GetAsync("/api/alacena/productos");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<StockItemBody>>();
+        var listed = Assert.Single(list!, item => item.Id == stockId);
+        Assert.NotNull(listed.InformacionNutricional);
+        Assert.Contains(listed.InformacionNutricional!.Items, item => item.Nombre == "Grasas" && item.Valor == 6m);
     }
 
     [Fact]
@@ -671,6 +866,35 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed record CategoriaBody(Guid Id, string Nombre, int? TtlDias);
     private sealed record UnidadMedidaBody(Guid Id, string Codigo, string Nombre);
-    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);
+    private sealed record StockItemBody(
+        Guid Id,
+        Guid ProductoId,
+        string Nombre,
+        string? Imagen,
+        string? CodigoBarras,
+        string Ubicacion,
+        decimal Cantidad,
+        string? UnidadMedida,
+        string? FechaVencimiento,
+        bool EstaAbierto,
+        decimal PorcentajeConsumido,
+        int CantidadEnvases,
+        decimal? CantidadCompraEstandar,
+        string? UnidadCompraEstandar,
+        NutritionInfoBody? InformacionNutricional = null);
+    private sealed record NutritionInfoBody(
+        decimal? Calorias,
+        decimal? Proteinas,
+        decimal? Carbohidratos,
+        decimal? Grasas,
+        string? Porcion,
+        string? Base,
+        IReadOnlyList<NutritionInfoItemBody> Items);
+    private sealed record NutritionInfoItemBody(
+        string Nombre,
+        decimal? Valor,
+        string? Unidad,
+        decimal? PorcentajeDiario,
+        int Orden);
     private sealed record StockMovementBody(Guid Id, Guid? ProductoId, string ProductoNombre, decimal Cantidad, string? UnidadMedida, string Motivo, DateTime FechaConsumo, Guid? UsuarioId);
 }

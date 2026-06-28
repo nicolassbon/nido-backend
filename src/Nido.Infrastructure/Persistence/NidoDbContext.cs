@@ -44,7 +44,9 @@ public partial class NidoDbContext : DbContext
 
                 var redirectUrl = notif.ReferenciaTipo switch
                 {
+                    "tarea" when notif.ReferenciaId.HasValue => $"/tareas?taskId={notif.ReferenciaId.Value}",
                     "tarea" => "/tareas",
+                    "alacena" when notif.ReferenciaId.HasValue => $"/alacena/{notif.ReferenciaId.Value}",
                     "alacena" => "/alacena",
                     _ => "/"
                 };
@@ -53,6 +55,7 @@ public partial class NidoDbContext : DbContext
                 var targetUsuarioId = notif.UsuarioId;
                 var targetMensaje = notif.Mensaje ?? string.Empty;
                 var targetTipo = notif.Tipo ?? string.Empty;
+                var targetRedirectUrl = redirectUrl;
 
                 // Send push notification in background using an isolated DI scope
                 _ = Task.Run(async () =>
@@ -72,7 +75,7 @@ public partial class NidoDbContext : DbContext
                 }, CancellationToken.None);
 
                 // Send Telegram notification in background if it matches target types
-                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo")
+                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "tarea_vencida")
                 {
                     _ = Task.Run(async () =>
                     {
@@ -94,8 +97,24 @@ public partial class NidoDbContext : DbContext
 
                                 if (activeLinks.Count > 0)
                                 {
+                                    var config = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+                                    var frontendBaseUrl = config["Frontend:BaseUrl"] ?? "http://localhost:4200";
+                                    var fullUrl = $"{frontendBaseUrl.TrimEnd('/')}{targetRedirectUrl}";
+                                    string EscapeHtml(string text) => text
+                                        .Replace("&", "&amp;")
+                                        .Replace("<", "&lt;")
+                                        .Replace(">", "&gt;");
+
+                                    var escapedMessage = EscapeHtml(targetMensaje);
+                                    var escapedUrl = EscapeHtml(fullUrl);
+                                    var formattedText = $"{escapedMessage}\n\n👉 <a href=\"{escapedUrl}\">Ver en Nido</a>";
+
                                     var batcher = scope.ServiceProvider.GetRequiredService<Nido.Application.Telegram.Messaging.ITelegramNotificationBatcher>();
-                                    var payloadJson = System.Text.Json.JsonSerializer.Serialize(new { text = targetMensaje });
+                                    var payloadJson = System.Text.Json.JsonSerializer.Serialize(new
+                                    {
+                                        text = formattedText,
+                                        parse_mode = "HTML"
+                                    });
 
                                     foreach (var link in activeLinks)
                                     {
@@ -139,6 +158,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<Hogare> Hogares { get; set; }
 
     public virtual DbSet<InfoNutricionalProducto> InfoNutricionalProductos { get; set; }
+
+    public virtual DbSet<InfoNutricionalProductoDetalle> InfoNutricionalProductoDetalles { get; set; }
 
     public virtual DbSet<InfoNutricionalRecetum> InfoNutricionalReceta { get; set; }
 
@@ -279,6 +300,12 @@ public partial class NidoDbContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("nombre");
             entity.Property(e => e.TtlDias).HasColumnName("ttl_dias");
+            entity.Property(e => e.IconoSvg)
+                .HasMaxLength(255)
+                .HasColumnName("icono_svg");
+            entity.Property(e => e.Icono)
+                .HasMaxLength(255)
+                .HasColumnName("icono");
         });
 
         modelBuilder.Entity<Electrodomestico>(entity =>
@@ -454,6 +481,12 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.Grasas)
                 .HasPrecision(10, 2)
                 .HasColumnName("grasas");
+            entity.Property(e => e.Porcion)
+                .HasMaxLength(100)
+                .HasColumnName("porcion");
+            entity.Property(e => e.Base)
+                .HasMaxLength(100)
+                .HasColumnName("base");
             entity.Property(e => e.ProductoId).HasColumnName("producto_id");
             entity.Property(e => e.Proteinas)
                 .HasPrecision(10, 2)
@@ -463,6 +496,38 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.ProductoId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("info_nutricional_producto_producto_id_fkey");
+        });
+
+        modelBuilder.Entity<InfoNutricionalProductoDetalle>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("info_nutricional_producto_detalle_pkey");
+
+            entity.ToTable("info_nutricional_producto_detalle");
+
+            entity.HasIndex(e => e.InfoNutricionalProductoId, "idx_info_nutricional_producto_detalle_info_id");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("uuid_generate_v4()")
+                .HasColumnName("id");
+            entity.Property(e => e.InfoNutricionalProductoId).HasColumnName("info_nutricional_producto_id");
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(150)
+                .HasColumnName("nombre");
+            entity.Property(e => e.Valor)
+                .HasPrecision(10, 2)
+                .HasColumnName("valor");
+            entity.Property(e => e.Unidad)
+                .HasMaxLength(30)
+                .HasColumnName("unidad");
+            entity.Property(e => e.PorcentajeDiario)
+                .HasPrecision(6, 2)
+                .HasColumnName("porcentaje_diario");
+            entity.Property(e => e.Orden).HasColumnName("orden");
+
+            entity.HasOne(d => d.InfoNutricionalProducto).WithMany(p => p.Detalles)
+                .HasForeignKey(d => d.InfoNutricionalProductoId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("info_nutricional_producto_detalle_info_id_fkey");
         });
 
         modelBuilder.Entity<InfoNutricionalRecetum>(entity =>

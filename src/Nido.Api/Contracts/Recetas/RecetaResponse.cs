@@ -40,6 +40,8 @@ public sealed record RecetaIngredienteResponse(
     string? Unidad,
     decimal? CantidadCompraEstandar,
     string? UnidadCompraEstandar,
+    decimal? CantidadListaCompras,
+    string? UnidadListaCompras,
     bool EnStock,
     IReadOnlyList<string> Alergenos);
 
@@ -51,3 +53,5 @@ public sealed record RecetaPasoResponse(
 public sealed record RecetaElectrodomesticoResponse(
     Guid Id,
     string? TipoRequerido);
+
+public sealed record RecomendarIaRequest(string Mensaje);

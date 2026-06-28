@@ -14,5 +14,10 @@ public sealed record CreateStockItemRequestModel(
     bool EstaAbierto,
     decimal PorcentajeConsumido,
     int CantidadEnvases = 1,
-    string OrigenCarga = StockLoadOrigins.Manual
+    string OrigenCarga = StockLoadOrigins.Manual,
+    decimal? Calorias = null,
+    decimal? Proteinas = null,
+    decimal? Carbohidratos = null,
+    decimal? Grasas = null,
+    SaveNutritionInfoRequestModel? InformacionNutricional = null
 );

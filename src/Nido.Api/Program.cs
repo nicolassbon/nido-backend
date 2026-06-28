@@ -32,6 +32,8 @@ using Nido.Infrastructure.Auth;
 using Nido.Api.OpenApi;
 using Nido.Api.Controllers;
 using Scalar.AspNetCore;
+using Nido.Application.Tickets;
+
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -66,6 +68,7 @@ builder.Services.AddAlacenaModule();
 builder.Services.AddProductosModule();
 builder.Services.AddPreferenciasModule();
 builder.Services.AddRecetasModule();
+builder.Services.AddTicketsModule();
 builder.Services.AddUsuariosPerfilModule();
 builder.Services.AddEstadisticasModule();
 builder.Services.AddInsightsModule();
@@ -174,6 +177,12 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 {
     options.MinimumSameSitePolicy = SameSiteMode.Lax;
     options.Secure = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+});
+
+builder.Services.AddHttpClient("NidoIa", client =>
+{
+    var baseUrl = builder.Configuration["Ia:BaseUrl"] ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(baseUrl);
 });
 
 var app = builder.Build();

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Recetas;
 using Nido.Application.Common.Security;
 using Nido.Application.Recetas;
+using System.Text;
+using System.Text.Json;
 
 namespace Nido.Api.Controllers;
 
@@ -23,6 +25,7 @@ public sealed class RecetasController : ControllerBase
     private readonly AddNotaRecetaHandler        _addNotaHandler;
     private readonly DeleteNotaRecetaHandler     _deleteNotaHandler;
     private readonly GetNotasByRecetaHandler     _getNotasHandler;
+    private readonly IHttpClientFactory          _httpClientFactory;
 
     public RecetasController(
         GetRecetasHandler getRecetasHandler,
@@ -36,7 +39,8 @@ public sealed class RecetasController : ControllerBase
         DeleteResenaHandler deleteResenaHandler,
         AddNotaRecetaHandler addNotaHandler,
         DeleteNotaRecetaHandler deleteNotaHandler,
-        GetNotasByRecetaHandler getNotasHandler)
+        GetNotasByRecetaHandler getNotasHandler,
+        IHttpClientFactory httpClientFactory)
     {
         _getRecetasHandler    = getRecetasHandler;
         _getRecetasGuardadasHandler = getRecetasGuardadasHandler;
@@ -50,6 +54,7 @@ public sealed class RecetasController : ControllerBase
         _addNotaHandler       = addNotaHandler;
         _deleteNotaHandler    = deleteNotaHandler;
         _getNotasHandler      = getNotasHandler;
+        _httpClientFactory    = httpClientFactory;
     }
 
     [HttpGet("guardadas")]
@@ -68,6 +73,80 @@ public sealed class RecetasController : ControllerBase
     {
         var result = await _getRecetasHandler.Handle(currentUser.HogarId, currentUser.UsuarioId, ct);
         return Ok(result.Select(ToResponse));
+    }
+
+    [HttpGet("ia/recomendar")]
+    public async Task<IActionResult> RecomendarPorIa(
+        [FromQuery] string? busqueda,
+        [FromQuery] string? objetivo,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(busqueda) && string.IsNullOrWhiteSpace(objetivo))
+            return BadRequest("Debe ingresar un texto de busqueda o seleccionar un objetivo nutricional.");
+
+        var payload = new
+        {
+            mensaje = busqueda ?? "",
+            objetivo_nutricional = objetivo ?? ""
+        };
+
+        var httpContent = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+
+        var nombresSugeridos = new List<string>();
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient("NidoIa");
+            using var response = await client.PostAsync("api/ia/recomendar", httpContent, ct);
+            response.EnsureSuccessStatusCode();
+
+            var responseString = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(responseString);
+
+            if (doc.RootElement.TryGetProperty("recetas", out var recetasElement) &&
+                recetasElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var elemento in recetasElement.EnumerateArray())
+                {
+                    if (!elemento.TryGetProperty("nombre", out var nombreElement))
+                        continue;
+
+                    var nombre = nombreElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(nombre))
+                        nombresSugeridos.Add(nombre);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[IA-BACKEND] Error de conexion con Flask: {ex.Message}");
+            return StatusCode(500, "Error al conectar con el motor de IA.");
+        }
+
+        if (!nombresSugeridos.Any())
+            return NotFound("La IA no pudo encontrar recetas que coincidan con tu busqueda y objetivos.");
+
+        var todasLasRecetas = await _getRecetasHandler.Handle(currentUser.HogarId, currentUser.UsuarioId, ct);
+        var recetasMatcheadas = todasLasRecetas.Where(receta =>
+            nombresSugeridos.Any(nombreSugerido =>
+                NormalizarTexto(receta.Nombre).Contains(NormalizarTexto(nombreSugerido)) ||
+                NormalizarTexto(nombreSugerido).Contains(NormalizarTexto(receta.Nombre))))
+            .ToList();
+
+        Console.WriteLine("=============================================================");
+        Console.WriteLine($"[IA-BACKEND] Busqueda: '{busqueda}' | Objetivo: '{objetivo}'");
+        Console.WriteLine($"[IA-BACKEND] Nombres sugeridos: {string.Join(", ", nombresSugeridos)}");
+        Console.WriteLine($"[IA-BACKEND] Recetas en BD: {todasLasRecetas.Count} | Matchearon: {recetasMatcheadas.Count}");
+        Console.WriteLine("=============================================================");
+
+        if (!recetasMatcheadas.Any())
+            return NotFound("La IA sugirio opciones, pero ninguna coincidio con las recetas de tu base de datos.");
+
+        return Ok(recetasMatcheadas.Select(ToResponse));
     }
 
     [HttpGet("{id}")]
@@ -219,6 +298,20 @@ public sealed class RecetasController : ControllerBase
         return Forbid();
     }
 
+    private static string NormalizarTexto(string texto)
+    {
+        return texto
+            .ToLowerInvariant()
+            .Trim()
+            .Replace("\n", "")
+            .Replace("\r", "")
+            .Replace("á", "a")
+            .Replace("é", "e")
+            .Replace("í", "i")
+            .Replace("ó", "o")
+            .Replace("ú", "u");
+    }
+
     private static NotaResponse ToNotaResponse(NotaItem item) =>
         new(item.Id, item.RecetaId, item.HogarId, item.UsuarioId,
             item.UsuarioNombre, item.UsuarioFotoUrl, item.Texto, item.CreatedAt);
@@ -251,6 +344,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.Unidad,
                 ingrediente.CantidadCompraEstandar,
                 ingrediente.UnidadCompraEstandar,
+                ingrediente.CantidadListaCompras,
+                ingrediente.UnidadListaCompras,
                 ingrediente.EnStock,
                 ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(
@@ -298,6 +393,8 @@ public sealed class RecetasController : ControllerBase
                 ingrediente.Unidad,
                 ingrediente.CantidadCompraEstandar,
                 ingrediente.UnidadCompraEstandar,
+                ingrediente.CantidadListaCompras,
+                ingrediente.UnidadListaCompras,
                 ingrediente.EnStock,
                 ingrediente.Alergenos)).ToList(),
             receta.Pasos.Select(paso => new RecetaPasoResponse(

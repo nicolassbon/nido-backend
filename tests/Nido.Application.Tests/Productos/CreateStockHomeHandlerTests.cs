@@ -92,6 +92,28 @@ public sealed class CreateStockHomeHandlerTests
     }
 
     [Fact]
+    public async Task Handle_PropagaCantidadOriginalComoCompraEstandarDelProducto()
+    {
+        var productoRepository = new FakeProductoRepository();
+        var handler = new CreateStockHomeHandler(new FakeStockHogarRepository(), productoRepository);
+
+        await handler.Handle(
+            new CreateStockHomeCommand(
+                "Yerba",
+                null,
+                "Alacena",
+                1.5m,
+                "kg",
+                null,
+                Guid.NewGuid(),
+                Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.Equal(1.5m, productoRepository.LastCantidadCompraEstandar);
+        Assert.Equal("kg", productoRepository.LastUnidadCompraEstandar);
+    }
+
+    [Fact]
     public async Task Handle_WithCantidadEnvasesMenorAUno_UsaUno()
     {
         var productoRepository = new FakeProductoRepository();
@@ -132,8 +154,10 @@ public sealed class CreateStockHomeHandlerTests
         public GetProductByNameResult? ExistingProduct { get; set; }
         public GetProductByNameResult CreatedProduct { get; set; } = new(Guid.NewGuid(), "Yerba", null, null);
         public int CreateCalls { get; private set; }
+        public decimal? LastCantidadCompraEstandar { get; private set; }
+        public string? LastUnidadCompraEstandar { get; private set; }
 
-        public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, CancellationToken ct)
+        public Task<GetProductByBarcodeResult?> GetByBarcodeAsync(string barcode, Guid? hogarId, CancellationToken ct)
             => throw new NotSupportedException();
 
         public Task<GetProductByNameResult?> GetByNameAsync(string nombre, CancellationToken ct)
@@ -142,9 +166,13 @@ public sealed class CreateStockHomeHandlerTests
         public Task<IEnumerable<SearchProductosResult>> SearchByNombreAsync(string query, CancellationToken ct)
             => Task.FromResult(Enumerable.Empty<SearchProductosResult>());
 
-        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct)
+        public Task<GetProductByNameResult> CreateAsync(string nombre, Guid? categoriaId, CancellationToken ct,
+            decimal? calorias = null, decimal? proteinas = null, decimal? carbohidratos = null, decimal? grasas = null,
+            decimal? cantidadCompraEstandar = null, string? unidadCompraEstandar = null)
         {
             CreateCalls++;
+            LastCantidadCompraEstandar = cantidadCompraEstandar;
+            LastUnidadCompraEstandar = unidadCompraEstandar;
             return Task.FromResult(CreatedProduct);
         }
     }
