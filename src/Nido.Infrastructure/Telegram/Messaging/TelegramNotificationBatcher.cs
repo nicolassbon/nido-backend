@@ -262,7 +262,11 @@ public sealed class TelegramNotificationBatcher : ITelegramNotificationBatcher
             }
         }
 
-        var payloadJson = JsonSerializer.Serialize(new { text = consolidatedText }, JsonOptions);
+        var payloadJson = JsonSerializer.Serialize(new
+        {
+            text = consolidatedText,
+            parse_mode = hasTargetTypes ? "HTML" : null
+        }, JsonOptions);
 
         // Update batch status to Ready (1)
         batch.Status = (int)TelegramBatchStatus.Ready;

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Nido.Application.Tareas;
 using Nido.Application.Telegram.Messaging;
@@ -11,7 +12,8 @@ namespace Nido.Infrastructure.Tareas;
 public sealed class TareaRepository(
     NidoDbContext db,
     ITelegramNotificationBatcher batcher,
-    ILogger<TareaRepository> logger) : ITareaRepository
+    ILogger<TareaRepository> logger,
+    IConfiguration? configuration = null) : ITareaRepository
 {
     public async Task<List<TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
     {
@@ -100,7 +102,7 @@ public sealed class TareaRepository(
             var activeLink = await GetActiveTelegramLinkForCurrentMemberAsync(asignadoA.Value, hogarId, ct);
             if (activeLink != null)
             {
-                var payloadJson = JsonSerializer.Serialize(new { text = messageText });
+                var payloadJson = BuildTelegramPayload(messageText, tarea.Id);
                 await TryEnqueueTelegramNotificationAsync(
                     hogarId,
                     activeLink.ChatId,
@@ -189,7 +191,7 @@ public sealed class TareaRepository(
             var activeLink = await GetActiveTelegramLinkForCurrentMemberAsync(usuarioId.Value, hogarId, ct);
             if (activeLink != null)
             {
-                var payloadJson = JsonSerializer.Serialize(new { text = messageText });
+                var payloadJson = BuildTelegramPayload(messageText, tarea.Id);
                 await TryEnqueueTelegramNotificationAsync(
                     hogarId,
                     activeLink.ChatId,
@@ -336,6 +338,21 @@ public sealed class TareaRepository(
             hogarId);
 
         return null;
+    }
+
+    private string BuildTelegramPayload(string messageText, Guid tareaId)
+    {
+        var frontendBaseUrl = configuration?["Frontend:BaseUrl"] ?? "http://localhost:4200";
+        var redirectUrl = $"{frontendBaseUrl.TrimEnd('/')}/tareas?taskId={tareaId}";
+        var escapedMessage = System.Net.WebUtility.HtmlEncode(messageText);
+        var escapedUrl = System.Net.WebUtility.HtmlEncode(redirectUrl);
+        var formattedText = $"{escapedMessage}\n\n👉 <a href=\"{escapedUrl}\">Ver en Nido</a>";
+
+        return JsonSerializer.Serialize(new
+        {
+            text = formattedText,
+            parse_mode = "HTML"
+        });
     }
 
     private static TareaResult MapToResult(Tarea t)
