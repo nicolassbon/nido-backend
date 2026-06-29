@@ -1,4 +1,4 @@
-
+using Microsoft.Extensions.Logging;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Storage;
 
@@ -8,7 +8,8 @@ public sealed class ActualizarPerfilHandler(
     UsuariosPerfil.IUsuarioRepository usuarioRepository,
     IProfileImageProcessor profileImageProcessor,
     IFileStorageService fileStorageService,
-    StorageKeyFactory storageKeyFactory)
+    StorageKeyFactory storageKeyFactory,
+    ILogger<ActualizarPerfilHandler> logger)
 {
     public async Task HandleAsync(UsuariosPerfil.ActualizarPerfilCommand command, CancellationToken cancellationToken)
     {
@@ -32,20 +33,30 @@ public sealed class ActualizarPerfilHandler(
             newFotoStorageKey = storageKey;
             fotoUpdatedAt = DateTime.UtcNow;
         }
+        else if (command.RemoveFoto)
+        {
+            oldFotoStorageKey = usuario.FotoStorageKey;
+            newFotoStorageKey = null;
+            fotoUpdatedAt = null;
+        }
 
         usuario.ActualizarPerfil(command.Nombre, command.Sexo, command.Telefono, newFotoStorageKey, fotoUpdatedAt);
 
         await usuarioRepository.UpdateAsync(usuario, cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(oldFotoStorageKey))
+        if (ProfileImageReferenceRules.IsManagedStorageKey(oldFotoStorageKey))
         {
             try
             {
-                await fileStorageService.DeleteAsync(oldFotoStorageKey, CancellationToken.None);
+                await fileStorageService.DeleteAsync(oldFotoStorageKey!, CancellationToken.None);
             }
-            catch
+            catch (Exception ex)
             {
-                // Non-critical cleanup failure — log in future
+                logger.LogWarning(
+                    ex,
+                    "Profile image cleanup failed for usuarioId {UsuarioId} and storageKey {StorageKey}",
+                    command.UsuarioId,
+                    oldFotoStorageKey);
             }
         }
     }

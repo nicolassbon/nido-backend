@@ -8,6 +8,10 @@ openspec/
 .claude/
 context.md
 
+# CodeGraph local index
+.codegraph/
+.codegraph-*/
+
 # Ignore uploaded files in development
 src/Nido.Api/wwwroot/uploads/*
 

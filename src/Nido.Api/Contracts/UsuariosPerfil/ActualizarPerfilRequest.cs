@@ -6,5 +6,6 @@ public sealed record ActualizarPerfilRequest(
     string Nombre,
     string Sexo,
     string? Telefono,
-    IFormFile? Foto
+    IFormFile? Foto,
+    bool RemoveFoto = false
 );

@@ -64,6 +64,90 @@ public sealed class ProfileCredentialMetadataTests : IClassFixture<NidoTestWebAp
     }
 
     [Fact]
+    public async Task PerfilEndpoint_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/perfiles");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePerfil_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var client = _factory.CreateClient();
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent("Perfil Anonimo"), "nombre" },
+            { new StringContent("Otro"), "sexo" }
+        };
+
+        var response = await client.PutAsync("/api/perfiles", form);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateRestricciones_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync("/api/perfiles/restricciones", new
+        {
+            tipo = "alergia",
+            restriccionIds = Array.Empty<Guid>()
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePerfil_RemovesGoogleProfilePicture()
+    {
+        var client = _factory.CreateClient();
+        var email = $"perfil-remove-photo-{Guid.NewGuid()}@test.com";
+        const string googlePicture = "https://lh3.googleusercontent.com/a/remove-me";
+        string token;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+
+            var (userId, hogarId) = await repo.CreateUserWithGoogleAsync(
+                new CreateOAuthUserData(
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    "Perfil Sin Foto",
+                    email,
+                    "google",
+                    Guid.NewGuid().ToString("N"),
+                    googlePicture),
+                CancellationToken.None);
+
+            token = tokenService.CreateToken(userId, hogarId, email, "Perfil Sin Foto");
+        }
+
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent("Perfil Sin Foto"), "nombre" },
+            { new StringContent("Otro"), "sexo" },
+            { new StringContent("true"), "removeFoto" }
+        };
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var updateResponse = await client.PutAsync("/api/perfiles", form);
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        var profileResponse = await client.GetFromJsonAsync<PerfilBody>("/api/perfiles");
+
+        Assert.NotNull(profileResponse);
+        Assert.Null(profileResponse!.FotoUrl);
+    }
+
+    [Fact]
     public async Task PerfilEndpoint_ReturnsRealProfileStats()
     {
         var client = _factory.CreateClient();
@@ -175,6 +259,7 @@ public sealed class ProfileCredentialMetadataTests : IClassFixture<NidoTestWebAp
     private sealed record PerfilBody(
         bool HasPassword,
         bool HasGoogleLinked,
+        string? FotoUrl,
         int TareasCompletadas,
         int ProductosEscaneados,
         int Logros);
