@@ -184,7 +184,6 @@ public static class DependencyInjection
 
         services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
         services.AddSingleton<ITelegramOutboxWakeupService, TelegramOutboxWakeupService>();
-        services.AddHostedService(sp => (TelegramOutboxWakeupService)sp.GetRequiredService<ITelegramOutboxWakeupService>());
         services.AddScoped<ITelegramUpdateIdempotencyService, TelegramUpdateIdempotencyService>();
         services.AddScoped<ITelegramWebhookHandler, TelegramWebhookHandler>();
         services.AddScoped<ITelegramHogarAccess, TelegramHogarAccessRepository>();
@@ -244,6 +243,7 @@ public static class DependencyInjection
 
         if (options.HasBotToken)
         {
+            services.AddHostedService(sp => (TelegramOutboxWakeupService)sp.GetRequiredService<ITelegramOutboxWakeupService>());
             services.AddHostedService<TelegramBatchingWorker>();
             services.AddHostedService<TelegramSenderWorker>();
         }

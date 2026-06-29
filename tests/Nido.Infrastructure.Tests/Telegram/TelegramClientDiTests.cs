@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Client;
+using Nido.Application.Telegram.Messaging;
 using Nido.Infrastructure.Telegram;
 using Nido.Infrastructure.Telegram.Messaging;
 
@@ -129,6 +130,20 @@ public sealed class TelegramClientDiTests
     }
 
     [Fact]
+    public void AddTelegramSenderWorker_WithoutBotToken_DoesNotRegisterOutboxWakeupService()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration();
+
+        services.AddTelegramSenderWorker(config);
+
+        Assert.DoesNotContain(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationFactory is not null);
+    }
+
+    [Fact]
     public void AddTelegramSenderWorker_WithBotToken_RegistersSenderWorker()
     {
         var services = new ServiceCollection();
@@ -160,6 +175,76 @@ public sealed class TelegramClientDiTests
             services,
             descriptor => descriptor.ServiceType == typeof(IHostedService)
                 && descriptor.ImplementationType == typeof(TelegramBatchingWorker));
+    }
+
+    [Fact]
+    public void AddTelegramSenderWorker_WithBotToken_RegistersOutboxWakeupService()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration(new Dictionary<string, string?>
+        {
+            ["Telegram:BotToken"] = "my-token"
+        });
+
+        services.AddTelegramSenderWorker(config);
+
+        Assert.Contains(
+            services,
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationFactory is not null);
+    }
+
+    [Fact]
+    public void AddNidoInfrastructure_WithoutBotToken_ResolvesTelegramOutboxWriter()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration();
+
+        services.AddSingleton<IConfiguration>(config);
+        services.AddTelegramModule(config);
+        services.AddNidoInfrastructure(config);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var writer = scope.ServiceProvider.GetRequiredService<ITelegramOutboxWriter>();
+
+        Assert.IsType<TelegramOutboxWriter>(writer);
+    }
+
+    [Fact]
+    public void AddNidoInfrastructure_WithoutBotToken_ResolvesTelegramNotificationBatcher()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration();
+
+        services.AddSingleton<IConfiguration>(config);
+        services.AddTelegramModule(config);
+        services.AddNidoInfrastructure(config);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var batcher = scope.ServiceProvider.GetRequiredService<ITelegramNotificationBatcher>();
+
+        Assert.IsType<TelegramNotificationBatcher>(batcher);
+    }
+
+    [Fact]
+    public void AddNidoInfrastructure_WithoutBotToken_ResolvesTelegramOutboxWakeupDependency()
+    {
+        var services = new ServiceCollection();
+        var config = CreateMinimalConfiguration();
+
+        services.AddSingleton<IConfiguration>(config);
+        services.AddTelegramModule(config);
+        services.AddNidoInfrastructure(config);
+
+        using var provider = services.BuildServiceProvider();
+
+        var wakeup = provider.GetRequiredService<ITelegramOutboxWakeupService>();
+
+        Assert.IsType<TelegramOutboxWakeupService>(wakeup);
     }
 
     [Fact]

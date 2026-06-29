@@ -19,6 +19,7 @@ public sealed class TelegramPairingHandlersTests
         var rateLimiter = new FakeRateLimiter();
         var handler = new StartTelegramPairingHandler(
             repository,
+            new FakeMembershipAccess(),
             hasher,
             rateLimiter,
             new TelegramOptions { BotUsername = "nido_bot", PairingTokenTtlMinutes = 10, PairingCodeTtlMinutes = 15 });
@@ -43,6 +44,7 @@ public sealed class TelegramPairingHandlersTests
         var repository = new FakePairingRepository();
         var handler = new StartTelegramPairingHandler(
             repository,
+            new FakeMembershipAccess(),
             new FakeHasher(),
             new FakeRateLimiter(),
             new TelegramOptions { BotUsername = "nido_bot", PairingTokenTtlMinutes = 7, PairingCodeTtlMinutes = 19 });
@@ -63,6 +65,7 @@ public sealed class TelegramPairingHandlersTests
         var repository = new FakePairingRepository { CreateArtifactsCollisionCount = 1 };
         var handler = new StartTelegramPairingHandler(
             repository,
+            new FakeMembershipAccess(),
             new FakeHasher(),
             new FakeRateLimiter(),
             new TelegramOptions { BotUsername = "nido_bot" });
@@ -80,6 +83,7 @@ public sealed class TelegramPairingHandlersTests
         var repository = new FakePairingRepository { CreateArtifactsCollisionCount = 3 };
         var handler = new StartTelegramPairingHandler(
             repository,
+            new FakeMembershipAccess(),
             new FakeHasher(),
             new FakeRateLimiter(),
             new TelegramOptions { BotUsername = "nido_bot" });
@@ -95,6 +99,7 @@ public sealed class TelegramPairingHandlersTests
     {
         var handler = new StartTelegramPairingHandler(
             new FakePairingRepository(),
+            new FakeMembershipAccess(),
             new FakeHasher(),
             new FakeRateLimiter { AllowGenerate = false },
             new TelegramOptions { BotUsername = "nido_bot" });
@@ -109,6 +114,7 @@ public sealed class TelegramPairingHandlersTests
         var rateLimiter = new FakeRateLimiter { AllowGenerate = false };
         var handler = new StartTelegramPairingHandler(
             new FakePairingRepository(),
+            new FakeMembershipAccess(),
             new FakeHasher(),
             rateLimiter,
             new TelegramOptions { BotUsername = "" });
@@ -132,6 +138,23 @@ public sealed class TelegramPairingHandlersTests
 
         await Assert.ThrowsAsync<TelegramPairingRateLimitExceededException>(() =>
             handler.HandleAsync(new CompleteTelegramPairingCommand(10, "token"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task StartHandler_WhenUserIsNotCurrentMember_ThrowsAccessDenied()
+    {
+        var repository = new FakePairingRepository();
+        var handler = new StartTelegramPairingHandler(
+            repository,
+            new FakeMembershipAccess { IsCurrentMember = false },
+            new FakeHasher(),
+            new FakeRateLimiter(),
+            new TelegramOptions { BotUsername = "nido_bot" });
+
+        await Assert.ThrowsAsync<TelegramHogarAccessDeniedException>(() =>
+            handler.HandleAsync(new StartTelegramPairingCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
+
+        Assert.Equal(0, repository.CreateArtifactsCalls);
     }
 
     [Fact]
@@ -263,13 +286,44 @@ public sealed class TelegramPairingHandlersTests
         var repository = new FakePairingRepository();
         var usuarioId = Guid.NewGuid();
         var hogarId = Guid.NewGuid();
-        var handler = new UnlinkTelegramPairingHandler(repository);
+        var handler = new UnlinkTelegramPairingHandler(repository, new FakeMembershipAccess());
 
         var result = await handler.HandleAsync(new UnlinkTelegramPairingCommand(usuarioId, hogarId), CancellationToken.None);
 
         Assert.Equal(usuarioId, repository.UnlinkedUsuarioId);
         Assert.Equal(hogarId, repository.UnlinkedHogarId);
         Assert.Equal(repository.ActiveLinkResult!.ChatId, result.ChatId);
+    }
+
+    [Fact]
+    public async Task UnlinkPairingHandler_WhenUserIsNotCurrentMember_ThrowsAccessDenied()
+    {
+        var repository = new FakePairingRepository();
+        var handler = new UnlinkTelegramPairingHandler(repository, new FakeMembershipAccess { IsCurrentMember = false });
+
+        await Assert.ThrowsAsync<TelegramHogarAccessDeniedException>(() =>
+            handler.HandleAsync(new UnlinkTelegramPairingCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
+
+        Assert.Null(repository.UnlinkedUsuarioId);
+        Assert.Null(repository.UnlinkedHogarId);
+    }
+
+    [Fact]
+    public async Task GetStatusHandler_UsesCurrentMembershipScopedLookup()
+    {
+        var repository = new FakePairingRepository
+        {
+            ActiveLink = null,
+            CurrentMemberActiveLink = new TelegramChatLinkResult(999, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow)
+        };
+        var handler = new GetTelegramPairingStatusHandler(repository);
+
+        var result = await handler.HandleAsync(new GetTelegramPairingStatusQuery(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsLinked);
+        Assert.Equal(999, result.ChatId);
+        Assert.Equal(0, repository.GetActiveLinkCalls);
+        Assert.Equal(1, repository.GetActiveLinkForCurrentMemberCalls);
     }
 
     private sealed class FakePairingRepository : ITelegramPairingRepository
@@ -287,6 +341,8 @@ public sealed class TelegramPairingHandlersTests
         public int CreateArtifactsCollisionCount { get; init; }
         public int CreateArtifactsCalls { get; private set; }
         public TelegramChatLinkResult? ActiveLinkResult { get; set; } = new(555, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        public int GetActiveLinkCalls { get; private set; }
+        public int GetActiveLinkForCurrentMemberCalls { get; private set; }
 
         public Task<TelegramPairingTokenResult> CreatePairingTokenAsync(Guid hogarId, Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken ct)
         {
@@ -355,12 +411,33 @@ public sealed class TelegramPairingHandlersTests
         }
 
         public TelegramChatLinkResult? ActiveLink { get; set; }
+        public TelegramChatLinkResult? CurrentMemberActiveLink { get; set; }
 
         public Task<TelegramChatLinkResult?> GetActiveLinkAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-            => Task.FromResult(ActiveLink);
+        {
+            GetActiveLinkCalls++;
+            return Task.FromResult(ActiveLink);
+        }
 
         public Task<TelegramChatLinkResult?> GetActiveLinkForCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
-            => Task.FromResult(ActiveLink);
+        {
+            GetActiveLinkForCurrentMemberCalls++;
+            return Task.FromResult(CurrentMemberActiveLink);
+        }
+    }
+
+    private sealed class FakeMembershipAccess : ITelegramHogarAccess
+    {
+        public bool IsCurrentMember { get; init; } = true;
+
+        public Task<TelegramChatLinkSnapshot?> GetActiveLinkAsync(long chatId, CancellationToken ct)
+            => Task.FromResult<TelegramChatLinkSnapshot?>(null);
+
+        public Task<bool> IsUserCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(IsCurrentMember);
+
+        public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(false);
     }
 
     private sealed class FakeHasher : ITelegramPairingTokenHasher
