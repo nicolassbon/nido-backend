@@ -6,4 +6,5 @@ public sealed record User(
     string Email,
     string? PasswordHash,
     string? OauthProvider,
-    string? OauthId);
+    string? OauthId,
+    string? FotoStorageKey = null);

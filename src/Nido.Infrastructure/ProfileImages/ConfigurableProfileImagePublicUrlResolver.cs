@@ -24,6 +24,23 @@ public sealed class ConfigurableProfileImagePublicUrlResolver : IProfileImagePub
             return null;
         }
 
+        var trimmedStorageKey = storageKey.Trim();
+        var externalUrl = ProfileImageReferenceRules.NormalizeExternalUrlOrNull(trimmedStorageKey);
+        if (externalUrl is not null)
+        {
+            return externalUrl;
+        }
+
+        if (Uri.TryCreate(trimmedStorageKey, UriKind.Absolute, out _))
+        {
+            return null;
+        }
+
+        if (trimmedStorageKey[0] == '/')
+        {
+            return trimmedStorageKey;
+        }
+
         var baseUrl = _spacesOptions?.Value.Enabled == true && !string.IsNullOrWhiteSpace(_spacesOptions.Value.PublicBaseUrl)
             ? _spacesOptions.Value.PublicBaseUrl.TrimEnd('/')
             : _options.Value.PublicBaseUrl?.TrimEnd('/');
@@ -33,7 +50,7 @@ public sealed class ConfigurableProfileImagePublicUrlResolver : IProfileImagePub
             return null;
         }
 
-        var url = $"{baseUrl}/{storageKey}";
+        var url = $"{baseUrl}/{trimmedStorageKey}";
 
         if (version.HasValue)
         {

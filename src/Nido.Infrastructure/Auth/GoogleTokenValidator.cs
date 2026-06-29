@@ -21,6 +21,6 @@ public sealed class GoogleTokenValidator : IGoogleTokenValidator
             Audience = [_googleOptions.ClientId]
         };
         var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
-        return new GooglePayload(payload.Email, payload.Subject);
+        return new GooglePayload(payload.Email, payload.Subject, payload.Name, payload.Picture);
     }
 }

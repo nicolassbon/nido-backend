@@ -7,5 +7,6 @@ public sealed record ActualizarPerfilCommand(
     string Nombre,
     string Sexo,
     string? Telefono,
-    RegistrationProfileImageUpload? Foto
+    RegistrationProfileImageUpload? Foto,
+    bool RemoveFoto = false
 );
