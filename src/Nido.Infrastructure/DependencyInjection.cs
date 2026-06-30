@@ -194,6 +194,7 @@ public static class DependencyInjection
         services.AddScoped<ITelegramOutboxWriter, TelegramOutboxWriter>();
         services.AddScoped<ITelegramOutboxReader, TelegramOutboxReader>();
         services.AddScoped<ITelegramMenuRegistry, InMemoryTelegramMenuRegistry>();
+        services.AddScoped<ITelegramMenuReadService, EfTelegramMenuReadService>();
         services.AddScoped<ITelegramMenuProvider, TelegramMenuProvider>();
         services.AddScoped<ITelegramNotificationBatcher, TelegramNotificationBatcher>();
 

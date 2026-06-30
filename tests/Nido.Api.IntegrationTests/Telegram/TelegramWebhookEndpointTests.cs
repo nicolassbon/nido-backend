@@ -170,7 +170,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     }
 
     [Fact]
-    public async Task Post_DigitSelection_AfterMenu_RoutesToProviderPlaceholder()
+    public async Task Post_DigitSelection_AfterMenu_RoutesToRealProvider()
     {
         using var factory = CreateEnqueueOnlyFactory();
 
@@ -192,7 +192,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
             .ToListAsync();
 
         Assert.Equal(2, payloads.Count);
-        Assert.Contains("Placeholder for option 2", DeserializePayload(payloads[1]).Text, StringComparison.Ordinal);
+        Assert.Contains("La alacena está vacía por ahora", DeserializePayload(payloads[1]).Text, StringComparison.Ordinal);
     }
 
     [Fact]
