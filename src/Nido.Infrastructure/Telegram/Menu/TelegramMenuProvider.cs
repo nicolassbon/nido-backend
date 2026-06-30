@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Nido.Application.Telegram.Authorization;
+using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Menu;
 
 namespace Nido.Infrastructure.Telegram.Menu;
@@ -21,12 +22,16 @@ public sealed class TelegramMenuProvider(
 
     public async Task<TelegramMenuSelectionResult> SelectAsync(string menuId, string optionKey, TelegramChatLinkSnapshot link, CancellationToken ct)
     {
+        if (optionKey == "4")
+        {
+            return await BuildPendingTasksSelectionAsync(link, ct);
+        }
+
         var text = optionKey switch
         {
             "1" => await BuildExpiringProductsTextAsync(link, ct),
             "2" => await BuildPantrySummaryTextAsync(link, ct),
             "3" => await BuildShoppingListTextAsync(link, ct),
-            "4" => await BuildPendingTasksTextAsync(link, ct),
             "5" => BuildOpenNidoText(),
             "6" => BuildNotificationSettingsText(),
             _ => null
@@ -128,45 +133,69 @@ public sealed class TelegramMenuProvider(
         return string.Join('\n', lines);
     }
 
-    private async Task<string> BuildPendingTasksTextAsync(TelegramChatLinkSnapshot link, CancellationToken ct)
+    private async Task<TelegramMenuSelectionResult> BuildPendingTasksSelectionAsync(TelegramChatLinkSnapshot link, CancellationToken ct)
     {
         var result = await readService.GetPendingAssignedTasksAsync(link.HogarId, link.UsuarioId, MaxTaskItems, ct);
 
         if (result.Items.Count == 0)
         {
-            return "No tenés tareas pendientes asignadas.";
+            return new TelegramMenuSelectionResult(
+                true,
+                TelegramMenuCopy.TaskCompletionEmptyListText,
+                TelegramMenuCopy.MainMenuId,
+                false,
+                PayloadJson: null);
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var lines = result.Items.Select(item =>
+        var choices = new List<TelegramTaskCompletionChoice>(result.Items.Count);
+        var lines = new List<string>(result.Items.Count + 1) { "Tus tareas pendientes" };
+
+        for (var i = 0; i < result.Items.Count; i++)
         {
-            var details = new List<string>();
+            var item = result.Items[i];
+            var index = i + 1;
+            choices.Add(new TelegramTaskCompletionChoice(index, item.TaskId));
+            lines.Add(BuildNumberedTaskLine(index, item, today));
+        }
 
-            if (!string.IsNullOrWhiteSpace(item.Status) && !string.Equals(item.Status, "pendiente", StringComparison.OrdinalIgnoreCase))
-            {
-                details.Add(item.Status.Trim());
-            }
-
-            if (item.DueDate.HasValue)
-            {
-                details.Add($"vence {FormatDueLabel(item.DueDate.Value, today)}");
-            }
-
-            return details.Count == 0
-                ? $"• {item.Title}"
-                : $"• {item.Title} — {string.Join(" · ", details)}";
-        });
-
-        var messageLines = new List<string> { "Tus tareas pendientes" };
-        messageLines.AddRange(lines);
-        var message = string.Join('\n', messageLines);
-
+        var message = string.Join('\n', lines);
         if (result.HasMore)
         {
             message += $"\n…y {result.RemainingCount} más.";
         }
 
-        return message;
+        message += $"\n\n{TelegramMenuCopy.TasksCompletionPrompt}";
+
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            choices);
+
+        return new TelegramMenuSelectionResult(
+            true,
+            message,
+            TelegramMenuCopy.MainMenuId,
+            false,
+            payload.Serialize());
+    }
+
+    private static string BuildNumberedTaskLine(int index, TelegramPendingTaskItem item, DateOnly today)
+    {
+        var details = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(item.Status) && !string.Equals(item.Status, "pendiente", StringComparison.OrdinalIgnoreCase))
+        {
+            details.Add(item.Status.Trim());
+        }
+
+        if (item.DueDate.HasValue)
+        {
+            details.Add($"vence {FormatDueLabel(item.DueDate.Value, today)}");
+        }
+
+        return details.Count == 0
+            ? $"{index}. {item.Title}"
+            : $"{index}. {item.Title} — {string.Join(" · ", details)}";
     }
 
     private string BuildOpenNidoText()
@@ -182,7 +211,7 @@ public sealed class TelegramMenuProvider(
         var frontendBaseUrl = configuration?["Frontend:BaseUrl"]?.TrimEnd('/');
         return string.IsNullOrWhiteSpace(frontendBaseUrl)
             ? "Configurá tus notificaciones desde la app de Nido, en la sección de ajustes."
-            : $"Configurá tus notificaciones desde la app de Nido: {frontendBaseUrl}/perfil";
+            : $"Configurá tus notificaciones desde la app de Nido: {frontendBaseUrl}/configuracion";
     }
 
     private static string BuildQuantityText(decimal? quantity, string? unit, int envases)

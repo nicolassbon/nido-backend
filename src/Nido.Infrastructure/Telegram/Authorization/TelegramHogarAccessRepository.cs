@@ -33,4 +33,12 @@ public sealed class TelegramHogarAccessRepository(NidoDbContext dbContext) : ITe
                 && tarea.HogarId == hogarId
                 && tarea.AsignacionesTareas.Any(asignacion => asignacion.UsuarioId == usuarioId),
             ct);
+
+    public Task<bool> IsUserAssignedToPendingTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+        => dbContext.Tareas.AnyAsync(
+            tarea => tarea.Id == tareaId
+                && tarea.HogarId == hogarId
+                && tarea.Estado != "completada"
+                && tarea.AsignacionesTareas.Any(asignacion => asignacion.UsuarioId == usuarioId),
+            ct);
 }

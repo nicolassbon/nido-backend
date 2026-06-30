@@ -634,6 +634,10 @@ public sealed class TelegramMenuInfrastructureTests : IAsyncLifetime
         Assert.Equal("Sacar la basura", only.Title);
         Assert.Equal("pendiente", only.Status);
         Assert.NotNull(only.DueDate);
+        Assert.Equal(assignedPending.Id, only.TaskId);
+        // Tasks that are not assigned or are completed must not expose their id.
+        Assert.DoesNotContain(result.Items, item => item.TaskId == completedForLinked.Id);
+        Assert.DoesNotContain(result.Items, item => item.TaskId == pendingForOtherUser.Id);
     }
 
     [Fact]

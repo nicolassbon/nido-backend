@@ -19,4 +19,22 @@ public static class TelegramMenuCopy
 
     public static string BuildRecoveryText(string prefix, string menuText)
         => $"{prefix}\n\n{menuText}";
+
+    public const string TasksCompletionPrompt =
+        "Respondé con el número de la tarea que querés marcar como completada. " +
+        "Tareas fuera de esta lista no se pueden completar desde acá.";
+
+    public const string TaskCompletionSuccessText =
+        "Listo, marqué la tarea como completada. Volvé al menú cuando quieras seguir.";
+
+    public const string TaskCompletionInvalidChoiceText =
+        "Ese número no corresponde a una tarea de la lista actual.";
+
+    public const string TaskCompletionAlreadyDoneText =
+        "Esa tarea ya estaba completada o ya no la tenés asignada.";
+
+    public const string TaskCompletionEmptyListText = "No tenés tareas pendientes asignadas.";
+
+    public const string TaskCompletionMessageType = "interactive.tasks.complete";
+    public const string TaskCompletionRecoveryMessageType = "interactive.tasks.complete.recovery";
 }

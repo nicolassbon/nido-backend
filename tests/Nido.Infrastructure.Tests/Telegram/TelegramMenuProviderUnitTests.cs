@@ -200,13 +200,15 @@ public sealed class TelegramMenuProviderUnitTests
     public async Task SelectAsync_Option4_DelegatesTasksReadAndRendersAssignedTasks()
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
         var readService = new FakeTelegramMenuReadService
         {
             Tasks = new TelegramPendingTasksReadResult(
                 new[]
                 {
-                    new TelegramPendingTaskItem("Sacar la basura", "pendiente", today.AddDays(1)),
-                    new TelegramPendingTaskItem("Limpiar cocina", null, null)
+                    new TelegramPendingTaskItem("Sacar la basura", "pendiente", today.AddDays(1), firstId),
+                    new TelegramPendingTaskItem("Limpiar cocina", null, null, secondId)
                 },
                 HasMore: false,
                 RemainingCount: 0)
@@ -231,7 +233,7 @@ public sealed class TelegramMenuProviderUnitTests
             Tasks = new TelegramPendingTasksReadResult(
                 new[]
                 {
-                    new TelegramPendingTaskItem("Sacar la basura", null, null)
+                    new TelegramPendingTaskItem("Sacar la basura", null, null, Guid.NewGuid())
                 },
                 HasMore: true,
                 RemainingCount: 1)
@@ -243,9 +245,92 @@ public sealed class TelegramMenuProviderUnitTests
         Assert.Contains("y 1 más", result.Text, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SelectAsync_Option4_RendersTasksWithNumericPrefix()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var readService = new FakeTelegramMenuReadService
+        {
+            Tasks = new TelegramPendingTasksReadResult(
+                new[]
+                {
+                    new TelegramPendingTaskItem("Sacar la basura", "pendiente", today.AddDays(1), firstId),
+                    new TelegramPendingTaskItem("Limpiar cocina", null, null, secondId)
+                },
+                HasMore: false,
+                RemainingCount: 0)
+        };
+        var provider = BuildProvider(readService);
+
+        var result = await provider.SelectAsync("main-menu", "4", Link(), CancellationToken.None);
+
+        Assert.Contains("1. Sacar la basura", result.Text, StringComparison.Ordinal);
+        Assert.Contains("2. Limpiar cocina", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("•", result.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SelectAsync_Option4_ReturnsTaskCompletionPayload_MappingChoicesToTaskIds()
+    {
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var readService = new FakeTelegramMenuReadService
+        {
+            Tasks = new TelegramPendingTasksReadResult(
+                new[]
+                {
+                    new TelegramPendingTaskItem("Sacar la basura", null, null, firstId),
+                    new TelegramPendingTaskItem("Limpiar cocina", null, null, secondId)
+                },
+                HasMore: false,
+                RemainingCount: 0)
+        };
+        var provider = BuildProvider(readService);
+
+        var result = await provider.SelectAsync("main-menu", "4", Link(), CancellationToken.None);
+
+        var payload = Nido.Application.Telegram.Conversation.TelegramTaskCompletionPayload.TryParse(result.PayloadJson);
+        Assert.NotNull(payload);
+        Assert.Equal(2, payload!.Choices.Count);
+        Assert.Equal(1, payload.Choices[0].Index);
+        Assert.Equal(firstId, payload.Choices[0].TaskId);
+        Assert.Equal(2, payload.Choices[1].Index);
+        Assert.Equal(secondId, payload.Choices[1].TaskId);
+    }
+
+    [Fact]
+    public async Task SelectAsync_Option4_WhenEmpty_ReturnsEmptyMessage_AndNoPayload()
+    {
+        var readService = new FakeTelegramMenuReadService
+        {
+            Tasks = new TelegramPendingTasksReadResult(Array.Empty<TelegramPendingTaskItem>(), false, 0)
+        };
+        var provider = BuildProvider(readService);
+
+        var result = await provider.SelectAsync("main-menu", "4", Link(), CancellationToken.None);
+
+        Assert.True(result.Handled);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionEmptyListText, result.Text);
+        Assert.Null(result.PayloadJson);
+    }
+
+    [Fact]
+    public async Task SelectAsync_NonTaskOptions_DoNotSetPayloadJson()
+    {
+        var readService = new FakeTelegramMenuReadService();
+        var provider = BuildProvider(readService);
+
+        var result = await provider.SelectAsync("main-menu", "1", Link(), CancellationToken.None);
+
+        Assert.True(result.Handled);
+        Assert.Null(result.PayloadJson);
+    }
+
     [Theory]
     [InlineData("5", "https://app.nido.test")]
-    [InlineData("6", "/perfil")]
+    [InlineData("6", "/configuracion")]
     public async Task SelectAsync_ForUtilityOptions_DoesNotCallReadServiceAndReturnsExpectedCopy(string optionKey, string expectedText)
     {
         var readService = new FakeTelegramMenuReadService();

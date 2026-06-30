@@ -1,3 +1,4 @@
+using Nido.Application.Tareas;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Exceptions;
@@ -28,7 +29,7 @@ public sealed class TelegramUpdateDispatcherMenuTests
     }
 
     [Fact]
-    public async Task DispatchAsync_StartWithoutToken_RefreshesMainMenuState()
+    public async Task DispatchAsync_StartWithoutToken_DoesNotRenderMenu()
     {
         var access = FakeTelegramHogarAccess.LinkedCurrentMember();
         var stateStore = new FakeConversationStateStore();
@@ -38,9 +39,8 @@ public sealed class TelegramUpdateDispatcherMenuTests
 
         var result = await dispatcher.DispatchAsync(BuildRequest("/start"), CancellationToken.None);
 
-        Assert.NotNull(result);
-        Assert.Equal("main-menu", stateStore.LastSetState?.MenuId);
-        Assert.Equal(TelegramMenuCopy.MainMenuText, result!.ConfirmationText);
+        Assert.Null(result);
+        Assert.Null(stateStore.LastSetState);
     }
 
     [Fact]
@@ -187,14 +187,175 @@ public sealed class TelegramUpdateDispatcherMenuTests
         Assert.Equal(1, stateStore.ClearCalls);
     }
 
+    [Fact]
+    public async Task DispatchAsync_NumericReply_WithTaskCompletionPayload_CompletesTask_AndClearsPayload()
+    {
+        var tareaId = Guid.NewGuid();
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            new[] { new TelegramTaskCompletionChoice(1, tareaId) });
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember();
+        access.IsUserAssignedToPendingTaskResult = true;
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow, payload.Serialize())
+        };
+        var tareaRepository = new FakeTareaRepository
+        {
+            TareaCompletada = MakeTareaResult(tareaId, access.HogarId, access.UsuarioId)
+        };
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), new FakeMenuProvider(), tareaRepository: tareaRepository);
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("1"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionMessageType, result!.MessageType);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionSuccessText, result.ConfirmationText);
+        Assert.Equal(1, tareaRepository.CompletarCallCount);
+        Assert.Equal(tareaId, tareaRepository.LastCompletarId);
+        Assert.Equal(access.UsuarioId, tareaRepository.LastCompletarPor);
+        Assert.Equal(access.HogarId, tareaRepository.LastCompletarHogarId);
+        // Payload must be cleared after a successful completion.
+        Assert.Null(stateStore.LastSetState?.PayloadJson);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_NumericReply_WithOutOfRangeChoice_ReturnsRecoveryMessage_AndClearsPayload()
+    {
+        var tareaId = Guid.NewGuid();
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            new[] { new TelegramTaskCompletionChoice(1, tareaId) });
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember();
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow, payload.Serialize())
+        };
+        var provider = new FakeMenuProvider();
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), provider, tareaRepository: new FakeTareaRepository());
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("9"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionRecoveryMessageType, result!.MessageType);
+        Assert.Contains(TelegramMenuCopy.TaskCompletionInvalidChoiceText, result.ConfirmationText, StringComparison.Ordinal);
+        // The task list must be re-rendered as part of the recovery so the
+        // user can choose again. The fake provider returns a deterministic
+        // placeholder; in production this carries the real "Tus tareas
+        // pendientes" block.
+        Assert.Contains("Placeholder for option 4.", result.ConfirmationText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_NumericReply_WhenTaskAlreadyCompleted_ReturnsAlreadyDoneMessage_AndDoesNotCallRepository()
+    {
+        var tareaId = Guid.NewGuid();
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            new[] { new TelegramTaskCompletionChoice(1, tareaId) });
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember();
+        // Assignment + pending check fails => task is no longer completable.
+        access.IsUserAssignedToPendingTaskResult = false;
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow, payload.Serialize())
+        };
+        var tareaRepository = new FakeTareaRepository();
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), new FakeMenuProvider(), tareaRepository: tareaRepository);
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("1"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionRecoveryMessageType, result!.MessageType);
+        Assert.Contains(TelegramMenuCopy.TaskCompletionAlreadyDoneText, result.ConfirmationText, StringComparison.Ordinal);
+        Assert.Equal(0, tareaRepository.CompletarCallCount);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_NumericReply_WhenChatNotLinked_ReturnsChatNotLinkedText()
+    {
+        var access = new FakeTelegramHogarAccess();
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow,
+                new TelegramTaskCompletionPayload(
+                    TelegramTaskCompletionPayload.TasksCompleteFlow,
+                    new[] { new TelegramTaskCompletionChoice(1, Guid.NewGuid()) }).Serialize())
+        };
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), new FakeMenuProvider(), tareaRepository: new FakeTareaRepository());
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("1"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(TelegramMenuCopy.ChatNotLinkedText, result!.ConfirmationText);
+        Assert.Equal(1, stateStore.ClearCalls);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_NumericReply_WhenMembershipIsStale_ReturnsAccessRevokedText()
+    {
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember(isCurrentMember: false);
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow,
+                new TelegramTaskCompletionPayload(
+                    TelegramTaskCompletionPayload.TasksCompleteFlow,
+                    new[] { new TelegramTaskCompletionChoice(1, Guid.NewGuid()) }).Serialize())
+        };
+        var repository = new FakePairingRepository();
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), new FakeMenuProvider(), repository, new FakeTareaRepository());
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("1"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(TelegramMenuCopy.AccessRevokedText, result!.ConfirmationText);
+        Assert.Equal(99, repository.UnlinkedChatId);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_NumericReplyAfterCompletion_DoesNotInvokeRepository_AndFallsThroughToMainMenu()
+    {
+        // After a successful completion the payload is cleared; the next
+        // numeric reply should hit the normal main menu path and select
+        // option 1 (no task completion side effects).
+        var tareaId = Guid.NewGuid();
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            new[] { new TelegramTaskCompletionChoice(1, tareaId) });
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember();
+        access.IsUserAssignedToPendingTaskResult = true;
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow, payload.Serialize())
+        };
+        var tareaRepository = new FakeTareaRepository
+        {
+            TareaCompletada = MakeTareaResult(tareaId, access.HogarId, access.UsuarioId)
+        };
+        var provider = new FakeMenuProvider();
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), provider, tareaRepository: tareaRepository);
+
+        var first = await dispatcher.DispatchAsync(BuildRequest("1"), CancellationToken.None);
+        Assert.NotNull(first);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionMessageType, first!.MessageType);
+
+        var second = await dispatcher.DispatchAsync(BuildRequest("1"), CancellationToken.None);
+
+        Assert.NotNull(second);
+        Assert.Equal(1, tareaRepository.CompletarCallCount);
+        Assert.Equal("1", provider.LastSelection?.OptionKey);
+    }
+
     private static TelegramUpdateDispatcher CreateDispatcher(
         ITelegramHogarAccess access,
         FakeConversationStateStore stateStore,
         ITelegramMenuRegistry registry,
         ITelegramMenuProvider provider,
-        FakePairingRepository? repository = null)
+        FakePairingRepository? repository = null,
+        FakeTareaRepository? tareaRepository = null)
     {
         repository ??= new FakePairingRepository();
+        tareaRepository ??= new FakeTareaRepository();
 
         return new TelegramUpdateDispatcher(
             new CompleteTelegramPairingHandler(repository, new FakeHasher(), new FakeRateLimiter()),
@@ -203,8 +364,13 @@ public sealed class TelegramUpdateDispatcherMenuTests
             access,
             stateStore,
             registry,
-            provider);
+            provider,
+            new CompletarTareaHandler(tareaRepository));
     }
+
+    private static TareaResult MakeTareaResult(Guid id, Guid hogarId, Guid completadoPor) =>
+        new(id, hogarId, "Sacar la basura", null, "completada",
+            DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid(), "Creador", completadoPor, "User", null, DateTime.UtcNow);
 
     private static TelegramWebhookRequest BuildRequest(string text)
         => new(1, new TelegramWebhookMessage(1, 1, text, new TelegramWebhookChat(99, "private")));
@@ -240,6 +406,10 @@ public sealed class TelegramUpdateDispatcherMenuTests
         private readonly TelegramChatLinkSnapshot? _link;
         private readonly bool _isCurrentMember;
 
+        public bool IsUserAssignedToPendingTaskResult { get; set; } = false;
+        public Guid HogarId => _link?.HogarId ?? Guid.Empty;
+        public Guid UsuarioId => _link?.UsuarioId ?? Guid.Empty;
+
         private FakeTelegramHogarAccess(TelegramChatLinkSnapshot? link, bool isCurrentMember)
         {
             _link = link;
@@ -262,6 +432,9 @@ public sealed class TelegramUpdateDispatcherMenuTests
 
         public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
             => Task.FromResult(false);
+
+        public Task<bool> IsUserAssignedToPendingTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(IsUserAssignedToPendingTaskResult);
     }
 
     private sealed class FakeMenuRegistry : ITelegramMenuRegistry
@@ -340,5 +513,32 @@ public sealed class TelegramUpdateDispatcherMenuTests
         public Task<bool> TryAcquireGenerateAsync(Guid usuarioId, CancellationToken ct) => Task.FromResult(true);
         public Task<bool> TryAcquireConsumeAsync(long chatId, CancellationToken ct) => Task.FromResult(true);
         public Task<bool> TryAcquireCodeValidateAsync(long chatId, CancellationToken ct) => Task.FromResult(true);
+    }
+
+    private sealed class FakeTareaRepository : ITareaRepository
+    {
+        public TareaResult? TareaCompletada { get; set; }
+
+        public int CompletarCallCount { get; private set; }
+        public Guid LastCompletarId { get; private set; }
+        public Guid LastCompletarHogarId { get; private set; }
+        public Guid LastCompletarPor { get; private set; }
+
+        public Task<List<TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct) => Task.FromResult(new List<TareaResult>());
+        public Task<List<TareaResult>> GetByAsignadoAsync(Guid hogarId, Guid usuarioId, CancellationToken ct) => Task.FromResult(new List<TareaResult>());
+        public Task<TareaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct) => Task.FromResult<TareaResult?>(null);
+        public Task<TareaResult> CreateAsync(Guid hogarId, Guid creadoPor, string titulo, string? descripcion, DateTime? fechaLimite, Guid? asignadoA, CancellationToken ct) => throw new NotSupportedException();
+        public Task<TareaResult?> UpdateAsync(Guid id, Guid hogarId, string? titulo, string? descripcion, DateTime? fechaLimite, string? estado, CancellationToken ct) => Task.FromResult<TareaResult?>(null);
+        public Task<TareaResult?> CompletarAsync(Guid id, Guid hogarId, Guid completadoPor, CancellationToken ct)
+        {
+            CompletarCallCount++;
+            LastCompletarId = id;
+            LastCompletarHogarId = hogarId;
+            LastCompletarPor = completadoPor;
+            return Task.FromResult(TareaCompletada);
+        }
+        public Task<TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct) => Task.FromResult<TareaResult?>(null);
+        public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct) => Task.FromResult(false);
+        public Task<List<DistribucionDiaResult>> GetDistribucionSemanalAsync(Guid hogarId, int utcOffsetMinutes, CancellationToken ct) => Task.FromResult(new List<DistribucionDiaResult>());
     }
 }

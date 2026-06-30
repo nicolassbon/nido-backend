@@ -1,3 +1,4 @@
+using Nido.Application.Tareas;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Conversation;
@@ -168,7 +169,8 @@ public sealed class TelegramPairingHandlersTests
             new FakeTelegramHogarAccess(),
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
-            new FakeMenuProvider());
+            new FakeMenuProvider(),
+            new CompletarTareaHandler(new NotUsedTareaRepository()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/start token-123", new TelegramWebhookChat(99, "private"))),
@@ -223,7 +225,8 @@ public sealed class TelegramPairingHandlersTests
             new FakeTelegramHogarAccess(),
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
-            new FakeMenuProvider());
+            new FakeMenuProvider(),
+            new CompletarTareaHandler(new NotUsedTareaRepository()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/pair 123456", new TelegramWebhookChat(77, "private"))),
@@ -249,7 +252,8 @@ public sealed class TelegramPairingHandlersTests
             new FakeTelegramHogarAccess(),
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
-            new FakeMenuProvider());
+            new FakeMenuProvider(),
+            new CompletarTareaHandler(new NotUsedTareaRepository()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, text, new TelegramWebhookChat(77, "private"))),
@@ -270,7 +274,8 @@ public sealed class TelegramPairingHandlersTests
             new FakeTelegramHogarAccess(),
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
-            new FakeMenuProvider());
+            new FakeMenuProvider(),
+            new CompletarTareaHandler(new NotUsedTareaRepository()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/unlink", new TelegramWebhookChat(88, "private"))),
@@ -438,6 +443,9 @@ public sealed class TelegramPairingHandlersTests
 
         public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
             => Task.FromResult(false);
+
+        public Task<bool> IsUserAssignedToPendingTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(false);
     }
 
     private sealed class FakeHasher : ITelegramPairingTokenHasher
@@ -496,6 +504,9 @@ public sealed class TelegramPairingHandlersTests
 
         public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
             => Task.FromResult(false);
+
+        public Task<bool> IsUserAssignedToPendingTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+            => Task.FromResult(false);
     }
 
     private sealed class FakeMenuRegistry : ITelegramMenuRegistry
@@ -514,5 +525,18 @@ public sealed class TelegramPairingHandlersTests
 
         public Task<TelegramMenuSelectionResult> SelectAsync(string menuId, string optionKey, TelegramChatLinkSnapshot link, CancellationToken ct)
             => Task.FromResult(new TelegramMenuSelectionResult(false, string.Empty, null, false));
+    }
+
+    private sealed class NotUsedTareaRepository : Nido.Application.Tareas.ITareaRepository
+    {
+        public Task<List<Nido.Application.Tareas.TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<List<Nido.Application.Tareas.TareaResult>> GetByAsignadoAsync(Guid hogarId, Guid usuarioId, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<Nido.Application.Tareas.TareaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<Nido.Application.Tareas.TareaResult> CreateAsync(Guid hogarId, Guid creadoPor, string titulo, string? descripcion, DateTime? fechaLimite, Guid? asignadoA, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<Nido.Application.Tareas.TareaResult?> UpdateAsync(Guid id, Guid hogarId, string? titulo, string? descripcion, DateTime? fechaLimite, string? estado, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<Nido.Application.Tareas.TareaResult?> CompletarAsync(Guid id, Guid hogarId, Guid completadoPor, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<Nido.Application.Tareas.TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct) => throw new InvalidOperationException();
+        public Task<List<Nido.Application.Tareas.DistribucionDiaResult>> GetDistribucionSemanalAsync(Guid hogarId, int utcOffsetMinutes, CancellationToken ct) => throw new InvalidOperationException();
     }
 }

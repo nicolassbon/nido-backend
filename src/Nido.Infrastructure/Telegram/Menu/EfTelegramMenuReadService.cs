@@ -173,7 +173,8 @@ public sealed class EfTelegramMenuReadService(NidoDbContext db) : ITelegramMenuR
             .Select(task => new TelegramPendingTaskItem(
                 task.Titulo,
                 task.Estado,
-                task.FechaLimite.HasValue ? DateOnly.FromDateTime(task.FechaLimite.Value) : (DateOnly?)null))
+                task.FechaLimite.HasValue ? DateOnly.FromDateTime(task.FechaLimite.Value) : (DateOnly?)null,
+                task.Id))
             .ToList();
 
         return new TelegramPendingTasksReadResult(items, hasMore, Math.Max(0, rows.Count - limit));

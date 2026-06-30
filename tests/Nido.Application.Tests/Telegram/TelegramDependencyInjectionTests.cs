@@ -55,6 +55,7 @@ public sealed class TelegramDependencyInjectionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => hogarAccess.GetActiveLinkAsync(1, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => hogarAccess.IsUserCurrentMemberAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => hogarAccess.IsUserAssignedToTaskAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => hogarAccess.IsUserAssignedToPendingTaskAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.CreatePairingTokenAsync(Guid.NewGuid(), Guid.NewGuid(), "hash", DateTime.UtcNow, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.CreatePairingArtifactsAsync(Guid.NewGuid(), Guid.NewGuid(), "token-hash", DateTime.UtcNow, "code-hash", DateTime.UtcNow, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.CompletePairingAsync("hash", 1, CancellationToken.None));
