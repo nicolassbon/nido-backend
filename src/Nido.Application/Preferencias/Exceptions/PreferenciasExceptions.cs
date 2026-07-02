@@ -13,6 +13,11 @@ public sealed class MissingPreferenceFieldException : NidoException
     };
 }
 
+public sealed class InvalidThemeModeException : NidoException
+{
+    public InvalidThemeModeException() : base("INVALID_THEME_MODE", "El tema preferido debe ser light, dark o system.") { }
+}
+
 public sealed class InvalidPreferenceRangeException : NidoException
 {
     public InvalidPreferenceRangeException() : base("INVALID_PREFERENCE_RANGE", "Los días de alerta deben estar entre 1 y 365.") { }

@@ -16,7 +16,8 @@ public sealed record TelegramMenuSelectionResult(
     bool Handled,
     string Text,
     string? NextMenuId,
-    bool ShouldClearState);
+    bool ShouldClearState,
+    string? PayloadJson = null);
 
 public interface ITelegramMenuRegistry
 {

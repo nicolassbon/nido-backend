@@ -411,6 +411,62 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
     }
 
     [Fact]
+    public async Task StartEndpoint_WhenMembershipWasRemoved_ReturnsForbidden()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+            services.PostConfigure<TelegramOptions>(options => options.BotUsername = "nido_bot");
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await RemoveMembershipAsync(factory, usuarioId, hogarId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.PostAsync(StartEndpoint, content: null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("TELEGRAM_HOGAR_ACCESS_DENIED", payload);
+    }
+
+    [Fact]
+    public async Task GetStatus_WhenMembershipWasRemoved_ReturnsNotLinked_AndUnpairsStaleLink()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await SeedActiveLinkForUserAsync(factory, usuarioId, hogarId, 9001);
+        await RemoveMembershipAsync(factory, usuarioId, hogarId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.GetAsync("/api/telegram/pairing/status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"isLinked\":false", payload);
+        Assert.Contains("\"chatId\":null", payload);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == 9001);
+        Assert.NotNull(link.UnpairedAt);
+    }
+
+    [Fact]
     public async Task Unlink_WhenActiveLinkExists_DeactivatesIt()
     {
         var usuarioId = Guid.NewGuid();
@@ -466,6 +522,37 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
         var response = await client.PostAsync("/api/telegram/pairing/unlink", content: null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Unlink_WhenMembershipWasRemoved_ReturnsForbidden()
+    {
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var chatId = 4242L;
+        var currentUser = new FakeCurrentUserContext(usuarioId, hogarId);
+
+        using var factory = _baseFactory.WithStorageOverride(services =>
+        {
+            services.RemoveAll<ICurrentUserContext>();
+            services.AddScoped<ICurrentUserContext>(_ => currentUser);
+        });
+
+        await SeedUserAndHouseholdAsync(factory, usuarioId, hogarId);
+        await SeedActiveLinkForUserAsync(factory, usuarioId, hogarId, chatId);
+        await RemoveMembershipAsync(factory, usuarioId, hogarId);
+
+        using var client = CreateAuthenticatedClient(factory.CreateClient());
+        var response = await client.PostAsync("/api/telegram/pairing/unlink", content: null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("TELEGRAM_HOGAR_ACCESS_DENIED", payload);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var link = await db.TelegramChatLinks.SingleAsync(x => x.ChatId == chatId);
+        Assert.Null(link.UnpairedAt);
     }
 
     [Fact]
@@ -700,6 +787,17 @@ public sealed class TelegramPairingEndpointTests : IClassFixture<NidoTestWebAppF
             PairedAt = DateTime.UtcNow,
             UnpairedAt = unpairedAt
         });
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task RemoveMembershipAsync(NidoTestWebAppFactory factory, Guid usuarioId, Guid hogarId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var memberships = await db.MiembrosHogars
+            .Where(x => x.UsuarioId == usuarioId && x.HogarId == hogarId)
+            .ToListAsync();
+        db.MiembrosHogars.RemoveRange(memberships);
         await db.SaveChangesAsync();
     }
 

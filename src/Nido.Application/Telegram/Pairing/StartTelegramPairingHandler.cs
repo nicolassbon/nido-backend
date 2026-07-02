@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
+using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Exceptions;
 
 namespace Nido.Application.Telegram.Pairing;
 
 public sealed class StartTelegramPairingHandler(
     ITelegramPairingRepository repository,
+    ITelegramHogarAccess hogarAccess,
     ITelegramPairingTokenHasher hasher,
     ITelegramPairingRateLimiter rateLimiter,
     TelegramOptions options)
@@ -22,6 +24,11 @@ public sealed class StartTelegramPairingHandler(
         if (!await rateLimiter.TryAcquireGenerateAsync(command.UsuarioId, ct))
         {
             throw new TelegramPairingRateLimitExceededException();
+        }
+
+        if (!await hogarAccess.IsUserCurrentMemberAsync(command.UsuarioId, command.HogarId, ct))
+        {
+            throw new TelegramHogarAccessDeniedException();
         }
 
         var rawToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));

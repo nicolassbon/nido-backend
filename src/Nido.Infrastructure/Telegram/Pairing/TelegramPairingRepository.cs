@@ -314,7 +314,9 @@ public sealed class TelegramPairingRepository(
         }
 
         var hasActiveMembership = await dbContext.MiembrosHogars
-            .AnyAsync(member => member.UsuarioId == usuarioId && member.HogarId == hogarId, ct);
+            .AnyAsync(member => member.UsuarioId == usuarioId
+                && member.HogarId == hogarId
+                && member.NombreRepresentado == null, ct);
 
         if (hasActiveMembership)
         {

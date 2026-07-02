@@ -2,6 +2,7 @@ using Nido.Application.Auth;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
+using Nido.Application.Common.ProfileImages;
 
 namespace Nido.Application.Auth.Google.Login;
 
@@ -41,7 +42,7 @@ public sealed class GoogleLoginHandler
 
         var (usuarioId, hogarId, isNewUser) = await ResolveLoginDataAsync(user, payload, normalizedEmail, cancellationToken);
 
-        var nombre = user?.Nombre ?? normalizedEmail.Split('@')[0];
+        var nombre = user?.Nombre ?? ResolveDisplayName(payload, normalizedEmail);
 
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,
@@ -92,10 +93,11 @@ public sealed class GoogleLoginHandler
             var newUserData = new CreateOAuthUserData(
                 UsuarioId: Guid.NewGuid(),
                 HogarId: Guid.NewGuid(),
-                Nombre: normalizedEmail.Split('@')[0],
+                Nombre: ResolveDisplayName(payload, normalizedEmail),
                 Email: normalizedEmail,
                 OauthProvider: "google",
-                OauthId: payload.GoogleId);
+                OauthId: payload.GoogleId,
+                FotoStorageKey: ResolvePictureUrl(payload));
 
             var (newUsuarioId, newHogarId) = await _repository.CreateUserWithGoogleAsync(newUserData, cancellationToken);
             return (newUsuarioId, newHogarId, IsNewUser: true);
@@ -107,4 +109,16 @@ public sealed class GoogleLoginHandler
         return (user.Id, hogarId, IsNewUser: false);
     }
 
+    private static string ResolveDisplayName(GooglePayload payload, string normalizedEmail)
+    {
+        if (!string.IsNullOrWhiteSpace(payload.Name))
+        {
+            return payload.Name.Trim();
+        }
+
+        return normalizedEmail.Split('@')[0];
+    }
+
+    private static string? ResolvePictureUrl(GooglePayload payload)
+        => ProfileImageReferenceRules.NormalizeExternalUrlOrNull(payload.Picture);
 }

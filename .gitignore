@@ -8,5 +8,24 @@ openspec/
 .claude/
 context.md
 
+# CodeGraph local index
+.codegraph/
+.codegraph-*/
+
 # Ignore uploaded files in development
 src/Nido.Api/wwwroot/uploads/*
+
+# =====================================================================
+# 🐍 CONFIGURACIÓN PARA EL MICROSERVICIO DE IA (PYTHON)
+# =====================================================================
+# Ignoramos el entorno virtual (no importa si se llama venv, .venv o env)
+**/venv/
+**/.venv/
+**/env/
+
+# Ignoramos la caché de ejecución de Python
+**/__pycache__/
+**/*.pyc
+
+# Ignoramos el .env local de la carpeta de la IA por si las dudas
+**/nido-ia-backend/.envpip freeze > requirements.txt

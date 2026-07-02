@@ -44,7 +44,9 @@ public partial class NidoDbContext : DbContext
 
                 var redirectUrl = notif.ReferenciaTipo switch
                 {
+                    "tarea" when notif.ReferenciaId.HasValue => $"/tareas?taskId={notif.ReferenciaId.Value}",
                     "tarea" => "/tareas",
+                    "alacena" when notif.ReferenciaId.HasValue => $"/alacena/{notif.ReferenciaId.Value}",
                     "alacena" => "/alacena",
                     _ => "/"
                 };
@@ -53,6 +55,7 @@ public partial class NidoDbContext : DbContext
                 var targetUsuarioId = notif.UsuarioId;
                 var targetMensaje = notif.Mensaje ?? string.Empty;
                 var targetTipo = notif.Tipo ?? string.Empty;
+                var targetRedirectUrl = redirectUrl;
 
                 // Send push notification in background using an isolated DI scope
                 _ = Task.Run(async () =>
@@ -72,7 +75,7 @@ public partial class NidoDbContext : DbContext
                 }, CancellationToken.None);
 
                 // Send Telegram notification in background if it matches target types
-                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo")
+                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "tarea_vencida")
                 {
                     _ = Task.Run(async () =>
                     {
@@ -94,8 +97,24 @@ public partial class NidoDbContext : DbContext
 
                                 if (activeLinks.Count > 0)
                                 {
+                                    var config = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+                                    var frontendBaseUrl = config["Frontend:BaseUrl"] ?? "http://localhost:4200";
+                                    var fullUrl = $"{frontendBaseUrl.TrimEnd('/')}{targetRedirectUrl}";
+                                    string EscapeHtml(string text) => text
+                                        .Replace("&", "&amp;")
+                                        .Replace("<", "&lt;")
+                                        .Replace(">", "&gt;");
+
+                                    var escapedMessage = EscapeHtml(targetMensaje);
+                                    var escapedUrl = EscapeHtml(fullUrl);
+                                    var formattedText = $"{escapedMessage}\n\n👉 <a href=\"{escapedUrl}\">Ver en Nido</a>";
+
                                     var batcher = scope.ServiceProvider.GetRequiredService<Nido.Application.Telegram.Messaging.ITelegramNotificationBatcher>();
-                                    var payloadJson = System.Text.Json.JsonSerializer.Serialize(new { text = targetMensaje });
+                                    var payloadJson = System.Text.Json.JsonSerializer.Serialize(new
+                                    {
+                                        text = formattedText,
+                                        parse_mode = "HTML"
+                                    });
 
                                     foreach (var link in activeLinks)
                                     {
@@ -1330,6 +1349,10 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.AlertaVencimientoDias)
                 .HasDefaultValue(7)
                 .HasColumnName("alerta_vencimiento_dias");
+            entity.Property(e => e.TemaPreferido)
+                .HasMaxLength(20)
+                .HasDefaultValue("system")
+                .HasColumnName("tema_preferido");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

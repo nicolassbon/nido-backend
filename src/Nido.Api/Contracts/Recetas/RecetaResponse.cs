@@ -53,3 +53,5 @@ public sealed record RecetaPasoResponse(
 public sealed record RecetaElectrodomesticoResponse(
     Guid Id,
     string? TipoRequerido);
+
+public sealed record RecomendarIaRequest(string Mensaje);

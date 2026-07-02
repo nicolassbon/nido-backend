@@ -114,23 +114,37 @@ public sealed class GoogleLoginHandlerTests
         Assert.Equal("Invalid Google token.", ex.Message);
     }
 
+    [Fact]
+    public async Task Handle_NewUser_WithHttpPicture_DoesNotPersistExternalImage()
+    {
+        var googleValidator = new FakeGoogleValidator("new@gmail.com", "google-id-1", "http://lh3.googleusercontent.com/a/insecure");
+        var repo = new FakeAuthRepository();
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+
+        await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
+
+        Assert.Null(repo.CreatedFotoStorageKey);
+    }
+
     private sealed class FakeGoogleValidator : IGoogleTokenValidator
     {
         private readonly string? _email;
         private readonly string? _googleId;
+        private readonly string? _picture;
         private readonly bool _throws;
 
-        public FakeGoogleValidator(string? email = null, string? googleId = null, bool throws = false)
+        public FakeGoogleValidator(string? email = null, string? googleId = null, string? picture = null, bool throws = false)
         {
             _email = email;
             _googleId = googleId;
+            _picture = picture;
             _throws = throws;
         }
 
         public Task<GooglePayload> ValidateAsync(string idToken, CancellationToken cancellationToken)
         {
             if (_throws) throw new Exception("Invalid token");
-            return Task.FromResult(new GooglePayload(_email!, _googleId!));
+            return Task.FromResult(new GooglePayload(_email!, _googleId!, Picture: _picture));
         }
     }
 
@@ -141,6 +155,7 @@ public sealed class GoogleLoginHandlerTests
         public string? StoredRefreshTokenHash { get; private set; }
         public Guid? HogarId { get; set; }
         public string? CreatedEmail { get; private set; }
+        public string? CreatedFotoStorageKey { get; private set; }
         public User? LastUpdatedUser { get; private set; }
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) => Task.FromResult(User is not null);
@@ -148,6 +163,7 @@ public sealed class GoogleLoginHandlerTests
         public Task<(Guid UsuarioId, Guid HogarId)> CreateUserWithGoogleAsync(CreateOAuthUserData data, CancellationToken cancellationToken)
         {
             CreatedEmail = data.Email;
+            CreatedFotoStorageKey = data.FotoStorageKey;
             var id = Guid.NewGuid();
             var hid = Guid.NewGuid();
             return Task.FromResult((id, hid));

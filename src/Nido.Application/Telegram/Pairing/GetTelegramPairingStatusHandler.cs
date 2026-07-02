@@ -4,7 +4,7 @@ public sealed class GetTelegramPairingStatusHandler(ITelegramPairingRepository r
 {
     public async Task<TelegramPairingStatusResult> HandleAsync(GetTelegramPairingStatusQuery query, CancellationToken ct)
     {
-        var link = await repository.GetActiveLinkAsync(query.UsuarioId, query.HogarId, ct);
+        var link = await repository.GetActiveLinkForCurrentMemberAsync(query.UsuarioId, query.HogarId, ct);
 
         return link is null
             ? new TelegramPairingStatusResult(false, null, null)

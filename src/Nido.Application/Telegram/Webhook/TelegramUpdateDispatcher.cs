@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Nido.Application.Tareas;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Exceptions;
@@ -14,7 +15,8 @@ public sealed partial class TelegramUpdateDispatcher(
     ITelegramHogarAccess hogarAccess,
     ITelegramConversationStateStore conversationStateStore,
     ITelegramMenuRegistry menuRegistry,
-    ITelegramMenuProvider menuProvider)
+    ITelegramMenuProvider menuProvider,
+    CompletarTareaHandler completarTareaHandler)
 {
     private static readonly Regex PairingCodeRegex = GetPairingCodeRegex();
     private static readonly Regex MenuSelectionRegex = GetMenuSelectionRegex();
@@ -30,7 +32,8 @@ public sealed partial class TelegramUpdateDispatcher(
             new MissingTelegramHogarAccess(),
             new MissingTelegramConversationStateStore(),
             new MissingTelegramMenuRegistry(),
-            new MissingTelegramMenuProvider())
+            new MissingTelegramMenuProvider(),
+            new CompletarTareaHandler(new MissingTareaRepository()))
     {
     }
 
@@ -56,7 +59,7 @@ public sealed partial class TelegramUpdateDispatcher(
         {
             var pairing = await completePairingHandler.HandleAsync(new CompleteTelegramPairingCommand(chatId.Value, parts[1]), ct);
             await conversationStateStore.ClearAsync(chatId.Value, ct);
-            return new TelegramDispatchResult(chatId.Value, pairing.HogarId, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.", "interactive.pairing.complete");
+            return new TelegramDispatchResult(chatId.Value, pairing.HogarId, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido. Usá /menu para ver las opciones disponibles.", "interactive.pairing.complete");
         }
 
         if (string.Equals(command, "/pair", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
@@ -69,7 +72,7 @@ public sealed partial class TelegramUpdateDispatcher(
 
             var pairing = await completePairingByCodeHandler.HandleAsync(new CompleteTelegramPairingByCodeCommand(chatId.Value, code), ct);
             await conversationStateStore.ClearAsync(chatId.Value, ct);
-            return new TelegramDispatchResult(chatId.Value, pairing.HogarId, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido.", "interactive.pairing.complete");
+            return new TelegramDispatchResult(chatId.Value, pairing.HogarId, "¡Listo! Este chat ya quedó vinculado a tu hogar en Nido. Usá /menu para ver las opciones disponibles.", "interactive.pairing.complete");
         }
 
         if (string.Equals(command, "/unlink", StringComparison.OrdinalIgnoreCase))
@@ -88,14 +91,13 @@ public sealed partial class TelegramUpdateDispatcher(
             return await HandleMenuSelectionAsync(chatId.Value, text, ct);
         }
 
-        return null;
+        return await HandleTaskCompletionTextIfActiveAsync(chatId.Value, text, ct);
     }
 
     private static bool IsMenuCommand(string command)
         => string.Equals(command, "/menu", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "/inicio", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(command, "/help", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(command, "/start", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(command, "/help", StringComparison.OrdinalIgnoreCase);
 
     private async Task<TelegramDispatchResult> HandleMenuCommandAsync(long chatId, CancellationToken ct)
     {
@@ -125,6 +127,14 @@ public sealed partial class TelegramUpdateDispatcher(
             var link = await EnsureMenuAccessAsync(chatId, ct);
             var state = await conversationStateStore.GetAsync(chatId, ct);
 
+            var taskPayload = state is null
+                ? null
+                : TelegramTaskCompletionPayload.TryParse(state.PayloadJson);
+            if (taskPayload is not null)
+            {
+                return await HandleTaskCompletionSelectionAsync(chatId, link, taskPayload, text, ct);
+            }
+
             if (state is null)
             {
                 return await RenderRecoveryToMainMenuAsync(chatId, link, TelegramMenuCopy.ExpiredSelectionPrefix, ct);
@@ -150,7 +160,8 @@ public sealed partial class TelegramUpdateDispatcher(
             }
             else
             {
-                await conversationStateStore.SetAsync(new TelegramConversationState(chatId, selection.NextMenuId ?? menu.Id, DateTime.UtcNow, state.PayloadJson), ct);
+                var newPayload = selection.PayloadJson ?? state.PayloadJson;
+                await conversationStateStore.SetAsync(new TelegramConversationState(chatId, selection.NextMenuId ?? menu.Id, DateTime.UtcNow, newPayload), ct);
             }
 
             return new TelegramDispatchResult(chatId, link.HogarId, selection.Text, $"interactive.{menu.Id}.{text}");
@@ -164,6 +175,116 @@ public sealed partial class TelegramUpdateDispatcher(
         {
             return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.AccessRevokedText, "interactive.menu.recovery");
         }
+    }
+
+    private async Task<TelegramDispatchResult> HandleTaskCompletionSelectionAsync(
+        long chatId,
+        TelegramChatLinkSnapshot link,
+        TelegramTaskCompletionPayload payload,
+        string text,
+        CancellationToken ct)
+    {
+        if (text == "0")
+        {
+            return await RenderMainMenuAsync(chatId, link, ct);
+        }
+
+        if (!int.TryParse(text, out var index)
+            || index < 1
+            || !payload.TryFindChoice(index, out var choice)
+            || choice is null)
+        {
+            return await RenderTaskCompletionRecoveryAsync(chatId, link, TelegramMenuCopy.TaskCompletionInvalidChoiceText, ct);
+        }
+
+        var isAuthorized = await hogarAccess.IsUserAssignedToPendingTaskAsync(
+            link.UsuarioId,
+            choice.TaskId,
+            link.HogarId,
+            ct);
+
+        if (!isAuthorized)
+        {
+            return await RenderTaskCompletionRecoveryAsync(chatId, link, TelegramMenuCopy.TaskCompletionAlreadyDoneText, ct);
+        }
+
+        var result = await completarTareaHandler.Handle(
+            new CompletarTareaCommand(choice.TaskId, link.HogarId, link.UsuarioId),
+            ct);
+
+        if (result is null)
+        {
+            return await RenderTaskCompletionRecoveryAsync(chatId, link, TelegramMenuCopy.TaskCompletionAlreadyDoneText, ct);
+        }
+
+        await conversationStateStore.SetAsync(
+            new TelegramConversationState(chatId, TelegramMenuCopy.MainMenuId, DateTime.UtcNow, null),
+            ct);
+
+        return new TelegramDispatchResult(
+            chatId,
+            link.HogarId,
+            TelegramMenuCopy.TaskCompletionSuccessText,
+            TelegramMenuCopy.TaskCompletionMessageType);
+    }
+
+    private async Task<TelegramDispatchResult?> HandleTaskCompletionTextIfActiveAsync(long chatId, string text, CancellationToken ct)
+    {
+        try
+        {
+            var state = await conversationStateStore.GetAsync(chatId, ct);
+            var taskPayload = state is null
+                ? null
+                : TelegramTaskCompletionPayload.TryParse(state.PayloadJson);
+
+            if (taskPayload is null)
+            {
+                return null;
+            }
+
+            var link = await EnsureMenuAccessAsync(chatId, ct);
+            return await RenderTaskCompletionRecoveryAsync(chatId, link, TelegramMenuCopy.TaskCompletionInvalidChoiceText, ct);
+        }
+        catch (TelegramChatNotLinkedException)
+        {
+            await ClearStateBestEffortAsync(chatId, ct);
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.ChatNotLinkedText, "interactive.menu.recovery");
+        }
+        catch (TelegramHogarAccessDeniedException)
+        {
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.AccessRevokedText, "interactive.menu.recovery");
+        }
+    }
+
+    private async Task<TelegramDispatchResult> RenderMainMenuAsync(long chatId, TelegramChatLinkSnapshot link, CancellationToken ct)
+    {
+        var menu = menuRegistry.GetDefaultMenu();
+        var render = await menuProvider.RenderMenuAsync(menu, link, ct);
+        await conversationStateStore.SetAsync(new TelegramConversationState(chatId, menu.Id, DateTime.UtcNow, null), ct);
+        return new TelegramDispatchResult(chatId, link.HogarId, render.Text, "interactive.menu");
+    }
+
+    private async Task<TelegramDispatchResult> RenderTaskCompletionRecoveryAsync(
+        long chatId,
+        TelegramChatLinkSnapshot link,
+        string prefix,
+        CancellationToken ct)
+    {
+        var refreshed = await menuProvider.SelectAsync(TelegramMenuCopy.MainMenuId, "4", link, ct);
+        var recoveryText = refreshed.Handled
+            ? TelegramMenuCopy.BuildRecoveryText(prefix, refreshed.Text)
+            : TelegramMenuCopy.BuildRecoveryText(prefix, TelegramMenuCopy.TaskCompletionEmptyListText);
+
+        var newPayload = refreshed.PayloadJson;
+        await conversationStateStore.SetAsync(
+            new TelegramConversationState(chatId, TelegramMenuCopy.MainMenuId, DateTime.UtcNow, newPayload),
+            ct);
+
+        return new TelegramDispatchResult(
+            chatId,
+            link.HogarId,
+            recoveryText,
+            TelegramMenuCopy.TaskCompletionRecoveryMessageType);
     }
 
     private async Task<TelegramChatLinkSnapshot> EnsureMenuAccessAsync(long chatId, CancellationToken ct)
@@ -213,4 +334,34 @@ public sealed record TelegramDispatchResult(long ChatId, Guid HogarId, string Co
         : this(chatId, Guid.Empty, confirmationText, "interactive.message")
     {
     }
+}
+
+internal sealed class MissingTareaRepository : Nido.Application.Tareas.ITareaRepository
+{
+    public Task<List<Nido.Application.Tareas.TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<List<Nido.Application.Tareas.TareaResult>> GetByAsignadoAsync(Guid hogarId, Guid usuarioId, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<Nido.Application.Tareas.TareaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<Nido.Application.Tareas.TareaResult> CreateAsync(Guid hogarId, Guid creadoPor, string titulo, string? descripcion, DateTime? fechaLimite, Guid? asignadoA, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<Nido.Application.Tareas.TareaResult?> UpdateAsync(Guid id, Guid hogarId, string? titulo, string? descripcion, DateTime? fechaLimite, string? estado, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<Nido.Application.Tareas.TareaResult?> CompletarAsync(Guid id, Guid hogarId, Guid completadoPor, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<Nido.Application.Tareas.TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
+
+    public Task<List<Nido.Application.Tareas.DistribucionDiaResult>> GetDistribucionSemanalAsync(Guid hogarId, int utcOffsetMinutes, CancellationToken ct)
+        => throw new InvalidOperationException("ITareaRepository requires infrastructure registration.");
 }

@@ -94,4 +94,26 @@ public sealed class ConfigurableProfileImagePublicUrlResolverTests
 
         Assert.DoesNotContain("?v=", result);
     }
+
+    [Fact]
+    public void Resolve_WithHttpsExternalUrl_ReturnsTrimmedExternalUrl()
+    {
+        var options = Options.Create(new ProfileImageOptions { PublicBaseUrl = "https://nido-dev.nyc3.digitaloceanspaces.com" });
+        var resolver = new ConfigurableProfileImagePublicUrlResolver(options);
+
+        var result = resolver.Resolve("  https://cdn.example.com/avatar.webp  ");
+
+        Assert.Equal("https://cdn.example.com/avatar.webp", result);
+    }
+
+    [Fact]
+    public void Resolve_WithHttpExternalUrl_ReturnsNull()
+    {
+        var options = Options.Create(new ProfileImageOptions { PublicBaseUrl = "https://nido-dev.nyc3.digitaloceanspaces.com" });
+        var resolver = new ConfigurableProfileImagePublicUrlResolver(options);
+
+        var result = resolver.Resolve("http://cdn.example.com/avatar.webp");
+
+        Assert.Null(result);
+    }
 }

@@ -1,5 +1,6 @@
 ﻿using Nido.Application.Auth.Google.Login;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,10 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
     public async Task GoogleLogin_NewUser_ReturnsOkWithAccessTokenAndIsNewUserTrue()
     {
         var email = $"google-new-{Guid.NewGuid()}@test.com";
-        var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-123"));
+        const string googleName = "Ada Lovelace";
+        const string googlePicture = "https://lh3.googleusercontent.com/a/ada";
+        var client = CreateClientWithFakeValidator(
+            new GooglePayload(email, "google-123", googleName, googlePicture));
 
         var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "valid-token" });
 
@@ -38,6 +42,13 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         Assert.True(body!.IsNewUser);
         Assert.False(string.IsNullOrEmpty(body.AccessToken));
         Assert.True(HasRefreshTokenCookie(response));
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.AccessToken);
+        var profileResponse = await client.GetFromJsonAsync<ProfileBody>("/api/perfiles");
+
+        Assert.NotNull(profileResponse);
+        Assert.Equal(googleName, profileResponse!.Nombre);
+        Assert.Equal(googlePicture, profileResponse.FotoUrl);
     }
 
     [Fact]
@@ -48,10 +59,16 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         using (var scope = _factory.Services.CreateScope())
         {
             var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
-            var (userId, _) = await repo.CreateUserWithGoogleAsync(new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-456"), CancellationToken.None);
+            await repo.CreateUserWithGoogleAsync(
+                new CreateOAuthUserData(Guid.NewGuid(), Guid.NewGuid(), "Google User", email, "google", "google-456"),
+                CancellationToken.None);
         }
 
-        var client = CreateClientWithFakeValidator(new GooglePayload(email, "google-456"));
+        var client = CreateClientWithFakeValidator(
+            new GooglePayload(
+                email,
+                "google-456",
+                Picture: "https://lh3.googleusercontent.com/a/existing-user"));
         var response = await client.PostAsJsonAsync("/api/auth/google-login", new { idToken = "valid-token" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -59,6 +76,12 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         var body = await response.Content.ReadFromJsonAsync<GoogleLoginBody>();
         Assert.NotNull(body);
         Assert.False(body!.IsNewUser);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.AccessToken);
+        var profileResponse = await client.GetFromJsonAsync<ProfileBody>("/api/perfiles");
+
+        Assert.NotNull(profileResponse);
+        Assert.Null(profileResponse!.FotoUrl);
     }
 
     [Fact]
@@ -156,5 +179,6 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
     }
 
     private sealed record GoogleLoginBody(string AccessToken, bool IsNewUser);
+    private sealed record ProfileBody(string Nombre, string? FotoUrl);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

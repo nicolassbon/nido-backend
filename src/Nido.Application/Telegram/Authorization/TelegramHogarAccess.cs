@@ -11,6 +11,8 @@ public interface ITelegramHogarAccess
     Task<bool> IsUserCurrentMemberAsync(Guid usuarioId, Guid hogarId, CancellationToken ct);
 
     Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct);
+    
+    Task<bool> IsUserAssignedToPendingTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct);
 }
 
 public sealed record TelegramChatLinkSnapshot(

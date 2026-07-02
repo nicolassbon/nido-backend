@@ -1,3 +1,3 @@
 namespace Nido.Application.Preferencias;
 
-public sealed record UserPreferencesResult(int DiasAlerta);
+public sealed record UserPreferencesResult(int DiasAlerta, string TemaPreferido);

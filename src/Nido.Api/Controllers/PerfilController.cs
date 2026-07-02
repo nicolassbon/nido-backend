@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.UsuariosPerfil;
 using Nido.Application.Common.Security;
@@ -12,6 +13,7 @@ namespace Nido.Api.Controllers;
 
 [ApiController]
 [Route("api/perfiles")]
+[Authorize]
 public sealed class PerfilController(
     ActualizarPerfilHandler handler,
     IUsuarioRepository repository,
@@ -94,7 +96,8 @@ public sealed class PerfilController(
             request.Nombre,
             request.Sexo,
             request.Telefono,
-            foto
+            foto,
+            request.RemoveFoto
         );
 
         await handler.HandleAsync(command, cancellationToken);

@@ -27,7 +27,7 @@ public sealed class AuthRepository : IAuthRepository
         CancellationToken cancellationToken)
         => CreateUserInternalAsync(
             data.UsuarioId, data.HogarId, data.Nombre, data.Email,
-            string.Empty, "U", null,
+            string.Empty, "U", data.FotoStorageKey,
             data.OauthProvider, data.OauthId,
             aceptaTerminos: false,
             cancellationToken);
@@ -129,7 +129,7 @@ public sealed class AuthRepository : IAuthRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
         if (usuario is null) return null;
-        return new User(usuario.Id, usuario.Nombre, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+        return MapUser(usuario);
     }
 
     public async Task<User?> FindByGoogleIdAsync(string googleId, CancellationToken cancellationToken)
@@ -138,7 +138,7 @@ public sealed class AuthRepository : IAuthRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.OauthProvider == "google" && x.OauthId == googleId, cancellationToken);
         if (usuario is null) return null;
-        return new User(usuario.Id, usuario.Nombre, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+        return MapUser(usuario);
     }
 
     public async Task AddRefreshTokenAsync(Guid usuarioId, string tokenHash, DateTime expiresAt, CancellationToken cancellationToken)
@@ -229,6 +229,8 @@ public sealed class AuthRepository : IAuthRepository
         usuario.PasswordHash = user.PasswordHash;
         usuario.OauthProvider = user.OauthProvider;
         usuario.OauthId = user.OauthId;
+        usuario.FotoStorageKey = user.FotoStorageKey;
+        usuario.FotoUpdatedAt = user.FotoStorageKey is not null ? DateTime.UtcNow : null;
         usuario.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -247,6 +249,16 @@ public sealed class AuthRepository : IAuthRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (usuario is null) return null;
-        return new User(usuario.Id, usuario.Nombre, usuario.Email, usuario.PasswordHash, usuario.OauthProvider, usuario.OauthId);
+        return MapUser(usuario);
     }
+
+    private static User MapUser(Usuario usuario)
+        => new(
+            usuario.Id,
+            usuario.Nombre,
+            usuario.Email,
+            usuario.PasswordHash,
+            usuario.OauthProvider,
+            usuario.OauthId,
+            usuario.FotoStorageKey);
 }
