@@ -9,20 +9,20 @@ public static class TelegramMenuCopy
     public const string AccessRevokedText = "Tu acceso a ese hogar ya no está disponible. Desvinculé este chat por seguridad. Si corresponde, volvé a vincularlo desde la app.";
 
     public const string MainMenuText =
-        "Elegí una opción respondiendo con un número:\n"
+        "🏠 Nido — ¿Qué querés hacer?\n\n"
         + "1. Ver productos por vencer\n"
         + "2. Ver resumen de alacena\n"
         + "3. Ver lista de compras\n"
         + "4. Ver tareas pendientes\n"
-        + "5. Abrir Nido\n"
-        + "6. Configurar notificaciones";
+        + "5. Abrir Nido\n\n"
+        + "Respondé con el número de la opción.";
 
     public static string BuildRecoveryText(string prefix, string menuText)
         => $"{prefix}\n\n{menuText}";
 
-    public const string TasksCompletionPrompt =
-        "Respondé con el número de la tarea que querés marcar como completada. " +
-        "Tareas fuera de esta lista no se pueden completar desde acá.";
+    public const string TaskCompletionHeaderText = "✅ Tareas pendientes";
+    public const string TaskCompletionBackOptionText = "0. Volver al Menú";
+    public const string TasksCompletionPrompt = "Respondé con el número de la tarea completada.";
 
     public const string TaskCompletionSuccessText =
         "Listo, marqué la tarea como completada. Volvé al menú cuando quieras seguir.";

@@ -91,7 +91,7 @@ public sealed partial class TelegramUpdateDispatcher(
             return await HandleMenuSelectionAsync(chatId.Value, text, ct);
         }
 
-        return null;
+        return await HandleTaskCompletionTextIfActiveAsync(chatId.Value, text, ct);
     }
 
     private static bool IsMenuCommand(string command)
@@ -184,6 +184,11 @@ public sealed partial class TelegramUpdateDispatcher(
         string text,
         CancellationToken ct)
     {
+        if (text == "0")
+        {
+            return await RenderMainMenuAsync(chatId, link, ct);
+        }
+
         if (!int.TryParse(text, out var index)
             || index < 1
             || !payload.TryFindChoice(index, out var choice)
@@ -221,6 +226,42 @@ public sealed partial class TelegramUpdateDispatcher(
             link.HogarId,
             TelegramMenuCopy.TaskCompletionSuccessText,
             TelegramMenuCopy.TaskCompletionMessageType);
+    }
+
+    private async Task<TelegramDispatchResult?> HandleTaskCompletionTextIfActiveAsync(long chatId, string text, CancellationToken ct)
+    {
+        try
+        {
+            var state = await conversationStateStore.GetAsync(chatId, ct);
+            var taskPayload = state is null
+                ? null
+                : TelegramTaskCompletionPayload.TryParse(state.PayloadJson);
+
+            if (taskPayload is null)
+            {
+                return null;
+            }
+
+            var link = await EnsureMenuAccessAsync(chatId, ct);
+            return await RenderTaskCompletionRecoveryAsync(chatId, link, TelegramMenuCopy.TaskCompletionInvalidChoiceText, ct);
+        }
+        catch (TelegramChatNotLinkedException)
+        {
+            await ClearStateBestEffortAsync(chatId, ct);
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.ChatNotLinkedText, "interactive.menu.recovery");
+        }
+        catch (TelegramHogarAccessDeniedException)
+        {
+            return new TelegramDispatchResult(chatId, Guid.Empty, TelegramMenuCopy.AccessRevokedText, "interactive.menu.recovery");
+        }
+    }
+
+    private async Task<TelegramDispatchResult> RenderMainMenuAsync(long chatId, TelegramChatLinkSnapshot link, CancellationToken ct)
+    {
+        var menu = menuRegistry.GetDefaultMenu();
+        var render = await menuProvider.RenderMenuAsync(menu, link, ct);
+        await conversationStateStore.SetAsync(new TelegramConversationState(chatId, menu.Id, DateTime.UtcNow, null), ct);
+        return new TelegramDispatchResult(chatId, link.HogarId, render.Text, "interactive.menu");
     }
 
     private async Task<TelegramDispatchResult> RenderTaskCompletionRecoveryAsync(

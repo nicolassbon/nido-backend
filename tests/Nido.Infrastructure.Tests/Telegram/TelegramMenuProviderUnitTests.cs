@@ -218,10 +218,13 @@ public sealed class TelegramMenuProviderUnitTests
         var result = await provider.SelectAsync("main-menu", "4", Link(), CancellationToken.None);
 
         Assert.True(result.Handled);
-        Assert.Contains("Tus tareas pendientes", result.Text, StringComparison.Ordinal);
+        Assert.Contains(TelegramMenuCopy.TaskCompletionHeaderText, result.Text, StringComparison.Ordinal);
+        Assert.Contains(TelegramMenuCopy.TaskCompletionBackOptionText, result.Text, StringComparison.Ordinal);
         Assert.Contains("Sacar la basura", result.Text, StringComparison.Ordinal);
         Assert.Contains("vence mañana", result.Text, StringComparison.Ordinal);
         Assert.Contains("Limpiar cocina", result.Text, StringComparison.Ordinal);
+        Assert.Contains($"\n\n{TelegramMenuCopy.TaskCompletionBackOptionText}\n", result.Text, StringComparison.Ordinal);
+        Assert.EndsWith(TelegramMenuCopy.TasksCompletionPrompt, result.Text, StringComparison.Ordinal);
         Assert.Equal(1, readService.TasksCalls);
     }
 
@@ -266,6 +269,7 @@ public sealed class TelegramMenuProviderUnitTests
 
         var result = await provider.SelectAsync("main-menu", "4", Link(), CancellationToken.None);
 
+        Assert.Contains(TelegramMenuCopy.TaskCompletionBackOptionText, result.Text, StringComparison.Ordinal);
         Assert.Contains("1. Sacar la basura", result.Text, StringComparison.Ordinal);
         Assert.Contains("2. Limpiar cocina", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("•", result.Text, StringComparison.Ordinal);
@@ -328,18 +332,16 @@ public sealed class TelegramMenuProviderUnitTests
         Assert.Null(result.PayloadJson);
     }
 
-    [Theory]
-    [InlineData("5", "https://app.nido.test")]
-    [InlineData("6", "/configuracion")]
-    public async Task SelectAsync_ForUtilityOptions_DoesNotCallReadServiceAndReturnsExpectedCopy(string optionKey, string expectedText)
+    [Fact]
+    public async Task SelectAsync_Option5_DoesNotCallReadServiceAndReturnsExpectedCopy()
     {
         var readService = new FakeTelegramMenuReadService();
         var provider = BuildProvider(readService);
 
-        var result = await provider.SelectAsync("main-menu", optionKey, Link(), CancellationToken.None);
+        var result = await provider.SelectAsync("main-menu", "5", Link(), CancellationToken.None);
 
         Assert.True(result.Handled);
-        Assert.Contains(expectedText, result.Text, StringComparison.Ordinal);
+        Assert.Contains("https://app.nido.test", result.Text, StringComparison.Ordinal);
         Assert.Equal(0, readService.ExpiringStockCalls);
         Assert.Equal(0, readService.PantryCalls);
         Assert.Equal(0, readService.ShoppingCalls);
@@ -348,6 +350,7 @@ public sealed class TelegramMenuProviderUnitTests
 
     [Theory]
     [InlineData("0")]
+    [InlineData("6")]
     [InlineData("7")]
     [InlineData("abc")]
     [InlineData("")]

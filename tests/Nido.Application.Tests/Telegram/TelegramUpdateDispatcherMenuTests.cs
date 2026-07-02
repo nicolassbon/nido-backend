@@ -247,6 +247,31 @@ public sealed class TelegramUpdateDispatcherMenuTests
     }
 
     [Fact]
+    public async Task DispatchAsync_NumericReply_WithTaskCompletionPayload_WhenZero_ReturnsMainMenu_AndDoesNotCompleteTask()
+    {
+        var tareaId = Guid.NewGuid();
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            new[] { new TelegramTaskCompletionChoice(1, tareaId) });
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember();
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow, payload.Serialize())
+        };
+        var tareaRepository = new FakeTareaRepository();
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), new FakeMenuProvider(), tareaRepository: tareaRepository);
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("0"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("interactive.menu", result!.MessageType);
+        Assert.Equal(TelegramMenuCopy.MainMenuText, result.ConfirmationText);
+        Assert.Equal(0, tareaRepository.CompletarCallCount);
+        Assert.Null(stateStore.LastSetState?.PayloadJson);
+        Assert.Equal("main-menu", stateStore.LastSetState?.MenuId);
+    }
+
+    [Fact]
     public async Task DispatchAsync_NumericReply_WhenTaskAlreadyCompleted_ReturnsAlreadyDoneMessage_AndDoesNotCallRepository()
     {
         var tareaId = Guid.NewGuid();
@@ -268,6 +293,34 @@ public sealed class TelegramUpdateDispatcherMenuTests
         Assert.NotNull(result);
         Assert.Equal(TelegramMenuCopy.TaskCompletionRecoveryMessageType, result!.MessageType);
         Assert.Contains(TelegramMenuCopy.TaskCompletionAlreadyDoneText, result.ConfirmationText, StringComparison.Ordinal);
+        Assert.Equal(0, tareaRepository.CompletarCallCount);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_TextReply_WithTaskCompletionPayload_ReturnsRecoveryMessage_WithTaskInstructions()
+    {
+        var tareaId = Guid.NewGuid();
+        var payload = new TelegramTaskCompletionPayload(
+            TelegramTaskCompletionPayload.TasksCompleteFlow,
+            new[] { new TelegramTaskCompletionChoice(1, tareaId) });
+        var access = FakeTelegramHogarAccess.LinkedCurrentMember();
+        var stateStore = new FakeConversationStateStore
+        {
+            CurrentState = new TelegramConversationState(99, "main-menu", DateTime.UtcNow, payload.Serialize())
+        };
+        var provider = new FakeMenuProvider
+        {
+            SelectionText = $"Placeholder for option 4.\n\n{TelegramMenuCopy.TasksCompletionPrompt}"
+        };
+        var tareaRepository = new FakeTareaRepository();
+        var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), provider, tareaRepository: tareaRepository);
+
+        var result = await dispatcher.DispatchAsync(BuildRequest("no"), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(TelegramMenuCopy.TaskCompletionRecoveryMessageType, result!.MessageType);
+        Assert.Contains(TelegramMenuCopy.TaskCompletionInvalidChoiceText, result.ConfirmationText, StringComparison.Ordinal);
+        Assert.Contains(TelegramMenuCopy.TasksCompletionPrompt, result.ConfirmationText, StringComparison.Ordinal);
         Assert.Equal(0, tareaRepository.CompletarCallCount);
     }
 
@@ -447,8 +500,7 @@ public sealed class TelegramUpdateDispatcherMenuTests
                 new TelegramMenuOption("2", "Ver resumen de alacena"),
                 new TelegramMenuOption("3", "Ver lista de compras"),
                 new TelegramMenuOption("4", "Ver tareas pendientes"),
-                new TelegramMenuOption("5", "Abrir Nido"),
-                new TelegramMenuOption("6", "Configurar notificaciones")
+                new TelegramMenuOption("5", "Abrir Nido")
             });
 
         public TelegramMenu GetDefaultMenu() => _menu;
@@ -460,6 +512,7 @@ public sealed class TelegramUpdateDispatcherMenuTests
     private sealed class FakeMenuProvider : ITelegramMenuProvider
     {
         public (string MenuId, string OptionKey)? LastSelection { get; private set; }
+        public string? SelectionText { get; set; }
 
         public Task<TelegramMenuRenderResult> RenderMenuAsync(TelegramMenu menu, TelegramChatLinkSnapshot link, CancellationToken ct)
             => Task.FromResult(new TelegramMenuRenderResult(TelegramMenuCopy.MainMenuText));
@@ -467,7 +520,7 @@ public sealed class TelegramUpdateDispatcherMenuTests
         public Task<TelegramMenuSelectionResult> SelectAsync(string menuId, string optionKey, TelegramChatLinkSnapshot link, CancellationToken ct)
         {
             LastSelection = (menuId, optionKey);
-            return Task.FromResult(new TelegramMenuSelectionResult(true, $"Placeholder for option {optionKey}.", menuId, false));
+            return Task.FromResult(new TelegramMenuSelectionResult(true, SelectionText ?? $"Placeholder for option {optionKey}.", menuId, false));
         }
     }
 

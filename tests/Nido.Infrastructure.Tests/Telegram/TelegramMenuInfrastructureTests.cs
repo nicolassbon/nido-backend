@@ -40,7 +40,7 @@ public sealed class TelegramMenuInfrastructureTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Registry_GetDefaultMenu_ReturnsSixNumberedOptions()
+    public void Registry_GetDefaultMenu_ReturnsFiveNumberedOptions()
     {
         var registry = new InMemoryTelegramMenuRegistry();
 
@@ -53,8 +53,7 @@ public sealed class TelegramMenuInfrastructureTests : IAsyncLifetime
             option => Assert.Equal("2", option.Key),
             option => Assert.Equal("3", option.Key),
             option => Assert.Equal("4", option.Key),
-            option => Assert.Equal("5", option.Key),
-            option => Assert.Equal("6", option.Key));
+            option => Assert.Equal("5", option.Key));
     }
 
     [Fact]

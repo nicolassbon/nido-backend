@@ -33,7 +33,6 @@ public sealed class TelegramMenuProvider(
             "2" => await BuildPantrySummaryTextAsync(link, ct),
             "3" => await BuildShoppingListTextAsync(link, ct),
             "5" => BuildOpenNidoText(),
-            "6" => BuildNotificationSettingsText(),
             _ => null
         };
 
@@ -149,7 +148,12 @@ public sealed class TelegramMenuProvider(
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var choices = new List<TelegramTaskCompletionChoice>(result.Items.Count);
-        var lines = new List<string>(result.Items.Count + 1) { "Tus tareas pendientes" };
+        var lines = new List<string>(result.Items.Count + 3)
+        {
+            TelegramMenuCopy.TaskCompletionHeaderText,
+            string.Empty,
+            TelegramMenuCopy.TaskCompletionBackOptionText
+        };
 
         for (var i = 0; i < result.Items.Count; i++)
         {
@@ -204,14 +208,6 @@ public sealed class TelegramMenuProvider(
         return string.IsNullOrWhiteSpace(frontendBaseUrl)
             ? "Abrí la app de Nido para seguir desde ahí."
             : $"Abrí Nido desde acá: {frontendBaseUrl.TrimEnd('/')}";
-    }
-
-    private string BuildNotificationSettingsText()
-    {
-        var frontendBaseUrl = configuration?["Frontend:BaseUrl"]?.TrimEnd('/');
-        return string.IsNullOrWhiteSpace(frontendBaseUrl)
-            ? "Configurá tus notificaciones desde la app de Nido, en la sección de ajustes."
-            : $"Configurá tus notificaciones desde la app de Nido: {frontendBaseUrl}/configuracion";
     }
 
     private static string BuildQuantityText(decimal? quantity, string? unit, int envases)
