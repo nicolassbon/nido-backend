@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Formatting;
 using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Menu;
 using Nido.Infrastructure.Persistence;
@@ -159,7 +160,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var payload = await AssertSingleOutboxPayloadAsync(factory, 301);
-        Assert.Contains("Elegí una opción respondiendo con un número", payload.Text, StringComparison.Ordinal);
+        Assert.Contains(MarkdownV2Escaper.Escape(TelegramMenuCopy.MainMenuText), payload.Text, StringComparison.Ordinal);
         Assert.Contains("Ver productos por vencer", payload.Text, StringComparison.Ordinal);
 
         using var scope = factory.Services.CreateScope();
@@ -170,7 +171,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
     }
 
     [Fact]
-    public async Task Post_DigitSelection_AfterMenu_RoutesToProviderPlaceholder()
+    public async Task Post_DigitSelection_AfterMenu_RoutesToRealProvider()
     {
         using var factory = CreateEnqueueOnlyFactory();
 
@@ -192,7 +193,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
             .ToListAsync();
 
         Assert.Equal(2, payloads.Count);
-        Assert.Contains("Placeholder for option 2", DeserializePayload(payloads[1]).Text, StringComparison.Ordinal);
+        Assert.Contains("La alacena está vacía por ahora", DeserializePayload(payloads[1]).Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -209,6 +210,90 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
         var payload = await AssertSingleOutboxPayloadAsync(factory, 303);
         Assert.Contains("ya no está disponible", payload.Text, StringComparison.Ordinal);
         Assert.Contains("Ver productos por vencer", payload.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Post_TaskCompletion_FullFlow_AssignsCompletionAndClearsPayload()
+    {
+        using var factory = CreateEnqueueOnlyFactory();
+
+        var (tareaId, _) = await SeedLinkedCurrentMemberWithPendingTaskAsync(factory, 305, "Sacar la basura");
+
+        using var client = factory.CreateClient();
+        // Step 1: open the menu (state stores main-menu with no payload).
+        var menuResponse = await PostMessageAsync(client, 13_001, 305, "/menu");
+        Assert.Equal(HttpStatusCode.OK, menuResponse.StatusCode);
+
+        // Step 2: select option 4 — provider must return a numbered task
+        // list and persist the tasks.complete payload to state.
+        var option4Response = await PostMessageAsync(client, 13_002, 305, "4");
+        Assert.Equal(HttpStatusCode.OK, option4Response.StatusCode);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var stateStore = scope.ServiceProvider.GetRequiredService<ITelegramConversationStateStore>();
+            var state = await stateStore.GetAsync(305, CancellationToken.None);
+            Assert.NotNull(state);
+            Assert.NotNull(state!.PayloadJson);
+            var payload = Nido.Application.Telegram.Conversation.TelegramTaskCompletionPayload.TryParse(state.PayloadJson);
+            Assert.NotNull(payload);
+            Assert.Single(payload!.Choices);
+            Assert.Equal(tareaId, payload.Choices[0].TaskId);
+        }
+
+        // Step 3: reply with the choice. The dispatcher must call
+        // CompletarTareaHandler, write the audit fields, and clear the
+        // payload.
+        var choiceResponse = await PostMessageAsync(client, 13_003, 305, "1");
+        Assert.Equal(HttpStatusCode.OK, choiceResponse.StatusCode);
+
+        using (var verifyScope = factory.Services.CreateScope())
+        {
+            var db = verifyScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var tarea = await db.Tareas.AsNoTracking().SingleAsync(t => t.Id == tareaId);
+            Assert.Equal("completada", tarea.Estado);
+            Assert.NotNull(tarea.FechaCompletado);
+            Assert.NotNull(tarea.CompletadoPor);
+
+            var stateStore = verifyScope.ServiceProvider.GetRequiredService<ITelegramConversationStateStore>();
+            var state = await stateStore.GetAsync(305, CancellationToken.None);
+            Assert.NotNull(state);
+            Assert.Null(state!.PayloadJson);
+        }
+
+        // Step 4: confirm the user-facing message is the success copy with
+        // the dedicated message type. The outbox stores the
+        // MarkdownV2-escaped text, so we assert on a prefix that survives
+        // escaping intact.
+        var outbox = await GetOutboxForChatAsync(factory, 305);
+        var successMessage = Assert.Single(outbox, x => x.Type == TelegramMenuCopy.TaskCompletionMessageType);
+        Assert.StartsWith("Listo, marqué la tarea como completada", successMessage.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Post_TaskCompletion_OutOfRangeReply_ReturnsRecoveryAndPreservesTask()
+    {
+        using var factory = CreateEnqueueOnlyFactory();
+
+        var (tareaId, _) = await SeedLinkedCurrentMemberWithPendingTaskAsync(factory, 306, "Lavar platos");
+
+        using var client = factory.CreateClient();
+        await PostMessageAsync(client, 13_101, 306, "/menu");
+        await PostMessageAsync(client, 13_102, 306, "4");
+        var response = await PostMessageAsync(client, 13_103, 306, "9");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var tarea = await db.Tareas.AsNoTracking().SingleAsync(t => t.Id == tareaId);
+        Assert.NotEqual("completada", tarea.Estado);
+
+        var outbox = await GetOutboxForChatAsync(factory, 306);
+        var recovery = Assert.Single(outbox, x => x.Type == TelegramMenuCopy.TaskCompletionRecoveryMessageType);
+        // Assert on the unescaped prefix; the rest of the message is
+        // re-rendered task copy that contains MarkdownV2-sensitive chars.
+        Assert.StartsWith("Ese número no corresponde", recovery.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -409,6 +494,81 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
 
         await db.SaveChangesAsync();
     }
+
+    private static async Task<(Guid TareaId, Guid UsuarioId)> SeedLinkedCurrentMemberWithPendingTaskAsync(NidoTestWebAppFactory factory, long chatId, string titulo)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var tareaId = Guid.NewGuid();
+
+        db.Usuarios.Add(new Usuario
+        {
+            Id = usuarioId,
+            Nombre = "Telegram",
+            Email = $"telegram-tarea-{chatId}@example.com",
+            PasswordHash = "hash",
+            Sexo = "U",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        db.Hogares.Add(new Hogare { Id = hogarId, Nombre = $"Hogar Tarea {chatId}", CreatedAt = DateTime.UtcNow });
+        db.MiembrosHogars.Add(new MiembrosHogar
+        {
+            Id = Guid.NewGuid(),
+            UsuarioId = usuarioId,
+            HogarId = hogarId,
+            Rol = "owner",
+            Puntos = 0
+        });
+        db.TelegramChatLinks.Add(new TelegramChatLink
+        {
+            Id = Guid.NewGuid(),
+            ChatId = chatId,
+            UsuarioId = usuarioId,
+            HogarId = hogarId,
+            PairedAt = DateTime.UtcNow
+        });
+
+        var tarea = new Tarea
+        {
+            Id = tareaId,
+            HogarId = hogarId,
+            CreadoPor = usuarioId,
+            CreadoPorNavigation = await db.Usuarios.FindAsync(usuarioId) ?? throw new InvalidOperationException(),
+            Titulo = titulo,
+            Estado = "pendiente",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Tareas.Add(tarea);
+        db.AsignacionesTareas.Add(new AsignacionesTarea
+        {
+            Id = Guid.NewGuid(),
+            TareaId = tareaId,
+            Tarea = tarea,
+            UsuarioId = usuarioId,
+            Usuario = await db.Usuarios.FindAsync(usuarioId) ?? throw new InvalidOperationException(),
+            FechaAsignacion = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+        return (tareaId, usuarioId);
+    }
+
+    private static async Task<List<OutboxRow>> GetOutboxForChatAsync(NidoTestWebAppFactory factory, long chatId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var rows = await db.TelegramOutboxMessages.AsNoTracking()
+            .Where(x => x.ChatId == chatId)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
+        return rows.Select(r => new OutboxRow(r.MessageType, DeserializePayload(r.PayloadJson).Text)).ToList();
+    }
+
+    private sealed record OutboxRow(string Type, string Text);
 
     private static async Task RemoveMembershipAsync(NidoTestWebAppFactory factory, long chatId)
     {

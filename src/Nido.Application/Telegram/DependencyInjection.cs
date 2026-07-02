@@ -62,6 +62,9 @@ internal sealed class MissingTelegramHogarAccess : ITelegramHogarAccess
 
     public Task<bool> IsUserAssignedToTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
         => throw new InvalidOperationException("ITelegramHogarAccess requires infrastructure registration.");
+
+    public Task<bool> IsUserAssignedToPendingTaskAsync(Guid usuarioId, Guid tareaId, Guid hogarId, CancellationToken ct)
+        => throw new InvalidOperationException("ITelegramHogarAccess requires infrastructure registration.");
 }
 
 internal sealed class MissingTelegramPairingRepository : ITelegramPairingRepository

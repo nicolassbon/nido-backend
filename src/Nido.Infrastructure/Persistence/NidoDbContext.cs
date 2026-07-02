@@ -75,7 +75,7 @@ public partial class NidoDbContext : DbContext
                 }, CancellationToken.None);
 
                 // Send Telegram notification in background if it matches target types
-                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo")
+                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "tarea_vencida")
                 {
                     _ = Task.Run(async () =>
                     {

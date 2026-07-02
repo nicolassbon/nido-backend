@@ -12,8 +12,7 @@ public sealed class InMemoryTelegramMenuRegistry : ITelegramMenuRegistry
             new TelegramMenuOption("2", "Ver resumen de alacena"),
             new TelegramMenuOption("3", "Ver lista de compras"),
             new TelegramMenuOption("4", "Ver tareas pendientes"),
-            new TelegramMenuOption("5", "Abrir Nido"),
-            new TelegramMenuOption("6", "Configurar notificaciones")
+            new TelegramMenuOption("5", "Abrir Nido")
         });
 
     public TelegramMenu GetDefaultMenu() => MainMenu;
