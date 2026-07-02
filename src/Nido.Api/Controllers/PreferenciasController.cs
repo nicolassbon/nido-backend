@@ -30,7 +30,7 @@ public sealed class PreferenciasController : ControllerBase
         var result = await _getHandler.Handle(
             new GetUserPreferencesQuery(currentUser.UsuarioId), ct);
 
-        return Ok(new UserPreferencesResponse(result.DiasAlerta));
+        return Ok(new UserPreferencesResponse(result.DiasAlerta, result.TemaPreferido));
     }
 
     [HttpPatch("usuario")]
@@ -40,8 +40,8 @@ public sealed class PreferenciasController : ControllerBase
         CancellationToken ct)
     {
         var result = await _updateHandler.Handle(
-            new UpdateUserPreferencesCommand(currentUser.UsuarioId, request.DiasAlerta), ct);
+            new UpdateUserPreferencesCommand(currentUser.UsuarioId, request.DiasAlerta, request.TemaPreferido), ct);
 
-        return Ok(new UserPreferencesResponse(result.DiasAlerta));
+        return Ok(new UserPreferencesResponse(result.DiasAlerta, result.TemaPreferido));
     }
 }

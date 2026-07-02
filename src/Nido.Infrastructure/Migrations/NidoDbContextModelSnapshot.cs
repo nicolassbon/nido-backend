@@ -2030,6 +2030,14 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("telefono");
 
+                    b.Property<string>("TemaPreferido")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("system")
+                        .HasColumnName("tema_preferido");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")

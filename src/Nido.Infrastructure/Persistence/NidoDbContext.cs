@@ -1349,6 +1349,10 @@ public partial class NidoDbContext : DbContext
             entity.Property(e => e.AlertaVencimientoDias)
                 .HasDefaultValue(7)
                 .HasColumnName("alerta_vencimiento_dias");
+            entity.Property(e => e.TemaPreferido)
+                .HasMaxLength(20)
+                .HasDefaultValue("system")
+                .HasColumnName("tema_preferido");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

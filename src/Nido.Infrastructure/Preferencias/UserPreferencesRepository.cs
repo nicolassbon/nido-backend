@@ -20,18 +20,31 @@ public sealed class UserPreferencesRepository : IUserPreferencesRepository
             .FirstOrDefaultAsync(u => u.Id == usuarioId, ct)
             ?? throw new InvalidOperationException("Usuario no encontrado.");
 
-        return new UserPreferencesResult(usuario.AlertaVencimientoDias);
+        return new UserPreferencesResult(
+            usuario.AlertaVencimientoDias,
+            string.IsNullOrWhiteSpace(usuario.TemaPreferido)
+                ? UserThemeModes.System
+                : usuario.TemaPreferido);
     }
 
-    public async Task<UserPreferencesResult> UpdateAsync(Guid usuarioId, int diasAlerta, CancellationToken ct)
+    public async Task<UserPreferencesResult> UpdateAsync(Guid usuarioId, int? diasAlerta, string? temaPreferido, CancellationToken ct)
     {
         var usuario = await _db.Usuarios
             .FirstOrDefaultAsync(u => u.Id == usuarioId, ct)
             ?? throw new InvalidOperationException("Usuario no encontrado.");
 
-        usuario.AlertaVencimientoDias = diasAlerta;
+        if (diasAlerta.HasValue)
+        {
+            usuario.AlertaVencimientoDias = diasAlerta.Value;
+        }
+
+        if (temaPreferido is not null)
+        {
+            usuario.TemaPreferido = temaPreferido;
+        }
+
         await _db.SaveChangesAsync(ct);
 
-        return new UserPreferencesResult(usuario.AlertaVencimientoDias);
+        return new UserPreferencesResult(usuario.AlertaVencimientoDias, usuario.TemaPreferido);
     }
 }

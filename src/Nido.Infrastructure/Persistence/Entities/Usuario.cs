@@ -35,6 +35,8 @@ public partial class Usuario
 
     public int AlertaVencimientoDias { get; set; }
 
+    public string TemaPreferido { get; set; } = "system";
+
     public virtual ICollection<AsignacionesTarea> AsignacionesTareas { get; set; } = new List<AsignacionesTarea>();
 
     public virtual ICollection<Gasto> Gastos { get; set; } = new List<Gasto>();

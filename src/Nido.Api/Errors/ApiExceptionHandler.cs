@@ -123,6 +123,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         // Preferencias exceptions
         MissingPreferenceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
         InvalidPreferenceRangeException => (StatusCodes.Status400BadRequest, "Validation error"),
+        InvalidThemeModeException => (StatusCodes.Status400BadRequest, "Validation error"),
 
         // Telegram exceptions
         TelegramChatNotLinkedException => (StatusCodes.Status404NotFound, "Not found"),

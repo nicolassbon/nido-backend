@@ -16,9 +16,12 @@ public sealed class UpdateUserPreferencesHandler
         if (command.UsuarioId == Guid.Empty)
             throw new MissingPreferenceFieldException("usuario");
 
-        if (command.DiasAlerta < 1 || command.DiasAlerta > 365)
+        if (command.DiasAlerta is < 1 or > 365)
             throw new InvalidPreferenceRangeException();
 
-        return await _repository.UpdateAsync(command.UsuarioId, command.DiasAlerta, ct);
+        if (command.TemaPreferido is not null && !UserThemeModes.IsValid(command.TemaPreferido))
+            throw new InvalidThemeModeException();
+
+        return await _repository.UpdateAsync(command.UsuarioId, command.DiasAlerta, command.TemaPreferido, ct);
     }
 }
