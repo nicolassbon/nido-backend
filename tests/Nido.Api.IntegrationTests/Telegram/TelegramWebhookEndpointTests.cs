@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Conversation;
+using Nido.Application.Telegram.Formatting;
 using Nido.Application.Telegram.Messaging;
 using Nido.Application.Telegram.Menu;
 using Nido.Infrastructure.Persistence;
@@ -159,7 +160,7 @@ public sealed class TelegramWebhookEndpointTests : IClassFixture<NidoTestWebAppF
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var payload = await AssertSingleOutboxPayloadAsync(factory, 301);
-        Assert.Contains("Elegí una opción respondiendo con un número", payload.Text, StringComparison.Ordinal);
+        Assert.Contains(MarkdownV2Escaper.Escape(TelegramMenuCopy.MainMenuText), payload.Text, StringComparison.Ordinal);
         Assert.Contains("Ver productos por vencer", payload.Text, StringComparison.Ordinal);
 
         using var scope = factory.Services.CreateScope();
