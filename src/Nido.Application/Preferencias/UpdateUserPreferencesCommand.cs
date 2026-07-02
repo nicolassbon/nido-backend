@@ -1,3 +1,3 @@
 namespace Nido.Application.Preferencias;
 
-public sealed record UpdateUserPreferencesCommand(Guid UsuarioId, int DiasAlerta);
+public sealed record UpdateUserPreferencesCommand(Guid UsuarioId, int? DiasAlerta, string? TemaPreferido);

@@ -1,3 +1,3 @@
 namespace Nido.Api.Contracts.Preferencias;
 
-public sealed record UserPreferencesResponse(int DiasAlerta);
+public sealed record UserPreferencesResponse(int DiasAlerta, string TemaPreferido);
