@@ -245,6 +245,113 @@ public sealed class ElectrodomesticosEndpointTests : IClassFixture<NidoTestWebAp
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Patch_WhenElectrodomesticoExists_UpdatesTipoAndEstado()
+    {
+        var user = await RegisterAsync("equip-patch");
+
+        Authenticate(user);
+        var created = await _client.PostAsJsonAsync("/api/electrodomesticos", new
+        {
+            nombre = "Heladera vieja",
+            tipo = "Cocina",
+            estado = "Activo"
+        });
+        var electrodomestico = await created.Content.ReadFromJsonAsync<ElectrodomesticoBody>();
+        Assert.NotNull(electrodomestico);
+
+        var response = await _client.PatchAsJsonAsync($"/api/electrodomesticos/{electrodomestico!.Id}", new
+        {
+            tipo = "Lavadero",
+            estado = "Fuera de servicio"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<ElectrodomesticoBody>();
+        Assert.NotNull(body);
+        Assert.Equal("Lavadero", body!.Tipo);
+        Assert.Equal("Fuera de servicio", body.Estado);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var saved = await db.Electrodomesticos.SingleAsync(x => x.Id == electrodomestico.Id);
+        Assert.Equal("Lavadero", saved.Tipo);
+        Assert.Equal("Fuera de servicio", saved.Estado);
+    }
+
+    [Fact]
+    public async Task Patch_WhenNotFound_Returns404()
+    {
+        var user = await RegisterAsync("equip-patch-404");
+
+        Authenticate(user);
+        var response = await _client.PatchAsJsonAsync($"/api/electrodomesticos/{Guid.NewGuid()}", new
+        {
+            tipo = "Lavadero",
+            estado = "Activo"
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_WhenElectrodomesticoExists_Returns204AndRemovesIt()
+    {
+        var user = await RegisterAsync("equip-delete");
+
+        Authenticate(user);
+        var created = await _client.PostAsJsonAsync("/api/electrodomesticos", new
+        {
+            nombre = "Microondas",
+            tipo = "Cocina",
+            estado = "Activo"
+        });
+        var electrodomestico = await created.Content.ReadFromJsonAsync<ElectrodomesticoBody>();
+        Assert.NotNull(electrodomestico);
+
+        var deleteResponse = await _client.DeleteAsync($"/api/electrodomesticos/{electrodomestico!.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var listResponse = await _client.GetAsync("/api/electrodomesticos");
+        var items = await listResponse.Content.ReadFromJsonAsync<List<ElectrodomesticoBody>>();
+        Assert.DoesNotContain(items!, item => item.Id == electrodomestico.Id);
+    }
+
+    [Fact]
+    public async Task Delete_WhenNotFound_Returns404()
+    {
+        var user = await RegisterAsync("equip-delete-404");
+
+        Authenticate(user);
+        var response = await _client.DeleteAsync($"/api/electrodomesticos/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_WhenBelongsToAnotherHousehold_ReturnsNotFound()
+    {
+        var userA = await RegisterAsync("equip-delete-cross-a");
+        var userB = await RegisterAsync("equip-delete-cross-b");
+
+        Authenticate(userA);
+        var created = await _client.PostAsJsonAsync("/api/electrodomesticos", new
+        {
+            nombre = "Cafetera",
+            tipo = "Cocina",
+            estado = "Activo"
+        });
+        var electrodomestico = await created.Content.ReadFromJsonAsync<ElectrodomesticoBody>();
+        Assert.NotNull(electrodomestico);
+
+        Authenticate(userB);
+        var response = await _client.DeleteAsync($"/api/electrodomesticos/{electrodomestico!.Id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private async Task<RegisterBody> RegisterAsync(string prefix)
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
