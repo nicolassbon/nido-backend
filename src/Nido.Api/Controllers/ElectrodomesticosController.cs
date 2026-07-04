@@ -16,6 +16,8 @@ namespace Nido.Api.Controllers;
 public sealed class ElectrodomesticosController : ControllerBase
 {
     private readonly CreateElectrodomesticoHandler _createHandler;
+    private readonly UpdateElectrodomesticoHandler _updateHandler;
+    private readonly DeleteElectrodomesticoHandler _deleteHandler;
     private readonly GetElectrodomesticosHandler _getHandler;
     private readonly GetElectrodomesticosCatalogoHandler _getCatalogoHandler;
     private readonly UploadElectrodomesticoImageHandler _uploadImageHandler;
@@ -24,12 +26,16 @@ public sealed class ElectrodomesticosController : ControllerBase
 
     public ElectrodomesticosController(
      CreateElectrodomesticoHandler createHandler,
+     UpdateElectrodomesticoHandler updateHandler,
+     DeleteElectrodomesticoHandler deleteHandler,
      GetElectrodomesticosHandler getHandler,
      GetElectrodomesticosCatalogoHandler getCatalogoHandler,
      UploadElectrodomesticoImageHandler uploadImageHandler,
      IOptions<SpacesOptions> spacesOptions)
     {
         _createHandler = createHandler;
+        _updateHandler = updateHandler;
+        _deleteHandler = deleteHandler;
         _getHandler = getHandler;
         _getCatalogoHandler = getCatalogoHandler;
         _uploadImageHandler = uploadImageHandler;
@@ -163,6 +169,43 @@ public sealed class ElectrodomesticosController : ControllerBase
                 detail: "The selected household does not exist.",
                 statusCode: StatusCodes.Status404NotFound);
         }
+    }
+
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> Patch(
+        Guid id,
+        [FromBody] UpdateElectrodomesticoRequest request,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await _updateHandler.Handle(
+            new UpdateElectrodomesticoCommand(id, currentUser.HogarId, request.Tipo, request.Estado),
+            cancellationToken);
+
+        if (result is null) return NotFound();
+
+        return Ok(new ElectrodomesticoResponse(
+            result.Id,
+            result.HogarId,
+            result.Nombre,
+            result.Tipo,
+            result.Estado,
+            result.Marca,
+            result.ImagenUrl,
+            result.CatalogoId
+        ));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var deleted = await _deleteHandler.Handle(
+            new DeleteElectrodomesticoCommand(id, currentUser.HogarId), cancellationToken);
+
+        return deleted ? NoContent() : NotFound();
     }
 
     [HttpPost("{id:guid}/imagen")]
