@@ -1,3 +1,4 @@
+using Nido.Application.Gamificacion;
 using Nido.Application.Common.Security;
 using Nido.Application.Tareas;
 
@@ -156,7 +157,8 @@ public sealed class TareasHandlersTests
         var hogarId = Guid.NewGuid();
         var repo = new FakeTareaRepository();
         repo.TareaCompletada = MakeTarea(hogarId, "Limpiar", estado: "completada");
-        var handler = new CompletarTareaHandler(repo);
+        repo.TareaToReturn = MakeTarea(hogarId, "Limpiar");
+        var handler = new CompletarTareaHandler(repo, new FakeGamificationUnlockMaterializer());
 
         var result = await handler.Handle(
             new CompletarTareaCommand(Guid.NewGuid(), hogarId, Guid.NewGuid()),
@@ -169,7 +171,7 @@ public sealed class TareasHandlersTests
     [Fact]
     public async Task CompletarTarea_WhenTareaNotFound_ReturnsNull()
     {
-        var handler = new CompletarTareaHandler(new FakeTareaRepository());
+        var handler = new CompletarTareaHandler(new FakeTareaRepository(), new FakeGamificationUnlockMaterializer());
 
         var result = await handler.Handle(
             new CompletarTareaCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()),
@@ -309,6 +311,7 @@ public sealed class TareasHandlersTests
     {
         public List<TareaResult> TareasDeHogar { get; set; } = [];
         public List<TareaResult> TareasAsignadas { get; set; } = [];
+        public TareaResult? TareaToReturn { get; set; }
         public TareaResult? TareaCreada { get; set; }
         public TareaResult? TareaCompletada { get; set; }
         public TareaResult? TareaAsignada { get; set; }
@@ -339,7 +342,7 @@ public sealed class TareasHandlersTests
         }
 
         public Task<TareaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct) =>
-            Task.FromResult<TareaResult?>(null);
+            Task.FromResult(TareaToReturn);
 
         public Task<TareaResult> CreateAsync(Guid hogarId, Guid creadoPor, string titulo, string? descripcion,
             DateTime? fechaLimite, Guid? asignadoA, CancellationToken ct)
@@ -356,7 +359,7 @@ public sealed class TareasHandlersTests
 
         public Task<TareaResult?> UpdateAsync(Guid id, Guid hogarId, string? titulo, string? descripcion,
             DateTime? fechaLimite, string? estado, CancellationToken ct) =>
-            Task.FromResult<TareaResult?>(null);
+            Task.FromResult(TareaToReturn);
 
         public Task<TareaResult?> CompletarAsync(Guid id, Guid hogarId, Guid completadoPor, CancellationToken ct) =>
             Task.FromResult(TareaCompletada);

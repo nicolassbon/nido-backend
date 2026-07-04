@@ -10,8 +10,18 @@ public sealed record UpdateTareaCommand(
 
 public sealed class UpdateTareaHandler(ITareaRepository repository)
 {
-    public Task<TareaResult?> Handle(UpdateTareaCommand command, CancellationToken ct) =>
-        repository.UpdateAsync(
+
+    public async Task<TareaResult?> Handle(UpdateTareaCommand command, CancellationToken ct)
+    {
+        // Reject PATCH to "completada" — only POST /api/tareas/{id}/completar can complete
+        if (command.Estado == "completada")
+        {
+            throw new InvalidOperationException(
+                "Use POST /api/tareas/{id}/completar para completar una tarea. " +
+                "El estado 'completada' no se puede asignar mediante PATCH.");
+        }
+
+        return await repository.UpdateAsync(
             command.Id,
             command.HogarId,
             command.Titulo,
@@ -19,4 +29,5 @@ public sealed class UpdateTareaHandler(ITareaRepository repository)
             command.FechaLimite,
             command.Estado,
             ct);
+    }
 }
