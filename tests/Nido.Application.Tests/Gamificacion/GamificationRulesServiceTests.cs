@@ -10,9 +10,9 @@ public sealed class GamificationRulesServiceTests
         XpPerCompletedTask = 20,
         Levels = new List<GamificationLevelOptions>
         {
-            new() { Level = 1, RequiredXp = 20, Name = "Huevito", AvatarUrl = "https://cdn.example.com/huevito.png" },
-            new() { Level = 2, RequiredXp = 60, Name = "Pollito", AvatarUrl = "https://cdn.example.com/pollito.png" },
-            new() { Level = 3, RequiredXp = 120, Name = "Gallina", AvatarUrl = "https://cdn.example.com/gallina.png" },
+            new() { Level = 1, RequiredXp = 20 },
+            new() { Level = 2, RequiredXp = 60 },
+            new() { Level = 3, RequiredXp = 120 },
         }
     };
 
@@ -52,7 +52,7 @@ public sealed class GamificationRulesServiceTests
             XpPerCompletedTask = xpPerTask,
             Levels = new List<GamificationLevelOptions>
             {
-                new() { Level = 1, RequiredXp = 10, Name = "Huevito" },
+                new() { Level = 1, RequiredXp = 10 },
             }
         };
         var service = CreateService(options);
@@ -116,26 +116,6 @@ public sealed class GamificationRulesServiceTests
     }
 
     [Fact]
-    public void CurrentLevelMetadata_WhenConfigRemoved_ReturnsNullNameAndUrl()
-    {
-        // Create config without metadata for level 1
-        var options = new GamificationOptions
-        {
-            XpPerCompletedTask = 20,
-            Levels = new List<GamificationLevelOptions>
-            {
-                new() { Level = 1, RequiredXp = 20, Name = null, AvatarUrl = null },
-            }
-        };
-        var service = CreateService(options);
-        var metadata = service.GetLevelMetadata(1);
-        Assert.NotNull(metadata);
-        Assert.Equal(1, metadata!.Level);
-        Assert.Null(metadata.Name);
-        Assert.Null(metadata.AvatarUrl);
-    }
-
-    [Fact]
     public void TaskXpOtorgado_ForCompletedTask_ReturnsConfiguredXp()
     {
         var service = CreateService();
@@ -152,42 +132,10 @@ public sealed class GamificationRulesServiceTests
     }
 
     [Fact]
-    public void GetLevelMetadata_ForExistingLevel_ReturnsConfiguredMetadata()
+    public void EligibleLevels_ForHigherXp_ReturnsAllConfiguredLevels()
     {
         var service = CreateService();
-        var metadata = service.GetLevelMetadata(2);
-        Assert.NotNull(metadata);
-        Assert.Equal(2, metadata!.Level);
-        Assert.Equal("Pollito", metadata.Name);
-        Assert.Equal("https://cdn.example.com/pollito.png", metadata.AvatarUrl);
-    }
-
-    [Fact]
-    public void GetLevelMetadata_ForDuplicateLevel_UsesLastConfiguredValue()
-    {
-        var options = new GamificationOptions
-        {
-            XpPerCompletedTask = 20,
-            Levels = new List<GamificationLevelOptions>
-            {
-                new() { Level = 1, RequiredXp = 20, Name = "Old", AvatarUrl = "old.png" },
-                new() { Level = 1, RequiredXp = 20, Name = "New", AvatarUrl = "new.png" },
-            }
-        };
-        var service = CreateService(options);
-
-        var metadata = service.GetLevelMetadata(1);
-
-        Assert.NotNull(metadata);
-        Assert.Equal("New", metadata!.Name);
-        Assert.Equal("new.png", metadata.AvatarUrl);
-    }
-
-    [Fact]
-    public void GetLevelMetadata_ForNonExistentLevel_ReturnsNull()
-    {
-        var service = CreateService();
-        var metadata = service.GetLevelMetadata(99);
-        Assert.Null(metadata);
+        var eligible = service.ComputeEligibleLevels(60);
+        Assert.Equal(new[] { 1, 2 }, eligible);
     }
 }

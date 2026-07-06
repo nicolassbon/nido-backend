@@ -231,6 +231,14 @@ public static class DependencyInjection
 
         services.AddHostedService<AlertaDiariaWorker>();
 
+        // Price Comparator
+        services.AddHttpClient<IPriceComparatorService, PriceComparatorService>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["ExternalServices:ComparatorUrl"] ?? "http://nido-comparator:3000/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddScoped<ComparePricesHandler>();
+
         return services;
     }
 
