@@ -1,3 +1,4 @@
+using Nido.Application.Gamificacion;
 using Nido.Application.Tareas;
 using Nido.Application.Telegram;
 using Nido.Application.Telegram.Authorization;
@@ -6,6 +7,7 @@ using Nido.Application.Telegram.Exceptions;
 using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Webhook;
+using Nido.Application.Tests.Tareas;
 using Xunit;
 
 namespace Nido.Application.Tests.Telegram;
@@ -170,7 +172,7 @@ public sealed class TelegramPairingHandlersTests
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
             new FakeMenuProvider(),
-            new CompletarTareaHandler(new NotUsedTareaRepository()));
+            new CompletarTareaHandler(new NotUsedTareaRepository(), new FakeGamificationUnlockMaterializer()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/start token-123", new TelegramWebhookChat(99, "private"))),
@@ -226,7 +228,7 @@ public sealed class TelegramPairingHandlersTests
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
             new FakeMenuProvider(),
-            new CompletarTareaHandler(new NotUsedTareaRepository()));
+            new CompletarTareaHandler(new NotUsedTareaRepository(), new FakeGamificationUnlockMaterializer()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/pair 123456", new TelegramWebhookChat(77, "private"))),
@@ -253,7 +255,7 @@ public sealed class TelegramPairingHandlersTests
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
             new FakeMenuProvider(),
-            new CompletarTareaHandler(new NotUsedTareaRepository()));
+            new CompletarTareaHandler(new NotUsedTareaRepository(), new FakeGamificationUnlockMaterializer()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, text, new TelegramWebhookChat(77, "private"))),
@@ -275,7 +277,7 @@ public sealed class TelegramPairingHandlersTests
             new FakeConversationStateStore(),
             new FakeMenuRegistry(),
             new FakeMenuProvider(),
-            new CompletarTareaHandler(new NotUsedTareaRepository()));
+            new CompletarTareaHandler(new NotUsedTareaRepository(), new FakeGamificationUnlockMaterializer()));
 
         var result = await dispatcher.DispatchAsync(
             new TelegramWebhookRequest(1, new TelegramWebhookMessage(1, 1, "/unlink", new TelegramWebhookChat(88, "private"))),

@@ -398,6 +398,210 @@ public sealed class TareasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Empty(ownerOutbox);
     }
 
+
+    // ── Gamification (T10) ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CompletarTarea_ResponseIncludesXpOtorgado_EqualsConfiguredXp()
+    {
+        var user = await AuthenticateAsync(_client, "gami-complete-xp");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Task for XP test",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        var completeResp = await _client.PostAsJsonAsync($"/api/tareas/{tarea!.Id}/completar", new { });
+        var completed = await completeResp.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(completed);
+        Assert.Equal(20, completed!.XpOtorgado);
+    }
+
+    [Fact]
+    public async Task CompletarTarea_TwiceForSameUser_IsIdempotent_DoesNotDoubleCount()
+    {
+        var user = await AuthenticateAsync(_client, "gami-idempotent");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Idempotent task",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        await _client.PostAsJsonAsync($"/api/tareas/{tarea!.Id}/completar", new { });
+        var second = await _client.PostAsJsonAsync($"/api/tareas/{tarea!.Id}/completar", new { });
+        var secondBody = await second.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(secondBody);
+        Assert.Equal(20, secondBody!.XpOtorgado);
+
+        var progress = await _client.GetFromJsonAsync<GamificacionProgresoBody>("/api/gamificacion/progreso");
+        Assert.NotNull(progress);
+        Assert.Equal(20, progress!.CurrentXp);
+        Assert.Equal(1, await CountUnlocksAsync(user.UsuarioId));
+    }
+
+    [Fact]
+    public async Task GetTareas_CompletedTasksExposeXpOtorgado_NonCompletedExposeNull()
+    {
+        var user = await AuthenticateAsync(_client, "gami-list-xp");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Pending task",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var pendingTarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(pendingTarea);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var storedTask = await db.Tareas.SingleAsync(t => t.Id == pendingTarea!.Id);
+            storedTask.Estado = "completada";
+            storedTask.CompletadoPor = user.UsuarioId;
+            storedTask.FechaCompletado = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal(0, await CountUnlocksAsync(user.UsuarioId));
+        // Create another non-completed task
+        await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Another pending",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+
+        var listResp = await _client.GetAsync("/api/tareas");
+        var tareas = await listResp.Content.ReadFromJsonAsync<List<TareaBody>>();
+        Assert.NotNull(tareas);
+
+        var completed = tareas!.First(t => t.Estado == "completada");
+        Assert.Equal(20, completed.XpOtorgado);
+        var pending = tareas!.First(t => t.Estado != "completada");
+        Assert.Null(pending.XpOtorgado);
+        Assert.Equal(0, await CountUnlocksAsync(user.UsuarioId));
+    }
+
+    [Fact]
+    public async Task PatchTarea_WithEstadoCompletada_Returns400()
+    {
+        var user = await AuthenticateAsync(_client, "gami-patch-reject");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Patch reject task",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        var patchResp = await _client.PatchAsJsonAsync($"/api/tareas/{tarea!.Id}",
+            new { estado = "completada" });
+        Assert.Equal(HttpStatusCode.BadRequest, patchResp.StatusCode);
+
+        var afterPatch = (await _client.GetFromJsonAsync<List<TareaBody>>("/api/tareas"))!
+            .Single(t => t.Id == tarea.Id);
+        Assert.Equal("pendiente", afterPatch.Estado);
+        Assert.Null(afterPatch.CompletadoPor);
+        Assert.Null(afterPatch.XpOtorgado);
+        Assert.Equal(0, await CountUnlocksAsync(user.UsuarioId));
+    }
+
+    [Fact]
+    public async Task PatchTarea_ReopenClearsCompletionFields_AndXpOtorgadoIsNull()
+    {
+        var user = await AuthenticateAsync(_client, "gami-reopen");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Reopen test",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        await _client.PostAsJsonAsync($"/api/tareas/{tarea!.Id}/completar", new { });
+
+        var patchResp = await _client.PatchAsJsonAsync($"/api/tareas/{tarea.Id}",
+            new { estado = "pendiente" });
+        Assert.Equal(HttpStatusCode.OK, patchResp.StatusCode);
+        var reopened = await patchResp.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(reopened);
+        Assert.Null(reopened!.XpOtorgado);
+
+        var progress = await _client.GetFromJsonAsync<GamificacionProgresoBody>("/api/gamificacion/progreso");
+        Assert.NotNull(progress);
+        Assert.Equal(0, progress!.CurrentXp);
+        Assert.Equal(1, progress.CurrentLevel);
+    }
+
+    [Fact]
+    public async Task CompletarTarea_ThresholdCrossing_CreatesExactlyOneUnlockRow_InDatabase()
+    {
+        var user = await AuthenticateAsync(_client, "gami-threshold");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "Threshold test",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        await _client.PostAsJsonAsync($"/api/tareas/{tarea!.Id}/completar", new { });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Nido.Infrastructure.Persistence.NidoDbContext>();
+        var unlocks = await db.GamificacionNivelesDesbloqueados
+            .Where(u => u.UsuarioId == user.UsuarioId).ToListAsync();
+        Assert.Single(unlocks);
+        Assert.Equal(1, unlocks[0].Nivel);
+    }
+
+    [Fact]
+    public async Task Completar_Reopen_Recomplete_DoesNotDuplicateUnlockRow()
+    {
+        var user = await AuthenticateAsync(_client, "gami-nodup");
+        var created = await _client.PostAsJsonAsync("/api/tareas", new
+        {
+            titulo = "No dup test",
+            descripcion = (string?)null,
+            fechaLimite = (string?)null,
+            asignadoA = (Guid?)null,
+        });
+        var tarea = await created.Content.ReadFromJsonAsync<TareaBody>();
+        Assert.NotNull(tarea);
+
+        await _client.PostAsJsonAsync($"/api/tareas/{tarea!.Id}/completar", new { });
+        await _client.PatchAsJsonAsync($"/api/tareas/{tarea.Id}", new { estado = "pendiente" });
+        await _client.PostAsJsonAsync($"/api/tareas/{tarea.Id}/completar", new { });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Nido.Infrastructure.Persistence.NidoDbContext>();
+        var unlockCount = await db.GamificacionNivelesDesbloqueados
+            .Where(u => u.UsuarioId == user.UsuarioId).CountAsync();
+        Assert.Equal(1, unlockCount);
+    }
+
+
+    private async Task<int> CountUnlocksAsync(Guid usuarioId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        return await db.GamificacionNivelesDesbloqueados.CountAsync(u => u.UsuarioId == usuarioId);
+    }
+
     private async Task<AuthenticatedUser> AuthenticateAsync(HttpClient client, string prefix, string name = "Test User")
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
@@ -411,6 +615,7 @@ public sealed class TareasEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record AuthenticatedUser(Guid UsuarioId, Guid HogarId, string AccessToken, string Email, string Nombre);
+    private sealed record GamificacionProgresoBody(Guid UsuarioId, int CurrentXp, int CurrentLevel);
     private sealed record AsignacionBody(Guid UsuarioId, string Nombre, string? FotoStorageKey);
     private sealed record TareaBody(
         Guid Id,
@@ -425,7 +630,8 @@ public sealed class TareasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         string? CompletadoPorNombre,
         AsignacionBody? AsignadoA,
         bool Vencida,
-        DateTime CreatedAt);
+        DateTime CreatedAt,
+            int? XpOtorgado);
     private sealed record MiembroDistBody(Guid UsuarioId, string Nombre, int Completadas);
     private sealed record DistribucionDiaBody(string Dia, DateTime Fecha, List<MiembroDistBody> Miembros);
     private sealed record DistribucionBody(List<DistribucionDiaBody> Dias);

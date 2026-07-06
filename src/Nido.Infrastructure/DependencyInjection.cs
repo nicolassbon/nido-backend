@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Application.Gamificacion;
+using Nido.Infrastructure.Gamificacion;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nido.Infrastructure.Persistence;
@@ -156,6 +158,7 @@ public static class DependencyInjection
     .Bind(configuration.GetSection(GoogleDocumentAiOptions.SectionName));
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
+        services.AddScoped<IGamificationRepository, GamificationRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
         services.AddScoped<IPushNotificationService, PushNotificationService>();
 
