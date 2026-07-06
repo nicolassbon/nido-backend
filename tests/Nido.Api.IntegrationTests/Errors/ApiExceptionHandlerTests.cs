@@ -8,6 +8,7 @@ using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Hogares.Exceptions;
+using Nido.Application.Productos.Exceptions;
 using Nido.Application.Telegram.Exceptions;
 using Nido.Api.Errors;
 
@@ -107,6 +108,20 @@ public sealed class ApiExceptionHandlerTests
         context.Response.Body = new MemoryStream();
 
         var exception = new TelegramConfigurationException("Telegram:BotUsername is required for Telegram pairing.");
+        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(503, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TryHandle_MapsComparatorUnavailableException_To503ServiceUnavailable()
+    {
+        var handler = new ApiExceptionHandler(new FakeProblemDetailsService(), NullLogger<ApiExceptionHandler>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var exception = new ComparatorUnavailableException(new HttpRequestException("connection refused"));
         var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
 
         Assert.True(result);

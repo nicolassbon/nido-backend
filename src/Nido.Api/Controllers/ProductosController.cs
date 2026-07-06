@@ -5,6 +5,7 @@ using Nido.Api.Contracts.Productos;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Productos;
+using Nido.Application.Productos.Exceptions;
 
 namespace Nido.Api.Controllers;
 
@@ -130,6 +131,10 @@ public sealed class ProductoController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+        catch (ComparatorUnavailableException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
         }
     }
 

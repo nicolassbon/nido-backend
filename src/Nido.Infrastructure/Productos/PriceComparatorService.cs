@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Nido.Application.Productos;
+using Nido.Application.Productos.Exceptions;
 
 namespace Nido.Infrastructure.Productos;
 
@@ -25,16 +26,18 @@ public sealed class PriceComparatorService : IPriceComparatorService
     {
         try
         {
-            // El comparador expone su ruta principal /?q=termino
             var endpoint = $"?q={Uri.EscapeDataString(query)}";
             var result = await _httpClient.GetFromJsonAsync<ComparePricesResult>(endpoint, SerializerOptions, ct);
-            
+
             return result ?? new ComparePricesResult(new(), new(), DateTime.UtcNow);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            // Propagamos el error indicando que falló el servicio de comparación
-            throw new Exception("Error al comunicarse con el servicio del comparador de precios.", ex);
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException)
+        {
+            throw new ComparatorUnavailableException(ex);
         }
     }
 }
