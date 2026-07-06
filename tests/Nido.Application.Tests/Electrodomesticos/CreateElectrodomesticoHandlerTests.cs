@@ -100,5 +100,11 @@ public sealed class CreateElectrodomesticoHandlerTests
 
         public Task<IReadOnlyList<ElectrodomesticoCatalogo>> GetCatalogoAsync(CancellationToken cancellationToken)
             => Task.FromResult(CatalogItems);
+
+        public Task<Electrodomestico?> UpdateAsync(Guid id, Guid hogarId, string? tipo, string? estado, CancellationToken cancellationToken)
+            => Task.FromResult<Electrodomestico?>(null);
+
+        public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 }

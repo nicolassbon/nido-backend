@@ -30,21 +30,24 @@ public sealed class TelegramPairingRateLimiter(
             options.PairingCodeRateLimitValidatePerWindow,
             options.PairingCodeRateLimitWindowSeconds));
 
-    private bool TryAcquire(string keyPrefix, int limit, int windowSeconds)
+    private bool TryAcquire(string key, int limit, int windowSeconds)
     {
         var now = _timeProvider.GetUtcNow();
-        var window = now.ToUnixTimeSeconds() / windowSeconds;
-        var key = $"{keyPrefix}:{window}";
+        var windowStart = now - TimeSpan.FromSeconds(windowSeconds);
 
         lock (GetGateStripe(key))
         {
-            var count = memoryCache.Get<int?>(key) ?? 0;
-            if (count >= limit)
+            var timestamps = memoryCache.Get<List<DateTimeOffset>>(key) ?? [];
+            timestamps.RemoveAll(timestamp => timestamp <= windowStart);
+
+            if (timestamps.Count >= limit)
             {
+                memoryCache.Set(key, timestamps, TimeSpan.FromSeconds(windowSeconds + 1));
                 return false;
             }
 
-            memoryCache.Set(key, count + 1, TimeSpan.FromSeconds(windowSeconds + 1));
+            timestamps.Add(now);
+            memoryCache.Set(key, timestamps, TimeSpan.FromSeconds(windowSeconds + 1));
             return true;
         }
     }

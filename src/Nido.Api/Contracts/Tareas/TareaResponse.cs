@@ -15,4 +15,5 @@ public sealed record TareaResponse(
     string? CompletadoPorNombre,
     AsignacionResponse? AsignadoA,
     bool Vencida,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    int? XpOtorgado);
