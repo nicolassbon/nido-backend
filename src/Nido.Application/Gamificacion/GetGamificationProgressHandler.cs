@@ -37,29 +37,14 @@ public sealed class GetGamificationProgressHandler
 
         var currentLevel = allUnlocked.Count > 0 ? allUnlocked.Max() : 0;
 
-        var metadata = _rules.GetLevelMetadata(currentLevel);
-
         var nextLevel = _rules.GetNextLevel(currentXp);
         var hasNextLevel = nextLevel is not null;
-
-        string? nextLevelNombre = null;
-        string? nextLevelAvatarUrl = null;
-        if (nextLevel is not null)
-        {
-            var nextMeta = _rules.GetLevelMetadata(nextLevel.Level);
-            nextLevelNombre = nextMeta?.Name;
-            nextLevelAvatarUrl = nextMeta?.AvatarUrl;
-        }
 
         return new GamificationProgressResult(
             usuarioId,
             currentXp,
             currentLevel,
-            metadata?.Name,
-            metadata?.AvatarUrl,
             nextLevel?.Level,
-            nextLevelNombre,
-            nextLevelAvatarUrl,
             nextLevel?.ThresholdXp,
             nextLevel?.XpToNextLevel,
             hasNextLevel);

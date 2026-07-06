@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.IntegrationTests.Auth;
@@ -36,6 +37,12 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         Assert.Equal(1, body.NextLevel);
         Assert.Equal(20, body.NextThresholdXp);
         Assert.Equal(20, body.XpToNextLevel);
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.False(json.RootElement.TryGetProperty("currentLevelAvatarUrl", out _));
+        Assert.False(json.RootElement.TryGetProperty("nextLevelAvatarUrl", out _));
+        Assert.False(json.RootElement.TryGetProperty("currentLevelNombre", out _));
+        Assert.False(json.RootElement.TryGetProperty("nextLevelNombre", out _));
     }
 
     [Fact]
@@ -91,12 +98,8 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
             ["Gamification:XpPerCompletedTask"] = "60",
             ["Gamification:Levels:0:Level"] = "1",
             ["Gamification:Levels:0:RequiredXp"] = "20",
-            ["Gamification:Levels:0:Name"] = "Huevito",
-            ["Gamification:Levels:0:AvatarUrl"] = "https://cdn.test/huevito.png",
             ["Gamification:Levels:1:Level"] = "2",
-            ["Gamification:Levels:1:RequiredXp"] = "60",
-            ["Gamification:Levels:1:Name"] = "Pollito",
-            ["Gamification:Levels:1:AvatarUrl"] = "https://cdn.test/pollito.png"
+            ["Gamification:Levels:1:RequiredXp"] = "60"
         });
         using var client = customFactory.CreateClient();
         var user = await AuthenticateAsync(client, "gami-progress-all-missing");
@@ -135,7 +138,7 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
     }
 
     [Fact]
-    public async Task GetProgreso_ConfigRemovedCurrentLevelMetadata_ReturnsNullNameAndUrl_LevelNumberRemains()
+    public async Task GetProgreso_ConfigRemovedCurrentLevel_ReturnsLevelNumberOnly()
     {
         var user = await AuthenticateAsync(_client, "gami-progress-removed-meta");
         var task = await CreateTaskAsync(_client, "Removed metadata task");
@@ -145,9 +148,7 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         {
             ["Gamification:XpPerCompletedTask"] = "20",
             ["Gamification:Levels:0:Level"] = "2",
-            ["Gamification:Levels:0:RequiredXp"] = "60",
-            ["Gamification:Levels:0:Name"] = "Pollito",
-            ["Gamification:Levels:0:AvatarUrl"] = "https://cdn.test/pollito.png"
+            ["Gamification:Levels:0:RequiredXp"] = "60"
         });
         using var changedClient = changedFactory.CreateClient();
         changedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.AccessToken);
@@ -156,8 +157,12 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
 
         Assert.NotNull(body);
         Assert.Equal(1, body!.CurrentLevel);
-        Assert.Null(body.CurrentLevelNombre);
-        Assert.Null(body.CurrentLevelAvatarUrl);
+
+        using var json = JsonDocument.Parse(await changedClient.GetStringAsync("/api/gamificacion/progreso"));
+        Assert.False(json.RootElement.TryGetProperty("currentLevelAvatarUrl", out _));
+        Assert.False(json.RootElement.TryGetProperty("nextLevelAvatarUrl", out _));
+        Assert.False(json.RootElement.TryGetProperty("currentLevelNombre", out _));
+        Assert.False(json.RootElement.TryGetProperty("nextLevelNombre", out _));
     }
 
     [Fact]
@@ -181,12 +186,8 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
             ["Gamification:XpPerCompletedTask"] = xpPerCompletedTask.ToString(),
             ["Gamification:Levels:0:Level"] = "1",
             ["Gamification:Levels:0:RequiredXp"] = "20",
-            ["Gamification:Levels:0:Name"] = "Huevito",
-            ["Gamification:Levels:0:AvatarUrl"] = "https://cdn.test/huevito.png",
             ["Gamification:Levels:1:Level"] = "2",
-            ["Gamification:Levels:1:RequiredXp"] = "60",
-            ["Gamification:Levels:1:Name"] = "Pollito",
-            ["Gamification:Levels:1:AvatarUrl"] = "https://cdn.test/pollito.png"
+            ["Gamification:Levels:1:RequiredXp"] = "60"
         };
 
     private static async Task<TareaBody> CreateTaskAsync(HttpClient client, string title)
@@ -222,11 +223,7 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         Guid UsuarioId,
         int CurrentXp,
         int CurrentLevel,
-        string? CurrentLevelNombre,
-        string? CurrentLevelAvatarUrl,
         int? NextLevel,
-        string? NextLevelNombre,
-        string? NextLevelAvatarUrl,
         int? NextThresholdXp,
         int? XpToNextLevel,
         bool HasNextLevel);

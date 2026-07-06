@@ -10,11 +10,11 @@ public sealed class GamificationUnlockMaterializerTests
         XpPerCompletedTask = 20,
         Levels = new List<GamificationLevelOptions>
         {
-            new() { Level = 1, RequiredXp = 20, Name = "Huevito" },
-            new() { Level = 2, RequiredXp = 60, Name = "Pollito" },
-            new() { Level = 3, RequiredXp = 120, Name = "Gallina" },
-            new() { Level = 4, RequiredXp = 200, Name = "Gallo" },
-            new() { Level = 5, RequiredXp = 300, Name = "Águila" },
+            new() { Level = 1, RequiredXp = 20 },
+            new() { Level = 2, RequiredXp = 60 },
+            new() { Level = 3, RequiredXp = 120 },
+            new() { Level = 4, RequiredXp = 200 },
+            new() { Level = 5, RequiredXp = 300 },
         }
     };
 

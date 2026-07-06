@@ -62,11 +62,4 @@ public sealed class GamificationRulesService : IGamificationRulesService
         }
         return null;
     }
-
-    public GamificationLevelMetadata? GetLevelMetadata(int level)
-    {
-        var config = _normalizedLevels.FirstOrDefault(l => l.Level == level);
-        if (config is null) return null;
-        return new GamificationLevelMetadata(config.Level, config.Name, config.AvatarUrl);
-    }
 }

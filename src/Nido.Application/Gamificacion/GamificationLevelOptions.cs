@@ -4,6 +4,4 @@ public sealed class GamificationLevelOptions
 {
     public int Level { get; set; }
     public int RequiredXp { get; set; }
-    public string? Name { get; set; }
-    public string? AvatarUrl { get; set; }
 }
