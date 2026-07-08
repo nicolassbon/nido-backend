@@ -185,6 +185,15 @@ public static class DependencyInjection
             return new Telegram.TelegramClient(httpClient, sp.GetRequiredService<ILogger<Telegram.TelegramClient>>());
         });
 
+        services.AddSingleton<Application.Telegram.ITelegramWebhookInitializer>(sp =>
+        {
+            var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TelegramClient");
+            return new TelegramWebhookInitializer(
+                httpClient,
+                sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>(),
+                sp.GetRequiredService<ILogger<TelegramWebhookInitializer>>());
+        });
+
         services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
         services.AddSingleton<ITelegramOutboxWakeupService, TelegramOutboxWakeupService>();
         services.AddScoped<ITelegramUpdateIdempotencyService, TelegramUpdateIdempotencyService>();
