@@ -10,11 +10,15 @@ public sealed class TelegramOptions
 
     public string? WebhookSecretToken { get; init; }
 
+    public string? WebhookUrl { get; init; }
+
     public bool HasBotToken => !string.IsNullOrWhiteSpace(BotToken);
 
     public bool HasWebhookSecretToken => !string.IsNullOrWhiteSpace(WebhookSecretToken);
 
-    public bool IsWebhookConfigured => HasBotToken && HasWebhookSecretToken;
+    public bool HasWebhookUrl => !string.IsNullOrWhiteSpace(WebhookUrl);
+
+    public bool IsWebhookConfigured => HasBotToken && HasWebhookSecretToken && HasWebhookUrl;
 
     public string BotUsername { get; set; } = string.Empty;
 
