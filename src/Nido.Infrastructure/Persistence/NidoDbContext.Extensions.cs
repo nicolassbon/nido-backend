@@ -17,6 +17,7 @@ public partial class NidoDbContext
     public virtual DbSet<TelegramBatch> TelegramBatches { get; set; } = null!;
     public virtual DbSet<TelegramPairingToken> TelegramPairingTokens { get; set; } = null!;
     public virtual DbSet<TelegramPairingCode> TelegramPairingCodes { get; set; } = null!;
+    public virtual DbSet<GamificacionNivelDesbloqueado> GamificacionNivelesDesbloqueados { get; set; } = null!;
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,7 @@ public partial class NidoDbContext
         modelBuilder.ApplyConfiguration(new TelegramConversationStateConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramBatchConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramPairingTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new GamificacionNivelDesbloqueadoConfiguration());
         modelBuilder.ApplyConfiguration(new TelegramPairingCodeConfiguration());
         modelBuilder.Entity<ConsumoProducto>(entity =>
         {

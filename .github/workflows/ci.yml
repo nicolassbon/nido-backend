@@ -120,9 +120,10 @@ jobs:
             export NIDO_API_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-api:${{ github.sha }}'
             export NIDO_MIGRATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:${{ github.sha }}'
             export NIDO_CADDY_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-caddy:latest'
+            export NIDO_COMPARATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-comparator:comparador-precios-nido-v1'
             export ASPNETCORE_ENVIRONMENT=Production
 
-            docker compose pull nido-api nido-migrator
+            docker compose pull nido-api nido-migrator nido-comparator nido-redis
             docker compose --profile production pull nido-caddy
             docker compose run --rm nido-migrator
 
