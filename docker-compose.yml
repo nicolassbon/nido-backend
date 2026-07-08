@@ -68,6 +68,7 @@ services:
       - Telegram__BotToken=${Telegram__BotToken}
       - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
       - Telegram__BotUsername=${Telegram__BotUsername}
+      - Telegram__WebhookUrl=${Telegram__WebhookUrl:-}
       - ExternalServices__ComparatorUrl=http://nido-comparator:3000/
     ports:
       - "127.0.0.1:8080:8080"

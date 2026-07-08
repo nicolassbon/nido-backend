@@ -38,6 +38,7 @@ public sealed class TelegramOptionsTests
         Assert.True(options.DailySummaryEnabled);
         Assert.Null(options.BotToken);
         Assert.Null(options.WebhookSecretToken);
+        Assert.Null(options.WebhookUrl);
     }
 
     [Fact]
@@ -94,7 +95,8 @@ public sealed class TelegramOptionsTests
                 ["Telegram:PairingCodeRateLimitWindowSeconds"] = "120",
                 ["Telegram:DailySummaryEnabled"] = "false",
                 ["Telegram:BotToken"] = "bot:secret",
-                ["Telegram:WebhookSecretToken"] = "webhook-secret"
+                ["Telegram:WebhookSecretToken"] = "webhook-secret",
+                ["Telegram:WebhookUrl"] = "https://telegram-webhook.example.test/api/webhooks/telegram"
             })
             .Build();
 
@@ -121,6 +123,7 @@ public sealed class TelegramOptionsTests
         Assert.False(options.DailySummaryEnabled);
         Assert.Equal("bot:secret", options.BotToken);
         Assert.Equal("webhook-secret", options.WebhookSecretToken);
+        Assert.Equal("https://telegram-webhook.example.test/api/webhooks/telegram", options.WebhookUrl);
     }
 
     [Fact]
@@ -275,6 +278,7 @@ public sealed class TelegramOptionsTests
 
         Assert.Equal("", options.BotToken);
         Assert.Equal("", options.WebhookSecretToken);
+        Assert.Equal("", options.WebhookUrl);
         Assert.Equal("MarkdownV2", options.DefaultParseMode);
         Assert.Equal(9, options.DailySummaryHourUtc);
         Assert.Equal(30, options.OutboxPollIntervalSeconds);

@@ -24,6 +24,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddTransient(sp => sp.GetRequiredService<IOptions<TelegramOptions>>().Value);
+        services.TryAddSingleton<ITelegramWebhookInitializer, MissingTelegramWebhookInitializer>();
         services.AddScoped<StartTelegramPairingHandler>();
         services.AddScoped<CompleteTelegramPairingHandler>();
         services.AddScoped<CompleteTelegramPairingByCodeHandler>();
@@ -50,6 +51,17 @@ public static class DependencyInjection
         services.AddHostedService<TelegramWebhookConfigurationMonitor>();
         return services;
     }
+}
+
+public interface ITelegramWebhookInitializer
+{
+    Task InitializeAsync(CancellationToken cancellationToken);
+}
+
+internal sealed class MissingTelegramWebhookInitializer : ITelegramWebhookInitializer
+{
+    public Task InitializeAsync(CancellationToken cancellationToken)
+        => throw new InvalidOperationException("ITelegramWebhookInitializer requires infrastructure registration.");
 }
 
 internal sealed class MissingTelegramHogarAccess : ITelegramHogarAccess
@@ -173,25 +185,22 @@ internal sealed class MissingTelegramMenuProvider : ITelegramMenuProvider
 internal sealed class TelegramWebhookConfigurationMonitor : IHostedService
 {
     private readonly TelegramOptions _options;
+    private readonly ITelegramWebhookInitializer _initializer;
     private readonly ILogger<TelegramWebhookConfigurationMonitor> _logger;
 
     public TelegramWebhookConfigurationMonitor(
         IOptions<TelegramOptions> options,
+        ITelegramWebhookInitializer initializer,
         ILogger<TelegramWebhookConfigurationMonitor> logger)
     {
         _options = options.Value;
+        _initializer = initializer;
         _logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (_options.IsWebhookConfigured)
-        {
-            _logger.LogInformation("Telegram webhook feature enabled.");
-            return Task.CompletedTask;
-        }
-
-        var missing = new List<string>(capacity: 2);
+        var missing = new List<string>(capacity: 3);
 
         if (!_options.HasBotToken)
         {
@@ -203,9 +212,35 @@ internal sealed class TelegramWebhookConfigurationMonitor : IHostedService
             missing.Add("Telegram:WebhookSecretToken");
         }
 
-        _logger.LogWarning(
-            "Telegram webhook feature disabled because required configuration is missing: {MissingKeys}",
-            string.Join(", ", missing));
+        if (!_options.HasWebhookUrl)
+        {
+            missing.Add("Telegram:WebhookUrl");
+        }
+
+        if (missing.Count > 0)
+        {
+            _logger.LogWarning(
+                "Telegram webhook feature disabled because required configuration is missing: {MissingKeys}",
+                string.Join(", ", missing));
+
+            return Task.CompletedTask;
+        }
+
+        _logger.LogInformation(
+            "Telegram webhook feature enabled. Registering webhook with Telegram in background. WebhookUrl={WebhookUrl}",
+            _options.WebhookUrl);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _initializer.InitializeAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register Telegram webhook; application will continue.");
+            }
+        }, CancellationToken.None);
 
         return Task.CompletedTask;
     }
