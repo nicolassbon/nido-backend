@@ -165,7 +165,12 @@ public sealed class FinanzasController : ControllerBase
                 m.MontoAportado,
                 m.MontoCorrespondido,
                 m.Balance)).ToList(),
-            result.TotalPeriodo));
+            result.TotalPeriodo,
+            result.TotalPersonal,
+            result.Deudas.Select(d => new DeudaResponse(
+                d.DeudorId, d.DeudorNombre, d.DeudorFotoUrl,
+                d.AcreedorId, d.AcreedorNombre, d.AcreedorFotoUrl,
+                d.Monto)).ToList()));
     }
 
     [HttpGet("gastos")]
@@ -200,7 +205,9 @@ public sealed class FinanzasController : ControllerBase
                 request.Monto,
                 request.Descripcion,
                 request.Categoria,
-                request.Fecha),
+                request.Fecha,
+                request.EsCompartido,
+                request.ParticipantesIds),
             ct);
 
         return CreatedAtAction(nameof(CreateGasto), ToResponse(result));
@@ -216,7 +223,7 @@ public sealed class FinanzasController : ControllerBase
         var pagadoPorId = request.PagadoPorId ?? currentUser.UsuarioId;
 
         var result = await _updateGastoHandler.Handle(
-            new UpdateGastoCommand(id, currentUser.HogarId, request.Monto, request.Descripcion, request.Categoria, request.Fecha, pagadoPorId),
+            new UpdateGastoCommand(id, currentUser.HogarId, request.Monto, request.Descripcion, request.Categoria, request.Fecha, pagadoPorId, request.EsCompartido, request.ParticipantesIds),
             ct);
 
         return Ok(ToResponse(result));
@@ -321,6 +328,8 @@ public sealed class FinanzasController : ControllerBase
         result.PagadoPorId,
         result.PagadoPorNombre,
         result.CreatedAt,
-        result.FacturaId
+        result.FacturaId,
+        result.EsCompartido,
+        result.ParticipantesIds
     );
 }

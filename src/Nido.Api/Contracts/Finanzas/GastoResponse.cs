@@ -9,5 +9,7 @@ public sealed record GastoResponse(
     Guid PagadoPorId,
     string PagadoPorNombre,
     DateTime CreatedAt,
-    Guid? FacturaId
+    Guid? FacturaId,
+    bool EsCompartido,
+    IReadOnlyList<Guid> ParticipantesIds
 );

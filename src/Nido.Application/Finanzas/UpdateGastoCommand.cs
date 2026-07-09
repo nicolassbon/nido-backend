@@ -7,5 +7,7 @@ public sealed record UpdateGastoCommand(
     string? Descripcion,
     string? Categoria,
     string Fecha,
-    Guid PagadoPorId
+    Guid PagadoPorId,
+    bool EsCompartido = true,
+    IReadOnlyList<Guid>? ParticipantesIds = null
 );
