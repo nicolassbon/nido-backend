@@ -16,6 +16,7 @@ public sealed record GetProductManualResult(
     decimal PorcentajeConsumido,
     int CantidadEnvases,
     string? IconoSvg = null,
+    string? Icono = null,
     decimal? CantidadCompraEstandar = null,
     string? UnidadCompraEstandar = null
 );
