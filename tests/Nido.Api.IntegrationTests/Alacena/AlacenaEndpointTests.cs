@@ -46,11 +46,19 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Contains("Arroz", nombres);
         Assert.Contains("Pastas", nombres);
         Assert.Contains("Verduras", nombres);
+        Assert.Contains("Farmacia", nombres);
+        Assert.Contains("Galletas", nombres);
         Assert.DoesNotContain("Almacén", nombres);
         Assert.DoesNotContain("Baño", nombres);
         Assert.DoesNotContain("Carnes", nombres);
         Assert.DoesNotContain("Arroces y pastas", nombres);
         Assert.DoesNotContain("Aceites y condimentos", nombres);
+
+        var arroz = categorias!.Single(c => c.Nombre == "Arroz");
+        Assert.NotNull(arroz.Icono);
+        Assert.StartsWith("https://", arroz.Icono, StringComparison.Ordinal);
+        Assert.EndsWith("categorias/arroz.jpg", arroz.Icono, StringComparison.Ordinal);
+        Assert.Equal("arroz.svg", arroz.IconoSvg);
     }
 
     [Fact]
@@ -864,7 +872,7 @@ public sealed class AlacenaEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record AuthenticatedUser(Guid UsuarioId, Guid HogarId, string AccessToken);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
-    private sealed record CategoriaBody(Guid Id, string Nombre, int? TtlDias);
+    private sealed record CategoriaBody(Guid Id, string Nombre, int? TtlDias, string? IconoSvg, string? Icono);
     private sealed record UnidadMedidaBody(Guid Id, string Codigo, string Nombre);
     private sealed record StockItemBody(
         Guid Id,
