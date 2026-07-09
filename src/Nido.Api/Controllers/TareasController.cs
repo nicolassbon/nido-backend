@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Tareas;
 using Nido.Application.Common.Security;
+using Nido.Application.Gamificacion;
 using Nido.Application.Tareas;
 
 namespace Nido.Api.Controllers;
@@ -15,20 +16,22 @@ public sealed class TareasController : ControllerBase
     public async Task<IActionResult> GetTareas(
         [FromServices] GetTareasHandler handler,
         [FromServices] ICurrentUserContext currentUser,
+        [FromServices] IGamificationRulesService gamificationRules,
         CancellationToken ct)
     {
         var tareas = await handler.Handle(new GetTareasQuery(currentUser.HogarId), ct);
-        return Ok(tareas.Select(ToResponse));
+        return Ok(tareas.Select(t => ToResponse(t, gamificationRules)));
     }
 
     [HttpGet("mis-tareas")]
     public async Task<IActionResult> GetMisTareas(
         [FromServices] GetMisTareasHandler handler,
         [FromServices] ICurrentUserContext currentUser,
+        [FromServices] IGamificationRulesService gamificationRules,
         CancellationToken ct)
     {
         var tareas = await handler.Handle(new GetMisTareasQuery(currentUser.HogarId, currentUser.UsuarioId), ct);
-        return Ok(tareas.Select(ToResponse));
+        return Ok(tareas.Select(t => ToResponse(t, gamificationRules)));
     }
 
     private int UtcOffsetMinutes =>
@@ -57,6 +60,7 @@ public sealed class TareasController : ControllerBase
         [FromBody] CreateTareaRequest request,
         [FromServices] CreateTareaHandler handler,
         [FromServices] ICurrentUserContext currentUser,
+        [FromServices] IGamificationRulesService gamificationRules,
         CancellationToken ct)
     {
         var tarea = await handler.Handle(new CreateTareaCommand(
@@ -67,7 +71,7 @@ public sealed class TareasController : ControllerBase
             request.FechaLimite,
             request.AsignadoA), ct);
 
-        return CreatedAtAction(nameof(GetTareas), ToResponse(tarea));
+        return CreatedAtAction(nameof(GetTareas), ToResponse(tarea, gamificationRules));
     }
 
     [HttpPatch("{id:guid}")]
@@ -76,18 +80,30 @@ public sealed class TareasController : ControllerBase
         [FromBody] UpdateTareaRequest request,
         [FromServices] UpdateTareaHandler handler,
         [FromServices] ICurrentUserContext currentUser,
+        [FromServices] IGamificationRulesService gamificationRules,
         CancellationToken ct)
     {
-        var tarea = await handler.Handle(new UpdateTareaCommand(
-            id,
-            currentUser.HogarId,
-            request.Titulo,
-            request.Descripcion,
-            request.FechaLimite,
-            request.Estado), ct);
+        try
+        {
+            var tarea = await handler.Handle(new UpdateTareaCommand(
+                id,
+                currentUser.HogarId,
+                request.Titulo,
+                request.Descripcion,
+                request.FechaLimite,
+                request.Estado), ct);
 
-        if (tarea is null) return NotFound();
-        return Ok(ToResponse(tarea));
+            if (tarea is null) return NotFound();
+            return Ok(ToResponse(tarea, gamificationRules));
+        }
+        catch (InvalidOperationException ex) when (request.Estado == "completada")
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "TAREA_ESTADO_INVALIDO",
+                Detail = ex.Message
+            });
+        }
     }
 
     [HttpPost("{id:guid}/completar")]
@@ -95,11 +111,12 @@ public sealed class TareasController : ControllerBase
         Guid id,
         [FromServices] CompletarTareaHandler handler,
         [FromServices] ICurrentUserContext currentUser,
+        [FromServices] IGamificationRulesService gamificationRules,
         CancellationToken ct)
     {
         var tarea = await handler.Handle(new CompletarTareaCommand(id, currentUser.HogarId, currentUser.UsuarioId), ct);
         if (tarea is null) return NotFound();
-        return Ok(ToResponse(tarea));
+        return Ok(ToResponse(tarea, gamificationRules));
     }
 
     [HttpPost("{id:guid}/asignar")]
@@ -108,11 +125,12 @@ public sealed class TareasController : ControllerBase
         [FromBody] AsignarTareaRequest request,
         [FromServices] AsignarTareaHandler handler,
         [FromServices] ICurrentUserContext currentUser,
+        [FromServices] IGamificationRulesService gamificationRules,
         CancellationToken ct)
     {
         var tarea = await handler.Handle(new AsignarTareaCommand(id, currentUser.HogarId, request.UsuarioId, currentUser.UsuarioId), ct);
         if (tarea is null) return NotFound();
-        return Ok(ToResponse(tarea));
+        return Ok(ToResponse(tarea, gamificationRules));
     }
 
     [HttpDelete("{id:guid}")]
@@ -127,18 +145,27 @@ public sealed class TareasController : ControllerBase
         return NoContent();
     }
 
-    private TareaResponse ToResponse(TareaResult t)
+    private TareaResponse ToResponse(TareaResult t, IGamificationRulesService gamificationRules)
     {
         var localNow = DateTime.UtcNow.AddMinutes(-UtcOffsetMinutes);
         var vencida = t.FechaLimite.HasValue
             && t.FechaLimite.Value.Date < localNow.Date
             && t.Estado != "completada";
+
         return new TareaResponse(
-            t.Id, t.Titulo, t.Descripcion, t.Estado,
-            t.FechaLimite, t.FechaCompletado,
-            t.CreadoPor, t.CreadoPorNombre,
-            t.CompletadoPor, t.CompletadoPorNombre,
+            t.Id,
+            t.Titulo,
+            t.Descripcion,
+            t.Estado,
+            t.FechaLimite,
+            t.FechaCompletado,
+            t.CreadoPor,
+            t.CreadoPorNombre,
+            t.CompletadoPor,
+            t.CompletadoPorNombre,
             t.AsignadoA is null ? null : new AsignacionResponse(t.AsignadoA.UsuarioId, t.AsignadoA.Nombre, t.AsignadoA.FotoStorageKey),
-            vencida, t.CreatedAt);
+            vencida,
+            t.CreatedAt,
+            gamificationRules.TaskXpOtorgado(t.Estado == "completada"));
     }
 }

@@ -7,5 +7,7 @@ public sealed record CreateGastoCommand(
     string? Descripcion,
     string? Categoria,
     string Fecha,
+    bool EsCompartido = true,
+    IReadOnlyList<Guid>? ParticipantesIds = null,
     Guid? FacturaId = null
 );

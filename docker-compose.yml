@@ -68,6 +68,8 @@ services:
       - Telegram__BotToken=${Telegram__BotToken}
       - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
       - Telegram__BotUsername=${Telegram__BotUsername}
+      - Telegram__WebhookUrl=${Telegram__WebhookUrl:-}
+      - ExternalServices__ComparatorUrl=http://nido-comparator:3000/
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -82,6 +84,8 @@ services:
         condition: service_healthy
       nido-migrator:
         condition: service_completed_successfully
+      nido-comparator:
+        condition: service_healthy
 
   nido-caddy:
     profiles:
@@ -102,6 +106,43 @@ services:
       - caddy-config:/config
     depends_on:
       - nido-api
+    restart: unless-stopped
+
+  nido-redis:
+    image: redis:7-alpine
+    container_name: nido-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  nido-comparator:
+    image: ${NIDO_COMPARATOR_IMAGE:-javier073/nido-comparator:latest}
+    container_name: nido-comparator
+    environment:
+      - PORT=3000
+      - ENV=${COMPARATOR_ENV:-development}
+      - REDIS_URL=redis://nido-redis:6379
+      - REDIS_CACHE_EXPIRATION=28800
+      - RESPONSE_CACHE_EXPIRATION=3600
+      - CORE_CACHE_EXPIRATION=0
+      - VTEX_SHA256_HASH=${VTEX_SHA256_HASH:?VTEX_SHA256_HASH is required}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      nido-redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

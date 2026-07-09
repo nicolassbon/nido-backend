@@ -15,3 +15,14 @@ public sealed class MissingProductFieldException : NidoException
         _ => $"El campo {campo} es requerido."
     };
 }
+
+public sealed class ComparatorUnavailableException : NidoException
+{
+    public ComparatorUnavailableException(Exception inner)
+        : base(
+            "PRICE_COMPARATOR_UNAVAILABLE",
+            "No pudimos comparar precios en este momento. Intentá nuevamente en unos minutos.",
+            inner)
+    {
+    }
+}

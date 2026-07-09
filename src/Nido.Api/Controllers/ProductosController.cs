@@ -5,6 +5,7 @@ using Nido.Api.Contracts.Productos;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Productos;
+using Nido.Application.Productos.Exceptions;
 
 namespace Nido.Api.Controllers;
 
@@ -16,15 +17,18 @@ public sealed class ProductoController : ControllerBase
     private readonly GetProductByBarcodeHandler        _getByBarcodeHandler;
     private readonly SearchProductosHandler            _searchHandler;
     private readonly LookupExternalProductoHandler     _externalLookupHandler;
+    private readonly ComparePricesHandler              _comparePricesHandler;
 
     public ProductoController(
         GetProductByBarcodeHandler getByBarcodeHandler,
         SearchProductosHandler searchHandler,
-        LookupExternalProductoHandler externalLookupHandler)
+        LookupExternalProductoHandler externalLookupHandler,
+        ComparePricesHandler comparePricesHandler)
     {
         _getByBarcodeHandler   = getByBarcodeHandler;
         _searchHandler         = searchHandler;
         _externalLookupHandler = externalLookupHandler;
+        _comparePricesHandler  = comparePricesHandler;
     }
 
     [HttpGet("barcode/{barcode}")]
@@ -107,6 +111,31 @@ public sealed class ProductoController : ControllerBase
             r.UnidadMedida,
             r.Ubicacion,
         }));
+    }
+
+    [HttpGet("comparar")]
+    public async Task<IActionResult> CompararPrecios(
+        [FromQuery] string q,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest(new { message = "El parámetro de búsqueda 'q' es requerido." });
+        }
+
+        try
+        {
+            var result = await _comparePricesHandler.Handle(new ComparePricesQuery(q), ct);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ComparatorUnavailableException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
     }
 
     private static NutritionInfoResponse ToNutritionResponse(NutritionInfoResult nutrition) =>

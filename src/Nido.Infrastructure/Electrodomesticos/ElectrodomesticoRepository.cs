@@ -76,6 +76,34 @@ public sealed class ElectrodomesticoRepository : IElectrodomesticoRepository, IE
         return MapToDomain(electrodomesticos, catalogo);
     }
 
+    public async Task<DomainElectrodomestico?> UpdateAsync(Guid id, Guid hogarId, string? tipo, string? estado, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Electrodomesticos
+            .FirstOrDefaultAsync(e => e.Id == id && e.HogarId == hogarId, cancellationToken);
+
+        if (entity is null) return null;
+
+        if (tipo is not null) entity.Tipo = tipo;
+        if (estado is not null) entity.Estado = estado;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var catalogo = await _dbContext.ElectrodomesticosCatalogo.AsNoTracking().ToListAsync(cancellationToken);
+        return MapToDomain([entity], catalogo).First();
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.Electrodomesticos
+            .FirstOrDefaultAsync(e => e.Id == id && e.HogarId == hogarId, cancellationToken);
+
+        if (entity is null) return false;
+
+        _dbContext.Electrodomesticos.Remove(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private IReadOnlyList<DomainElectrodomestico> MapToDomain(
         List<PersistenceElectrodomestico> electrodomesticos,
         List<Persistence.Entities.ElectrodomesticoCatalogo> catalogo)

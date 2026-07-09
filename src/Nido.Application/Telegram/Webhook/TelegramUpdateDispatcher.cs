@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Nido.Application.Gamificacion;
 using Nido.Application.Tareas;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Conversation;
@@ -33,7 +34,7 @@ public sealed partial class TelegramUpdateDispatcher(
             new MissingTelegramConversationStateStore(),
             new MissingTelegramMenuRegistry(),
             new MissingTelegramMenuProvider(),
-            new CompletarTareaHandler(new MissingTareaRepository()))
+            new CompletarTareaHandler(new MissingTareaRepository(), new MissingGamificationUnlockMaterializer()))
     {
     }
 
@@ -334,6 +335,12 @@ public sealed record TelegramDispatchResult(long ChatId, Guid HogarId, string Co
         : this(chatId, Guid.Empty, confirmationText, "interactive.message")
     {
     }
+}
+
+internal sealed class MissingGamificationUnlockMaterializer : IGamificationUnlockMaterializer
+{
+    public Task<IReadOnlyList<int>> MaterializeEligibleUnlocksAsync(Guid usuarioId, CancellationToken ct)
+        => throw new InvalidOperationException("IGamificationUnlockMaterializer requires gamification module registration.");
 }
 
 internal sealed class MissingTareaRepository : Nido.Application.Tareas.ITareaRepository

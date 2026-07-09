@@ -110,6 +110,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         // Productos exceptions
         MissingProductFieldException => (StatusCodes.Status400BadRequest, "Validation error"),
+        ComparatorUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
         ProductImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
         ElectrodomesticoImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),
         CatalogImageTargetNotFoundException => (StatusCodes.Status404NotFound, "Not found"),

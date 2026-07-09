@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Nido.Application.Gamificacion;
+using Nido.Infrastructure.Gamificacion;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nido.Infrastructure.Persistence;
@@ -156,6 +158,7 @@ public static class DependencyInjection
     .Bind(configuration.GetSection(GoogleDocumentAiOptions.SectionName));
         services.AddScoped<IFinanzasRepository, FinanzasRepository>();
         services.AddScoped<ITareaRepository, TareaRepository>();
+        services.AddScoped<IGamificationRepository, GamificationRepository>();
         services.AddScoped<INotificacionesRepository, NotificacionesRepository>();
         services.AddScoped<IPushNotificationService, PushNotificationService>();
 
@@ -180,6 +183,15 @@ public static class DependencyInjection
 
             var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TelegramClient");
             return new Telegram.TelegramClient(httpClient, sp.GetRequiredService<ILogger<Telegram.TelegramClient>>());
+        });
+
+        services.AddSingleton<Application.Telegram.ITelegramWebhookInitializer>(sp =>
+        {
+            var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("TelegramClient");
+            return new TelegramWebhookInitializer(
+                httpClient,
+                sp.GetRequiredService<IOptions<Application.Telegram.TelegramOptions>>(),
+                sp.GetRequiredService<ILogger<TelegramWebhookInitializer>>());
         });
 
         services.AddSingleton<ITelegramWebhookTelemetry, TelegramWebhookTelemetry>();
@@ -227,6 +239,14 @@ public static class DependencyInjection
         services.AddScoped<INutritionLabelParser, GoogleDocumentAiNutritionLabelParser>();
 
         services.AddHostedService<AlertaDiariaWorker>();
+
+        // Price Comparator
+        services.AddHttpClient<IPriceComparatorService, PriceComparatorService>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["ExternalServices:ComparatorUrl"] ?? "http://nido-comparator:3000/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddScoped<ComparePricesHandler>();
 
         return services;
     }

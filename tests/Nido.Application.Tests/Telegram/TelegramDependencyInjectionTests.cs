@@ -113,4 +113,69 @@ public sealed class TelegramDependencyInjectionTests
         await validator.StartAsync(CancellationToken.None);
         await validator.StopAsync(CancellationToken.None);
     }
+
+    [Fact]
+    public async Task AddTelegramWebhook_WhenAllConfigured_CallsWebhookInitializerInBackground()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Telegram:BotToken"] = "bot-token",
+                ["Telegram:WebhookSecretToken"] = "webhook-secret",
+                ["Telegram:WebhookUrl"] = "https://telegram-webhook.example.test/api/webhooks/telegram"
+            })
+            .Build();
+
+        var fake = new FakeTelegramWebhookInitializer();
+
+        services.AddLogging();
+        services.AddTelegramWebhook(configuration);
+        services.AddSingleton<ITelegramWebhookInitializer>(fake);
+
+        using var provider = services.BuildServiceProvider();
+        var hostedService = Assert.Single(provider.GetServices<IHostedService>());
+
+        await hostedService.StartAsync(CancellationToken.None);
+        await fake.Called.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await hostedService.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task AddTelegramWebhook_WhenWebhookUrlMissing_DoesNotCallInitializer()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Telegram:BotToken"] = "bot-token",
+                ["Telegram:WebhookSecretToken"] = "webhook-secret"
+            })
+            .Build();
+
+        var fake = new FakeTelegramWebhookInitializer();
+
+        services.AddLogging();
+        services.AddTelegramWebhook(configuration);
+        services.AddSingleton<ITelegramWebhookInitializer>(fake);
+
+        using var provider = services.BuildServiceProvider();
+        var hostedService = Assert.Single(provider.GetServices<IHostedService>());
+
+        await hostedService.StartAsync(CancellationToken.None);
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+        Assert.False(fake.Called.Task.IsCompleted);
+        await hostedService.StopAsync(CancellationToken.None);
+    }
+
+    private sealed class FakeTelegramWebhookInitializer : ITelegramWebhookInitializer
+    {
+        public TaskCompletionSource<object?> Called { get; } = new();
+
+        public Task InitializeAsync(CancellationToken cancellationToken)
+        {
+            Called.SetResult(null);
+            return Task.CompletedTask;
+        }
+    }
 }

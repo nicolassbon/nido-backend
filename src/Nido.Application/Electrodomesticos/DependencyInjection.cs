@@ -9,6 +9,8 @@ public static class DependencyInjection
     public static IServiceCollection AddElectrodomesticosModule(this IServiceCollection services)
     {
         services.AddScoped<CreateElectrodomesticoHandler>();
+        services.AddScoped<UpdateElectrodomesticoHandler>();
+        services.AddScoped<DeleteElectrodomesticoHandler>();
         services.AddScoped<GetElectrodomesticosHandler>();
         services.AddScoped<GetElectrodomesticosCatalogoHandler>();
         services.AddScoped<UploadElectrodomesticoImageHandler>();

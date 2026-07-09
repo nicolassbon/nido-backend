@@ -1,10 +1,12 @@
 using Nido.Application.Tareas;
+using Nido.Application.Gamificacion;
 using Nido.Application.Telegram.Authorization;
 using Nido.Application.Telegram.Conversation;
 using Nido.Application.Telegram.Exceptions;
 using Nido.Application.Telegram.Menu;
 using Nido.Application.Telegram.Pairing;
 using Nido.Application.Telegram.Webhook;
+using Nido.Application.Tests.Tareas;
 using Xunit;
 
 namespace Nido.Application.Tests.Telegram;
@@ -202,7 +204,8 @@ public sealed class TelegramUpdateDispatcherMenuTests
         };
         var tareaRepository = new FakeTareaRepository
         {
-            TareaCompletada = MakeTareaResult(tareaId, access.HogarId, access.UsuarioId)
+            TareaCompletada = MakeTareaResult(tareaId, access.HogarId, access.UsuarioId),
+            TareaToReturn = MakePendienteTareaResult(tareaId, access.HogarId)
         };
         var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), new FakeMenuProvider(), tareaRepository: tareaRepository);
 
@@ -383,7 +386,8 @@ public sealed class TelegramUpdateDispatcherMenuTests
         };
         var tareaRepository = new FakeTareaRepository
         {
-            TareaCompletada = MakeTareaResult(tareaId, access.HogarId, access.UsuarioId)
+            TareaCompletada = MakeTareaResult(tareaId, access.HogarId, access.UsuarioId),
+            TareaToReturn = MakePendienteTareaResult(tareaId, access.HogarId)
         };
         var provider = new FakeMenuProvider();
         var dispatcher = CreateDispatcher(access, stateStore, new FakeMenuRegistry(), provider, tareaRepository: tareaRepository);
@@ -418,12 +422,16 @@ public sealed class TelegramUpdateDispatcherMenuTests
             stateStore,
             registry,
             provider,
-            new CompletarTareaHandler(tareaRepository));
+            new CompletarTareaHandler(tareaRepository, new FakeGamificationUnlockMaterializer()));
     }
 
     private static TareaResult MakeTareaResult(Guid id, Guid hogarId, Guid completadoPor) =>
         new(id, hogarId, "Sacar la basura", null, "completada",
             DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid(), "Creador", completadoPor, "User", null, DateTime.UtcNow);
+
+    private static TareaResult MakePendienteTareaResult(Guid id, Guid hogarId) =>
+        new(id, hogarId, "Sacar la basura", null, "pendiente",
+            null, null, Guid.NewGuid(), "Creador", null, null, null, DateTime.UtcNow);
 
     private static TelegramWebhookRequest BuildRequest(string text)
         => new(1, new TelegramWebhookMessage(1, 1, text, new TelegramWebhookChat(99, "private")));
@@ -571,6 +579,7 @@ public sealed class TelegramUpdateDispatcherMenuTests
     private sealed class FakeTareaRepository : ITareaRepository
     {
         public TareaResult? TareaCompletada { get; set; }
+        public TareaResult? TareaToReturn { get; set; }
 
         public int CompletarCallCount { get; private set; }
         public Guid LastCompletarId { get; private set; }
@@ -579,9 +588,9 @@ public sealed class TelegramUpdateDispatcherMenuTests
 
         public Task<List<TareaResult>> GetByHogarAsync(Guid hogarId, CancellationToken ct) => Task.FromResult(new List<TareaResult>());
         public Task<List<TareaResult>> GetByAsignadoAsync(Guid hogarId, Guid usuarioId, CancellationToken ct) => Task.FromResult(new List<TareaResult>());
-        public Task<TareaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct) => Task.FromResult<TareaResult?>(null);
+        public Task<TareaResult?> GetByIdAsync(Guid id, Guid hogarId, CancellationToken ct) => Task.FromResult(TareaToReturn);
         public Task<TareaResult> CreateAsync(Guid hogarId, Guid creadoPor, string titulo, string? descripcion, DateTime? fechaLimite, Guid? asignadoA, CancellationToken ct) => throw new NotSupportedException();
-        public Task<TareaResult?> UpdateAsync(Guid id, Guid hogarId, string? titulo, string? descripcion, DateTime? fechaLimite, string? estado, CancellationToken ct) => Task.FromResult<TareaResult?>(null);
+        public Task<TareaResult?> UpdateAsync(Guid id, Guid hogarId, string? titulo, string? descripcion, DateTime? fechaLimite, string? estado, CancellationToken ct) => Task.FromResult(TareaToReturn);
         public Task<TareaResult?> CompletarAsync(Guid id, Guid hogarId, Guid completadoPor, CancellationToken ct)
         {
             CompletarCallCount++;
@@ -590,7 +599,7 @@ public sealed class TelegramUpdateDispatcherMenuTests
             LastCompletarPor = completadoPor;
             return Task.FromResult(TareaCompletada);
         }
-        public Task<TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct) => Task.FromResult<TareaResult?>(null);
+        public Task<TareaResult?> AsignarAsync(Guid id, Guid hogarId, Guid? usuarioId, Guid asignadoPor, CancellationToken ct) => Task.FromResult(TareaToReturn);
         public Task<bool> DeleteAsync(Guid id, Guid hogarId, CancellationToken ct) => Task.FromResult(false);
         public Task<List<DistribucionDiaResult>> GetDistribucionSemanalAsync(Guid hogarId, int utcOffsetMinutes, CancellationToken ct) => Task.FromResult(new List<DistribucionDiaResult>());
     }

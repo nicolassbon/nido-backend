@@ -148,6 +148,23 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
     public NidoTestWebAppFactory WithAfterAppConfiguration(Action<IApplicationBuilder> configureAfterApp)
         => new(_configureStorage, configureAfterApp, _extraConfiguration, _logCapture, _testDatabase, ownsTestDatabase: false);
 
+    public NidoTestWebAppFactory WithConfiguration(IReadOnlyDictionary<string, string?> configuration)
+    {
+        var merged = new Dictionary<string, string?>(_extraConfiguration ?? new Dictionary<string, string?>());
+        foreach (var (key, value) in configuration)
+        {
+            merged[key] = value;
+        }
+
+        return new NidoTestWebAppFactory(
+            configureStorage: _configureStorage,
+            configureAfterApp: _configureAfterApp,
+            extraConfiguration: merged,
+            logCapture: _logCapture,
+            testDatabase: _testDatabase,
+            ownsTestDatabase: false);
+    }
+
     public NidoTestWebAppFactory WithTelegramWebhookConfig(
         string secret,
         int? maxPayloadBytes = null,
