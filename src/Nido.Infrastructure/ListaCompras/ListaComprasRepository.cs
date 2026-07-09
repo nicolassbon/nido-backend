@@ -577,13 +577,56 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         return ResolveCategoryByKeyword(normalized);
     }
 
+    // `categorias_producto.icono` almacena la key de la imagen de categoría en el bucket
+    // (consumida por la vista Alacena), no un nombre de ícono Lucide. La Lista de Compras
+    // necesita un ícono liviano por categoría, así que lo resuelve por nombre acá en vez de
+    // leer la columna `icono`.
+    private static readonly Dictionary<string, string> CategoryLucideIcons = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Aceites"] = "droplet",
+        ["Arroz"] = "wheat",
+        ["Azúcar y Endulzantes"] = "sugar",
+        ["Bebés"] = "baby",
+        ["Bebidas"] = "glass-water",
+        ["Bebidas Alcohólicas"] = "wine",
+        ["Carnes Porcinas"] = "beef",
+        ["Carnes Vacunas"] = "beef",
+        ["Cereales"] = "wheat",
+        ["Condimentos"] = "leaf",
+        ["Congelados"] = "snowflake",
+        ["Conservas"] = "archive",
+        ["Farmacia"] = "pill",
+        ["Fiambres y Embutidos"] = "sausage",
+        ["Frutas"] = "apple",
+        ["Galletas"] = "cookie",
+        ["Golosinas"] = "candy",
+        ["Harinas"] = "wheat",
+        ["Higiene Personal"] = "bath",
+        ["Huevos"] = "egg",
+        ["Lácteos"] = "milk",
+        ["Legumbres"] = "bean",
+        ["Limpieza"] = "spray-can",
+        ["Mascotas"] = "dog",
+        ["Otros"] = "package",
+        ["Panificados"] = "croissant",
+        ["Pastas"] = "utensils",
+        ["Pescados y Mariscos"] = "fish",
+        ["Pollo y Aves"] = "drumstick",
+        ["Productos Dietéticos"] = "heart-pulse",
+        ["Productos Sin TACC"] = "wheat-off",
+        ["Repostería"] = "cake",
+        ["Salsas y Aderezos"] = "bottle",
+        ["Snacks"] = "cookie",
+        ["Verduras"] = "carrot",
+    };
+
     private static (string CategoriaNombre, string? IconoSvg, string? Icono) EnsureIcon(
         (string CategoriaNombre, string? IconoSvg, string? Icono) category,
         string normalizedName)
     {
-        if (!string.IsNullOrWhiteSpace(category.Icono))
+        if (CategoryLucideIcons.TryGetValue(category.CategoriaNombre, out var lucideIcon))
         {
-            return category;
+            return (category.CategoriaNombre, category.IconoSvg, lucideIcon);
         }
 
         return string.IsNullOrWhiteSpace(normalizedName)
