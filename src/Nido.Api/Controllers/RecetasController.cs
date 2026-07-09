@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Recetas;
 using Nido.Application.Common.Security;
 using Nido.Application.Recetas;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
@@ -73,6 +74,33 @@ public sealed class RecetasController : ControllerBase
     {
         var result = await _getRecetasHandler.Handle(currentUser.HogarId, currentUser.UsuarioId, ct);
         return Ok(result.Select(ToResponse));
+    }
+
+    [HttpPost("ia/asistente")]
+    public async Task<IActionResult> AsistentePorIa(
+        [FromBody] AsistenteIaRequest request,
+        CancellationToken ct)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Pregunta))
+            return BadRequest("Debe ingresar una pregunta para el asistente.");
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient("NidoIa");
+            using var response = await client.PostAsJsonAsync("api/ia/asistente", request, ct);
+            response.EnsureSuccessStatusCode();
+
+            var responseBody = await response.Content.ReadFromJsonAsync<AsistenteIaResponse>(cancellationToken: ct);
+            if (responseBody is null || string.IsNullOrWhiteSpace(responseBody.Respuesta))
+                return StatusCode(502, "La IA no devolvió una respuesta válida.");
+
+            return Ok(responseBody);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[IA-BACKEND] Error de conexion con Flask (asistente): {ex.Message}");
+            return StatusCode(500, "Error al conectar con el motor de IA del asistente.");
+        }
     }
 
     [HttpGet("ia/recomendar")]
