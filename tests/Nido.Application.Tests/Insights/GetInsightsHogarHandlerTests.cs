@@ -136,8 +136,230 @@ public sealed class GetInsightsHogarHandlerTests
         Assert.Empty(result);
     }
 
-    private static StockItemResult StockItem(Guid id, Guid productoId, string nombre, decimal cantidad)
-        => new(id, productoId, nombre, null, null, null, "Alacena", cantidad, "unidad", null, false, 0, 1);
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_OrdenaPorUrgenciaDeFrecuencia_ElMasProximoAAgotarQuedaPrimero()
+    {
+        var hogarId = Guid.NewGuid();
+        var cafeId = Guid.NewGuid();
+        var cafeStockId = Guid.NewGuid();
+        var teId = Guid.NewGuid();
+        var teStockId = Guid.NewGuid();
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [
+                StockItem(cafeStockId, cafeId, "Café", cantidad: 1),
+                StockItem(teStockId, teId, "Té", cantidad: 1),
+            ]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [
+                new ComprasPorProducto(cafeId, "Café", [DateTime.UtcNow.AddDays(-20), DateTime.UtcNow.AddDays(-10)]),
+                new ComprasPorProducto(teId, "Té", [DateTime.UtcNow.AddDays(-25), DateTime.UtcNow.AddDays(-5)]),
+            ],
+            Consumos = [
+                new ConsumoPorProducto(cafeId, "Café", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(teId, "Té", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+            ],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Café", result[0].ProductoNombre);
+        Assert.Equal(0.6, result[0].Score, 4);
+        Assert.Equal("Té", result[1].ProductoNombre);
+        Assert.Equal(0.15, result[1].Score, 4);
+    }
+
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_StockBajoDelEnvaseAbierto_PuedeSuperarAUnoConMejorFrecuencia()
+    {
+        var hogarId = Guid.NewGuid();
+        var mantecaId = Guid.NewGuid();
+        var mantecaStockId = Guid.NewGuid();
+        var harinaId = Guid.NewGuid();
+        var harinaStockId = Guid.NewGuid();
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [
+                StockItem(mantecaStockId, mantecaId, "Manteca", cantidad: 1, estaAbierto: true, porcentajeConsumido: 90, cantidadEnvases: 1),
+                StockItem(harinaStockId, harinaId, "Harina", cantidad: 1),
+            ]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [
+                new ComprasPorProducto(mantecaId, "Manteca", [DateTime.UtcNow.AddDays(-25), DateTime.UtcNow.AddDays(-5)]),
+                new ComprasPorProducto(harinaId, "Harina", [DateTime.UtcNow.AddDays(-30), DateTime.UtcNow.AddDays(-10)]),
+            ],
+            Consumos = [
+                new ConsumoPorProducto(mantecaId, "Manteca", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(harinaId, "Harina", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+            ],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        Assert.Equal("Manteca", result[0].ProductoNombre);
+        Assert.Equal(0.51, result[0].Score, 4);
+        Assert.Equal("Harina", result[1].ProductoNombre);
+        Assert.Equal(0.3, result[1].Score, 4);
+    }
+
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_CantidadEnvasesMayorAUno_NoSumaUrgenciaDeStock()
+    {
+        var hogarId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [StockItem(stockId, productoId, "Yogur", cantidad: 1, estaAbierto: true, porcentajeConsumido: 90, cantidadEnvases: 2)]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [new ComprasPorProducto(productoId, "Yogur", [DateTime.UtcNow.AddDays(-30), DateTime.UtcNow.AddDays(-10)])],
+            Consumos = [new ConsumoPorProducto(productoId, "Yogur", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3))],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        var item = Assert.Single(result);
+        Assert.Equal(0.3, item.Score, 4);
+    }
+
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_ResuelveIconoPorPalabraClaveDelNombre()
+    {
+        var hogarId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [StockItem(stockId, productoId, "Manteca", cantidad: 1)]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [new ComprasPorProducto(productoId, "Manteca", [DateTime.UtcNow.AddDays(-20), DateTime.UtcNow.AddDays(-10)])],
+            Consumos = [new ConsumoPorProducto(productoId, "Manteca", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3))],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        var item = Assert.Single(result);
+        Assert.Equal("milk", item.Icono);
+    }
+
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_ResuelveIconoPorCategoriaDelProducto()
+    {
+        var hogarId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [StockItem(stockId, productoId, "Producto Genérico", cantidad: 1, categoriaNombre: "Verduras")]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [new ComprasPorProducto(productoId, "Producto Genérico", [DateTime.UtcNow.AddDays(-20), DateTime.UtcNow.AddDays(-10)])],
+            Consumos = [new ConsumoPorProducto(productoId, "Producto Genérico", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3))],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        var item = Assert.Single(result);
+        Assert.Equal("carrot", item.Icono);
+    }
+
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_WhenNoHayEventoCocinado_NoIncluyeElItem()
+    {
+        var hogarId = Guid.NewGuid();
+        var productoId = Guid.NewGuid();
+        var stockId = Guid.NewGuid();
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [StockItem(stockId, productoId, "Café", cantidad: 1)]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [new ComprasPorProducto(productoId, "Café", [DateTime.UtcNow.AddDays(-20), DateTime.UtcNow.AddDays(-10)])],
+            Consumos = [new ConsumoPorProducto(productoId, "Café", 1m, 1, 0, 0, DateTime.UtcNow.AddDays(-3))],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetSugerenciasNidoAsync_LimitaATop5()
+    {
+        var hogarId = Guid.NewGuid();
+        var p1 = (Id: Guid.NewGuid(), StockId: Guid.NewGuid());
+        var p2 = (Id: Guid.NewGuid(), StockId: Guid.NewGuid());
+        var p3 = (Id: Guid.NewGuid(), StockId: Guid.NewGuid());
+        var p4 = (Id: Guid.NewGuid(), StockId: Guid.NewGuid());
+        var p5 = (Id: Guid.NewGuid(), StockId: Guid.NewGuid());
+        var p6 = (Id: Guid.NewGuid(), StockId: Guid.NewGuid());
+
+        var alacena = new FakeAlacenaRepository
+        {
+            Stock = [
+                StockItem(p1.StockId, p1.Id, "P1", cantidad: 1),
+                StockItem(p2.StockId, p2.Id, "P2", cantidad: 1),
+                StockItem(p3.StockId, p3.Id, "P3", cantidad: 1),
+                StockItem(p4.StockId, p4.Id, "P4", cantidad: 1),
+                StockItem(p5.StockId, p5.Id, "P5", cantidad: 1),
+                StockItem(p6.StockId, p6.Id, "P6", cantidad: 1),
+            ]
+        };
+        var consumos = new FakeConsumoProductoRepository
+        {
+            Compras = [
+                new ComprasPorProducto(p1.Id, "P1", [DateTime.UtcNow.AddDays(-22), DateTime.UtcNow.AddDays(-2)]),
+                new ComprasPorProducto(p2.Id, "P2", [DateTime.UtcNow.AddDays(-24), DateTime.UtcNow.AddDays(-4)]),
+                new ComprasPorProducto(p3.Id, "P3", [DateTime.UtcNow.AddDays(-26), DateTime.UtcNow.AddDays(-6)]),
+                new ComprasPorProducto(p4.Id, "P4", [DateTime.UtcNow.AddDays(-28), DateTime.UtcNow.AddDays(-8)]),
+                new ComprasPorProducto(p5.Id, "P5", [DateTime.UtcNow.AddDays(-30), DateTime.UtcNow.AddDays(-10)]),
+                new ComprasPorProducto(p6.Id, "P6", [DateTime.UtcNow.AddDays(-32), DateTime.UtcNow.AddDays(-12)]),
+            ],
+            Consumos = [
+                new ConsumoPorProducto(p1.Id, "P1", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(p2.Id, "P2", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(p3.Id, "P3", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(p4.Id, "P4", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(p5.Id, "P5", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+                new ConsumoPorProducto(p6.Id, "P6", 1m, 1, 0, 1, DateTime.UtcNow.AddDays(-3)),
+            ],
+        };
+        var handler = new GetInsightsHogarHandler(alacena, consumos);
+
+        var result = await handler.GetSugerenciasNidoAsync(hogarId, CancellationToken.None);
+
+        Assert.Equal(5, result.Count);
+        Assert.Equal(["P6", "P5", "P4", "P3", "P2"], result.Select(x => x.ProductoNombre));
+        Assert.DoesNotContain(result, x => x.ProductoNombre == "P1");
+    }
+
+    private static StockItemResult StockItem(
+        Guid id, Guid productoId, string nombre, decimal cantidad,
+        bool estaAbierto = false, decimal porcentajeConsumido = 0, int cantidadEnvases = 1, string? categoriaNombre = null)
+        => new(id, productoId, nombre, null, null, categoriaNombre, "Alacena", cantidad, "unidad", null, estaAbierto, porcentajeConsumido, cantidadEnvases);
 
     private sealed class FakeAlacenaRepository : IAlacenaRepository
     {

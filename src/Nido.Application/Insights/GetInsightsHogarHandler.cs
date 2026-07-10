@@ -1,5 +1,6 @@
 using System.Globalization;
 using Nido.Application.Alacena;
+using Nido.Application.Common;
 
 namespace Nido.Application.Insights;
 
@@ -21,6 +22,9 @@ public sealed class GetInsightsHogarHandler
     private const int VentanaHistoricaDias = 90;
     private const int DiasUmbralVencimiento = 7;
     private const int DiasUmbralComprarPronto = 5;
+    private const int SugerenciasNidoTopN = 5;
+    private const double PesoFrecuenciaSugerencia = 0.6;
+    private const double PesoStockSugerencia = 0.4;
     private const int VencidosUmbralDesperdicio = 2;
     private const int DiasMinEnvaseZombie = 14;
     private const int IngredientesTopN = 5;
@@ -176,6 +180,71 @@ public sealed class GetInsightsHogarHandler
         var clasifPorNombre = ConstruirIndiceClasificacion(clasificacion);
 
         return ComputeComprarPronto(stock, compraIdx, consumoIdx, clasifPorNombre);
+    }
+
+    /// <summary>
+    /// "Sugerencias de Nido": top productos candidatos a recompra, puntuados con un promedio
+    /// ponderado (60% urgencia por frecuencia histórica, 40% stock restante del envase abierto).
+    /// A diferencia de <see cref="ComputeComprarPronto"/>, no filtra por umbral de días: siempre
+    /// devuelve el ranking completo (hasta <see cref="SugerenciasNidoTopN"/>) para el panel de
+    /// lista de compras.
+    /// </summary>
+    public async Task<IReadOnlyList<SugerenciaNidoItem>> GetSugerenciasNidoAsync(Guid hogarId, CancellationToken ct)
+    {
+        var stock = await _alacena.GetByHogarAsync(hogarId, ct);
+        var consumos = await _consumos.GetConsumosPorProductoAsync(hogarId, VentanaHistoricaDias, ct);
+        var compras = await _consumos.GetComprasPorProductoAsync(hogarId, VentanaHistoricaDias, ct);
+
+        var consumoIdx = consumos
+            .GroupBy(c => Normalizar(c.ProductoNombre))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var compraIdx = compras
+            .GroupBy(c => Normalizar(c.ProductoNombre))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        return ComputeSugerenciasNido(stock, compraIdx, consumoIdx);
+    }
+
+    private static IReadOnlyList<SugerenciaNidoItem> ComputeSugerenciasNido(
+        IReadOnlyList<StockItemResult> stock,
+        Dictionary<string, ComprasPorProducto> compraIdx,
+        Dictionary<string, ConsumoPorProducto> consumoIdx)
+    {
+        return stock
+            .Where(s => s.Cantidad > 0)
+            .Select(s =>
+            {
+                var clave = Normalizar(s.Nombre);
+                if (!compraIdx.TryGetValue(clave, out var compraInfo)) return null;
+                if (!consumoIdx.TryGetValue(clave, out var consumoInfo) || consumoInfo.VecesCocinado == 0) return null;
+
+                var frecuenciaDias = FrecuenciaMedianaDias(compraInfo.FechasCompra);
+                if (frecuenciaDias <= 0) return null;
+
+                var diasDesdeUltimaCompra = (DateTime.UtcNow - compraInfo.FechasCompra[^1]).TotalDays;
+                var urgenciaFrecuencia = Math.Clamp(diasDesdeUltimaCompra / frecuenciaDias, 0, 1);
+
+                var urgenciaStock = s.EstaAbierto && s.CantidadEnvases <= 1
+                    ? (double)s.PorcentajeConsumido / 100.0
+                    : 0.0;
+
+                var score = PesoFrecuenciaSugerencia * urgenciaFrecuencia + PesoStockSugerencia * urgenciaStock;
+
+                return new SugerenciaNidoItem(
+                    s.Id,
+                    s.ProductoId,
+                    s.Nombre,
+                    s.Cantidad,
+                    s.UnidadMedida,
+                    ProductCategoryIconResolver.Resolve(s.CategoriaNombre, s.Nombre),
+                    Math.Round(score, 4));
+            })
+            .Where(x => x is not null)
+            .Cast<SugerenciaNidoItem>()
+            .OrderByDescending(x => x.Score)
+            .Take(SugerenciasNidoTopN)
+            .ToList();
     }
 
     private static IReadOnlyList<ComprarProntoItem> ComputeComprarPronto(
