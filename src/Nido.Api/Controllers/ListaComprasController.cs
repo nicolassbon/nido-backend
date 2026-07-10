@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.ListaCompras;
 using Nido.Application.Common.Security;
+using Nido.Application.Insights;
 using Nido.Application.ListaCompras;
 
 namespace Nido.Api.Controllers;
@@ -29,6 +30,7 @@ public sealed class ListaComprasController : ControllerBase
     private readonly RemoveListaCompraItemHandler _removeItemHandler;
     private readonly ClearListaComprasHandler _clearHandler;
     private readonly SendListaCompraToTelegramHandler _sendTelegramHandler;
+    private readonly GetInsightsHogarHandler _insightsHandler;
 
     public ListaComprasController(
         GetListasCompraHandler getListasHandler,
@@ -47,7 +49,8 @@ public sealed class ListaComprasController : ControllerBase
         MarkListaCompraItemAgregadoInventarioHandler markAgregadoInventarioHandler,
         RemoveListaCompraItemHandler removeItemHandler,
         ClearListaComprasHandler clearHandler,
-        SendListaCompraToTelegramHandler sendTelegramHandler)
+        SendListaCompraToTelegramHandler sendTelegramHandler,
+        GetInsightsHogarHandler insightsHandler)
     {
         _getListasHandler = getListasHandler;
         _createListaHandler = createListaHandler;
@@ -66,6 +69,7 @@ public sealed class ListaComprasController : ControllerBase
         _removeItemHandler = removeItemHandler;
         _clearHandler = clearHandler;
         _sendTelegramHandler = sendTelegramHandler;
+        _insightsHandler = insightsHandler;
     }
 
     [HttpGet]
@@ -197,6 +201,16 @@ public sealed class ListaComprasController : ControllerBase
         CancellationToken ct)
     {
         var result = await _getHandler.Handle(currentUser.HogarId, ct);
+        return Ok(result.Select(ToResponse));
+    }
+
+    [HttpGet("sugerencias")]
+    [HttpGet("/api/lista-compras/sugerencias")]
+    public async Task<IActionResult> GetSugerencias(
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var result = await _insightsHandler.GetSugerenciasNidoAsync(currentUser.HogarId, ct);
         return Ok(result.Select(ToResponse));
     }
 
@@ -360,4 +374,7 @@ public sealed class ListaComprasController : ControllerBase
 
     private static ListaCompraHistorialItemResponse ToResponse(ListaCompraHistorialItemResult item)
         => new(item.Id, item.ProductoId, item.Nombre, item.Cantidad, item.Unidad, item.GrupoNombre, item.CompradoEn, item.CompradoPor, item.AgregadoAlInventario, item.CategoriaNombre, item.IconoSvg, item.Icono);
+
+    private static SugerenciaNidoResponse ToResponse(SugerenciaNidoItem item)
+        => new(item.StockHogarId, item.ProductoId, item.ProductoNombre, item.StockActual, item.UnidadMedida, item.Icono);
 }

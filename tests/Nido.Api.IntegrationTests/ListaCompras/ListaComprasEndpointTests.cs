@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Api.IntegrationTests.ListaCompras;
 
@@ -268,6 +269,120 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
         Assert.Equal("g", historyItem.Unidad);
     }
 
+    [Fact]
+    public async Task Sugerencias_WhenAnonymous_Returns401()
+    {
+        using var anonymousClient = _factory.CreateClient();
+
+        var response = await anonymousClient.GetAsync("/api/lista-compras/sugerencias");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sugerencias_ConsideraStockDelEnvaseAbierto_YOrdenaPorScore()
+    {
+        var user = await RegisterAndAuthenticateAsync(_client, "sugerencias");
+
+        var mantecaResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Manteca",
+            ubicacion = "Heladera",
+            cantidad = 1,
+            estaAbierto = true,
+            porcentajeConsumido = 90
+        });
+        Assert.Equal(HttpStatusCode.Created, mantecaResponse.StatusCode);
+        var manteca = await mantecaResponse.Content.ReadFromJsonAsync<StockItemBody>();
+
+        var harinaResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Harina",
+            ubicacion = "Alacena",
+            cantidad = 1,
+            estaAbierto = false,
+            porcentajeConsumido = 0
+        });
+        Assert.Equal(HttpStatusCode.Created, harinaResponse.StatusCode);
+        var harina = await harinaResponse.Content.ReadFromJsonAsync<StockItemBody>();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+            var mantecaStock = await db.StockHogars.SingleAsync(s => s.Id == manteca!.Id);
+            mantecaStock.CreatedAt = DateTime.UtcNow.AddDays(-5);
+            var harinaStock = await db.StockHogars.SingleAsync(s => s.Id == harina!.Id);
+            harinaStock.CreatedAt = DateTime.UtcNow.AddDays(-10);
+
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = Guid.NewGuid(),
+                HogarId = user.HogarId,
+                ProductoId = manteca!.ProductoId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CreatedAt = DateTime.UtcNow.AddDays(-25),
+                Ubicacion = "Heladera",
+                CantidadActual = 0,
+                EstaAbierto = false,
+                PorcentajeConsumido = 100
+            });
+
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = Guid.NewGuid(),
+                HogarId = user.HogarId,
+                ProductoId = harina!.ProductoId,
+                CargadoPor = user.UsuarioId,
+                UpdatedBy = user.UsuarioId,
+                CreatedAt = DateTime.UtcNow.AddDays(-30),
+                Ubicacion = "Alacena",
+                CantidadActual = 0,
+                EstaAbierto = false,
+                PorcentajeConsumido = 100
+            });
+
+            db.ConsumosProducto.Add(new ConsumoProducto
+            {
+                Id = Guid.NewGuid(),
+                HogarId = user.HogarId,
+                ProductoId = manteca.ProductoId,
+                ProductoNombre = "Manteca",
+                Cantidad = 1,
+                UnidadMedida = "unidad",
+                Motivo = "Cocinado",
+                FechaConsumo = DateTime.UtcNow.AddDays(-3),
+                UsuarioId = user.UsuarioId
+            });
+
+            db.ConsumosProducto.Add(new ConsumoProducto
+            {
+                Id = Guid.NewGuid(),
+                HogarId = user.HogarId,
+                ProductoId = harina.ProductoId,
+                ProductoNombre = "Harina",
+                Cantidad = 1,
+                UnidadMedida = "unidad",
+                Motivo = "Cocinado",
+                FechaConsumo = DateTime.UtcNow.AddDays(-3),
+                UsuarioId = user.UsuarioId
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.GetAsync("/api/lista-compras/sugerencias");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var sugerencias = await response.Content.ReadFromJsonAsync<List<SugerenciaBody>>();
+
+        Assert.Equal(2, sugerencias!.Count);
+        Assert.Equal("Manteca", sugerencias[0].ProductoNombre);
+        Assert.Equal("milk", sugerencias[0].Icono);
+        Assert.Equal("Harina", sugerencias[1].ProductoNombre);
+        Assert.Equal("wheat", sugerencias[1].Icono);
+    }
+
     private static async Task<RegisterBody> RegisterAndAuthenticateAsync(HttpClient client, string prefix)
     {
         var email = $"{prefix}-{Guid.NewGuid():N}@test.com";
@@ -285,4 +400,6 @@ public sealed class ListaComprasEndpointTests : IClassFixture<NidoTestWebAppFact
     private sealed record ListaGrupoBody(string GrupoNombre, List<ListaItemBody> Items);
     private sealed record ListaItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, bool Comprado, DateTime? CompradoEn, int Orden, string? CategoriaNombre = null, string? IconoSvg = null, string? Icono = null);
     private sealed record HistorialItemBody(Guid Id, Guid? ProductoId, string Nombre, decimal? Cantidad, string? Unidad, string GrupoNombre, DateTime CompradoEn, Guid? CompradoPor, bool AgregadoAlInventario);
+    private sealed record StockItemBody(Guid Id, Guid ProductoId, string Nombre, string? Imagen, string? CodigoBarras, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido);
+    private sealed record SugerenciaBody(Guid StockHogarId, Guid ProductoId, string ProductoNombre, decimal StockActual, string? UnidadMedida, string Icono);
 }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Common;
 using Nido.Application.ListaCompras;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -614,130 +615,25 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             return EnsureIcon(productCat, normalized);
         }
 
-        return ResolveCategoryByKeyword(normalized);
+        return ProductCategoryIconResolver.ResolveByKeyword(normalized);
     }
 
     // `categorias_producto.icono` almacena la key de la imagen de categoría en el bucket
     // (consumida por la vista Alacena), no un nombre de ícono Lucide. La Lista de Compras
-    // necesita un ícono liviano por categoría, así que lo resuelve por nombre acá en vez de
-    // leer la columna `icono`.
-    private static readonly Dictionary<string, string> CategoryLucideIcons = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Aceites"] = "droplet",
-        ["Arroz"] = "wheat",
-        ["Azúcar y Endulzantes"] = "sugar",
-        ["Bebés"] = "baby",
-        ["Bebidas"] = "glass-water",
-        ["Bebidas Alcohólicas"] = "wine",
-        ["Carnes Porcinas"] = "beef",
-        ["Carnes Vacunas"] = "beef",
-        ["Cereales"] = "wheat",
-        ["Condimentos"] = "leaf",
-        ["Congelados"] = "snowflake",
-        ["Conservas"] = "archive",
-        ["Farmacia"] = "pill",
-        ["Fiambres y Embutidos"] = "sausage",
-        ["Frutas"] = "apple",
-        ["Galletas"] = "cookie",
-        ["Golosinas"] = "candy",
-        ["Harinas"] = "wheat",
-        ["Higiene Personal"] = "bath",
-        ["Huevos"] = "egg",
-        ["Lácteos"] = "milk",
-        ["Legumbres"] = "bean",
-        ["Limpieza"] = "spray-can",
-        ["Mascotas"] = "dog",
-        ["Otros"] = "package",
-        ["Panificados"] = "croissant",
-        ["Pastas"] = "utensils",
-        ["Pescados y Mariscos"] = "fish",
-        ["Pollo y Aves"] = "drumstick",
-        ["Productos Dietéticos"] = "heart-pulse",
-        ["Productos Sin TACC"] = "wheat-off",
-        ["Repostería"] = "cake",
-        ["Salsas y Aderezos"] = "bottle",
-        ["Snacks"] = "cookie",
-        ["Verduras"] = "carrot",
-    };
-
+    // necesita un ícono liviano por categoría, así que lo resuelve con ProductCategoryIconResolver
+    // (compartido con las Sugerencias de Nido) en vez de leer la columna `icono`.
     private static (string CategoriaNombre, string? IconoSvg, string? Icono) EnsureIcon(
         (string CategoriaNombre, string? IconoSvg, string? Icono) category,
         string normalizedName)
     {
-        if (CategoryLucideIcons.TryGetValue(category.CategoriaNombre, out var lucideIcon))
+        if (ProductCategoryIconResolver.TryGetCategoryIcon(category.CategoriaNombre, out var lucideIcon))
         {
             return (category.CategoriaNombre, category.IconoSvg, lucideIcon);
         }
 
         return string.IsNullOrWhiteSpace(normalizedName)
             ? ("Otros", "otros.svg", "package")
-            : ResolveCategoryByKeyword(normalizedName);
-    }
-
-    private static (string CategoriaNombre, string? IconoSvg, string? Icono) ResolveCategoryByKeyword(string normalizedName)
-    {
-        if (ContainsAny(normalizedName, "leche", "queso", "yogur", "crema", "manteca", "lacteo", "ricota", "dulce de leche"))
-            return ("Lácteos", "lacteos.svg", "milk");
-        if (ContainsAny(normalizedName, "pollo", "ave", "gallina"))
-            return ("Pollo y Aves", "pollo-aves.svg", "drumstick");
-        if (ContainsAny(normalizedName, "cerdo", "bondiola", "panceta", "jamon", "chorizo", "salchicha"))
-            return ("Carnes Porcinas", "carnes-porcinas.svg", "beef");
-        if (ContainsAny(normalizedName, "pescado", "atun", "merluza", "marisco", "camaron", "langostino"))
-            return ("Pescados y Mariscos", "pescados-mariscos.svg", "fish");
-        if (ContainsAny(normalizedName, "carne", "vaca", "bife", "milanesa", "asado", "lomo", "nalga", "cuadril"))
-            return ("Carnes Vacunas", "carnes-vacunas.svg", "beef");
-        if (ContainsAny(normalizedName, "manzana", "banana", "naranja", "limon", "frutilla", "uva", "pera", "durazno", "cereza", "fruta"))
-            return ("Frutas", "frutas.svg", "apple");
-        if (ContainsAny(normalizedName, "ajo en polvo", "cebolla en polvo", "pimenton", "aji molido"))
-            return ("Condimentos", "condimentos.svg", "leaf");
-        if (ContainsAny(normalizedName, "tomate", "zanahoria", "cebolla", "lechuga", "papa", "batata", "morron", "ajo", "verdura", "zapallo", "espinaca", "acelga"))
-            return ("Verduras", "verduras.svg", "carrot");
-        if (ContainsAny(normalizedName, "lenteja", "garbanzo", "poroto", "arveja", "legumbre", "soja"))
-            return ("Legumbres", "legumbres.svg", "bean");
-        if (ContainsAny(normalizedName, "pan", "factura", "medialuna", "tostada", "galleta de agua"))
-            return ("Panificados", "panificados.svg", "wheat");
-        if (ContainsAny(normalizedName, "fideo", "pasta", "spaghetti", "raviol", "ñoqui", "noqui"))
-            return ("Pastas", "pastas.svg", "utensils");
-        if (ContainsAny(normalizedName, "arroz"))
-            return ("Arroz", "arroz.svg", "wheat");
-        if (ContainsAny(normalizedName, "cereal", "avena", "granola", "copos"))
-            return ("Cereales", "cereales.svg", "wheat");
-        if (ContainsAny(normalizedName, "harina", "maicena", "fecula"))
-            return ("Harinas", "harinas.svg", "wheat");
-        if (ContainsAny(normalizedName, "azucar", "edulcorante", "miel", "endulzante"))
-            return ("Azúcar y Endulzantes", "azucar-endulzantes.svg", "candy");
-        if (ContainsAny(normalizedName, "chocolate", "levadura", "esencia", "reposteria", "polvo de hornear", "coco rallado"))
-            return ("Repostería", "reposteria.svg", "cake");
-        if (ContainsAny(normalizedName, "aceite"))
-            return ("Aceites", "aceites.svg", "droplet");
-        if (ContainsAny(normalizedName, "sal", "pimienta", "oregano", "condimento", "especia", "caldo"))
-            return ("Condimentos", "condimentos.svg", "leaf");
-        if (ContainsAny(normalizedName, "salsa", "aderezo", "mayonesa", "ketchup", "mostaza", "vinagre", "aceto"))
-            return ("Salsas y Aderezos", "salsas-aderezos.svg", "chef-hat");
-        if (ContainsAny(normalizedName, "huevo"))
-            return ("Huevos", "huevos.svg", "egg");
-        if (ContainsAny(normalizedName, "cerveza", "vino", "fernet", "sidra", "whisky", "alcoholica"))
-            return ("Bebidas Alcohólicas", "bebidas-alcoholicas.svg", "beer");
-        if (ContainsAny(normalizedName, "agua", "jugo", "gaseosa", "soda", "coca", "bebida", "te", "cafe"))
-            return ("Bebidas", "bebidas.svg", "glass-water");
-        if (ContainsAny(normalizedName, "detergente", "jabón", "jabon", "limpieza", "lavandina", "desinfectante", "trapo", "esponja", "suavizante"))
-            return ("Limpieza", "limpieza.svg", "spray-can");
-        if (ContainsAny(normalizedName, "shampoo", "acondicionador", "papel higienico", "dentifrico", "desodorante", "baño", "bano", "jabon de tocador"))
-            return ("Higiene Personal", "higiene-personal.svg", "bath");
-        if (ContainsAny(normalizedName, "congelado", "hielo", "helado", "papas fritas congeladas"))
-            return ("Congelados", "congelados.svg", "snowflake");
-
-        return ("Otros", "otros.svg", "package");
-    }
-
-    private static bool ContainsAny(string source, params string[] keywords)
-    {
-        foreach (var keyword in keywords)
-        {
-            if (source.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
+            : ProductCategoryIconResolver.ResolveByKeyword(normalizedName);
     }
 
     private async Task<Dictionary<string, (string Nombre, string? IconoSvg, string? Icono)>> GetProductCategoryMapAsync(CancellationToken ct)
