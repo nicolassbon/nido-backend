@@ -8,6 +8,7 @@ using Nido.Application.Electrodomesticos.Exceptions;
 using Nido.Application.Electrodomesticos.UploadElectrodomesticoImage;
 using Nido.Application.Hogares.Exceptions;
 using Nido.Application.Onboarding.Exceptions;
+using Nido.Application.Payments.Exceptions;
 using Nido.Application.Preferencias.Exceptions;
 using Nido.Application.Productos.Exceptions;
 using Nido.Application.Productos.UploadProductImage;
@@ -120,6 +121,9 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         ImageSizeExceededException => (StatusCodes.Status413PayloadTooLarge, "Validation error"),
         ImageStorageFailureException => (StatusCodes.Status502BadGateway, "Storage error"),
         ImageStorageConfigurationException => (StatusCodes.Status500InternalServerError, "Configuration error"),
+
+        // Payment plan exceptions
+        PremiumRequiredException => (StatusCodes.Status403Forbidden, "Forbidden"),
 
         // Preferencias exceptions
         MissingPreferenceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),

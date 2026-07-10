@@ -18,6 +18,7 @@ public partial class NidoDbContext
     public virtual DbSet<TelegramPairingToken> TelegramPairingTokens { get; set; } = null!;
     public virtual DbSet<TelegramPairingCode> TelegramPairingCodes { get; set; } = null!;
     public virtual DbSet<GamificacionNivelDesbloqueado> GamificacionNivelesDesbloqueados { get; set; } = null!;
+    public virtual DbSet<PaymentWebhookEvent> PaymentWebhookEvents { get; set; } = null!;
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
@@ -111,6 +112,115 @@ public partial class NidoDbContext
         {
             entity.Property(e => e.AceptaTerminos).HasColumnName("acepta_terminos").HasDefaultValue(false);
             entity.Property(e => e.AceptaTerminosAt).HasColumnName("acepta_terminos_at");
+        });
+
+        modelBuilder.Entity<Hogare>(entity =>
+        {
+            entity.Property(e => e.Plan)
+                .HasColumnName("plan")
+                .HasMaxLength(50)
+                .HasDefaultValue("free")
+                .IsRequired();
+
+            entity.Property(e => e.SubscriptionStatus)
+                .HasColumnName("subscription_status")
+                .HasMaxLength(50)
+                .HasDefaultValue("none")
+                .IsRequired();
+
+            entity.Property(e => e.TrialEndsAt)
+                .HasColumnName("trial_ends_at")
+                .HasConversion(
+                    v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc),
+                    v => !v.HasValue ? v : v.Value.ToUniversalTime());
+
+            entity.Property(e => e.GracePeriodEndsAt)
+                .HasColumnName("grace_period_ends_at");
+
+            entity.Property(e => e.MercadoPagoCustomerId)
+                .HasColumnName("mercado_pago_customer_id")
+                .HasMaxLength(255);
+
+            entity.Property(e => e.MercadoPagoSubscriptionId)
+                .HasColumnName("mercado_pago_subscription_id")
+                .HasMaxLength(255);
+
+            entity.Property(e => e.MercadoPagoPaymentId)
+                .HasColumnName("mercado_pago_payment_id")
+                .HasMaxLength(255);
+
+            entity.Property(e => e.PlanUpdatedAt)
+                .HasColumnName("plan_updated_at");
+
+            entity.Property(e => e.ProviderTransitionAt)
+                .HasColumnName("provider_transition_at")
+                .HasConversion(
+                    v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc),
+                    v => !v.HasValue ? v : v.Value.ToUniversalTime());
+
+            entity.Property(e => e.SuscripcionVenceEl)
+                .HasColumnName("suscripcion_vence_el")
+                .HasConversion(
+                    v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc),
+                    v => !v.HasValue ? v : v.Value.ToUniversalTime());
+        });
+
+        modelBuilder.Entity<PaymentWebhookEvent>(entity =>
+        {
+            entity.ToTable("payment_webhook_events");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id")
+                .HasDefaultValueSql("uuid_generate_v4()");
+
+            entity.Property(e => e.Provider)
+                .HasColumnName("provider")
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(e => e.ProviderEventId)
+                .HasColumnName("provider_event_id")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(e => e.ProviderPaymentId)
+                .HasColumnName("provider_payment_id")
+                .HasMaxLength(255);
+
+            entity.Property(e => e.ProviderSubscriptionId)
+                .HasColumnName("provider_subscription_id")
+                .HasMaxLength(255);
+
+            entity.Property(e => e.EventType)
+                .HasColumnName("event_type")
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(e => e.Payload)
+                .HasColumnName("payload")
+                .IsRequired();
+
+            entity.Property(e => e.HogarId)
+                .HasColumnName("hogar_id");
+
+            entity.Property(e => e.ReceivedAt)
+                .HasColumnName("received_at")
+                .HasDefaultValueSql("now()");
+
+            entity.Property(e => e.ProcessedAt)
+                .HasColumnName("processed_at");
+
+            entity.HasIndex(e => new { e.Provider, e.ProviderEventId })
+                .IsUnique()
+                .HasDatabaseName("ix_payment_webhook_events_provider_event_id");
+
+            entity.HasOne<Hogare>()
+                .WithMany()
+                .HasForeignKey(e => e.HogarId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_payment_webhook_events_hogar_id");
         });
     }
 }

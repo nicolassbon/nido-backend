@@ -45,7 +45,7 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY}
       - Email__FromAddress=${Email__FromAddress}
       - Email__FromName=${Email__FromName}
-      - Frontend__BaseUrl=${Frontend__BaseUrl}
+      - Frontend__BaseUrl=${Frontend__BaseUrl:?Frontend__BaseUrl is required}
       - Jwt__Key=${Jwt__Key}
       - Google__ClientId=${Google__ClientId}
       - Vapid__PublicKey=${Vapid__PublicKey:-}
@@ -70,6 +70,11 @@ services:
       - Telegram__BotUsername=${Telegram__BotUsername}
       - Telegram__WebhookUrl=${Telegram__WebhookUrl:-}
       - ExternalServices__ComparatorUrl=http://nido-comparator:3000/
+      - MercadoPago__AccessToken=${MercadoPago__AccessToken:?MercadoPago__AccessToken is required}
+      - MercadoPago__PublicKey=${MercadoPago__PublicKey:-}
+      - MercadoPago__WebhookSecret=${MercadoPago__WebhookSecret:?MercadoPago__WebhookSecret is required}
+      - MercadoPago__Mode=${MercadoPago__Mode:?MercadoPago__Mode is required (use Sandbox or Production)}
+      - MercadoPago__UnitPrice=${MercadoPago__UnitPrice:?MercadoPago__UnitPrice is required}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

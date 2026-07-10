@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Api.ImageUploads;
+using Nido.Api.Security;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Insights;
@@ -153,6 +154,7 @@ public sealed class AlacenaController : ControllerBase
 
     [HttpPost("productos/{id:guid}/informacion-nutricional/scan")]
     [Consumes("multipart/form-data")]
+    [RequirePremium]
     public async Task<IActionResult> ScanInformacionNutricional(
         Guid id,
         IFormFile? file,

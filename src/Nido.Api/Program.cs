@@ -34,6 +34,7 @@ using Nido.Api.OpenApi;
 using Nido.Api.Controllers;
 using Scalar.AspNetCore;
 using Nido.Application.Tickets;
+using Nido.Application.Payments;
 
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -59,6 +60,35 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddNidoInfrastructure(builder.Configuration);
+if (builder.Environment.IsProduction())
+{
+    builder.Services
+        .AddOptions<FrontendOptions>()
+        .Bind(builder.Configuration.GetSection(FrontendOptions.SectionName))
+        .Validate(
+            FrontendOptions.HasApprovedProductionBaseUrl,
+            "Frontend:BaseUrl must be an absolute HTTPS URL for nidoapp.online in Production.")
+        .ValidateOnStart();
+
+    builder.Services
+        .AddOptions<MercadoPagoOptions>()
+        .Validate(
+            options => !string.IsNullOrWhiteSpace(options.AccessToken),
+            "MercadoPago:AccessToken is required in Production.")
+        .Validate(
+            options => !string.IsNullOrWhiteSpace(options.WebhookSecret),
+            "MercadoPago:WebhookSecret is required in Production.")
+        .Validate(
+            MercadoPagoOptions.HasValidMode,
+            "MercadoPago:Mode must be explicitly set to Sandbox or Production in Production.")
+        .Validate(
+            options => options.UnitPrice > 0,
+            "MercadoPago:UnitPrice must be greater than zero in Production.")
+        .Validate(
+            MercadoPagoOptions.HasApprovedProductionApiBaseUrl,
+            "MercadoPago:ApiBaseUrl must be an absolute HTTPS URL for the approved Mercado Pago API host in Production.")
+        .ValidateOnStart();
+}
 builder.Services.AddCommonSecurityModule();
 
 builder.Services.AddAuthModule();
@@ -78,6 +108,7 @@ builder.Services.AddFinanzasModule();
 builder.Services.AddGamificacionModule();
 builder.Services.AddTareasModule();
 builder.Services.AddNotificacionesModule();
+builder.Services.AddPaymentsModule();
 builder.Services.AddTelegramWebhook(builder.Configuration);
 builder.Services.AddTelegramSenderWorker(builder.Configuration);
 
@@ -189,6 +220,26 @@ builder.Services.AddHttpClient("NidoIa", client =>
 
 var app = builder.Build();
 
+var mercadoPagoOptions = app.Services.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
+if (mercadoPagoOptions.Mode == MercadoPagoMode.Sandbox)
+{
+    app.Logger.LogWarning(
+        "Mercado Pago is configured for Sandbox mode. Mode: {Mode}, Currency: {Currency}, UnitPrice: {UnitPrice}, DashboardManagedWebhooksExpected: {DashboardManagedWebhooksExpected}. Real charging is disabled.",
+        mercadoPagoOptions.Mode,
+        "ARS",
+        mercadoPagoOptions.UnitPrice,
+        true);
+}
+else
+{
+    app.Logger.LogInformation(
+        "Mercado Pago is configured for Production mode. Mode: {Mode}, Currency: {Currency}, UnitPrice: {UnitPrice}, DashboardManagedWebhooksExpected: {DashboardManagedWebhooksExpected}.",
+        mercadoPagoOptions.Mode,
+        "ARS",
+        mercadoPagoOptions.UnitPrice,
+        true);
+}
+
 if (!app.Environment.IsProduction())
 {
     using var scope = app.Services.CreateScope();
@@ -217,6 +268,7 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseMiddleware<MercadoPagoWebhookPayloadSizeMiddleware>();
 app.UseMiddleware<TelegramWebhookSecretMiddleware>();
 app.UseMiddleware<TelegramWebhookPayloadSizeMiddleware>();
 app.UseRateLimiter();

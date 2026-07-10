@@ -1,12 +1,12 @@
 ﻿using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth.ResetPassword;
-using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Tests.Auth;
 
@@ -17,7 +17,7 @@ public sealed class GoogleLoginHandlerTests
     {
         var googleValidator = new FakeGoogleValidator("new@gmail.com", "google-id-1");
         var repo = new FakeAuthRepository();
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var result = await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
 
@@ -26,6 +26,20 @@ public sealed class GoogleLoginHandlerTests
         Assert.Equal("refresh", result.RefreshToken);
         Assert.NotNull(repo.StoredRefreshTokenHash);
         Assert.Equal("new@gmail.com", repo.CreatedEmail);
+    }
+
+    [Fact]
+    public async Task Handle_NewUser_ReturnsFreePlan()
+    {
+        var googleValidator = new FakeGoogleValidator("new@gmail.com", "google-id-1");
+        var repo = new FakeAuthRepository();
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
+
+        var result = await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
+
+        Assert.Equal(HouseholdPlan.Free, result.Plan);
+        Assert.Equal(SubscriptionStatus.None, result.SubscriptionStatus);
+        Assert.Null(result.TrialEndsAt);
     }
 
     [Fact]
@@ -39,13 +53,16 @@ public sealed class GoogleLoginHandlerTests
             User = new User(userId, "Test", "existing@gmail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var entitlementService = new FakeEntitlementService(HouseholdPlan.Premium, SubscriptionStatus.Active, null);
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), entitlementService);
 
         var result = await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
 
         Assert.False(result.IsNewUser);
         Assert.Equal(userId, result.UsuarioId);
         Assert.Equal("token", result.AccessToken);
+        Assert.Equal(HouseholdPlan.Premium, result.Plan);
+        Assert.Equal(hogarId, entitlementService.LastRequestedHogarId);
     }
 
     [Fact]
@@ -59,7 +76,7 @@ public sealed class GoogleLoginHandlerTests
             GoogleUser = new User(userId, "Test", "old-email@gmail.com", null, "google", "google-id-1"),
             HogarId = hogarId
         };
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var result = await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
 
@@ -75,7 +92,7 @@ public sealed class GoogleLoginHandlerTests
         {
             User = new User(Guid.NewGuid(), "Test", "existing@gmail.com", null, "google", "google-id-existing")
         };
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None));
@@ -92,7 +109,7 @@ public sealed class GoogleLoginHandlerTests
         {
             User = new User(Guid.NewGuid(), "Test", "user@gmail.com", "hashed:Password1", null, null)
         };
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<AccountLinkRequiredException>(() =>
             handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None));
@@ -105,7 +122,7 @@ public sealed class GoogleLoginHandlerTests
     {
         var googleValidator = new FakeGoogleValidator(throws: true);
         var repo = new FakeAuthRepository();
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<InvalidGoogleTokenException>(() =>
             handler.Handle(new GoogleLoginCommand("invalid-token"), CancellationToken.None));
@@ -119,7 +136,7 @@ public sealed class GoogleLoginHandlerTests
     {
         var googleValidator = new FakeGoogleValidator("new@gmail.com", "google-id-1", "http://lh3.googleusercontent.com/a/insecure");
         var repo = new FakeAuthRepository();
-        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt());
+        var handler = new GoogleLoginHandler(repo, googleValidator, new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         await handler.Handle(new GoogleLoginCommand("valid-token"), CancellationToken.None);
 
@@ -209,9 +226,35 @@ public sealed class GoogleLoginHandlerTests
     private sealed class FakeJwt : IJwtTokenService
     {
         public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan) => CreateToken(usuarioId, hogarId, email, nombre);
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement) => CreateToken(usuarioId, hogarId, email, nombre);
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
         public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
             => ("token", "refresh", DateTime.UtcNow.AddDays(7));
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
+    }
+
+    private sealed class FakeEntitlementService : IEntitlementService
+    {
+        private readonly HouseholdEntitlement _entitlement;
+
+        public FakeEntitlementService(HouseholdPlan plan, SubscriptionStatus status, DateTime? trialEndsAt)
+        {
+            _entitlement = new HouseholdEntitlement(plan, status, trialEndsAt);
+        }
+
+        public Guid LastRequestedHogarId { get; private set; }
+
+        public Task EnsurePremiumAsync(Guid hogarId, CancellationToken ct) => Task.CompletedTask;
+
+        public Task<HouseholdEntitlement> GetAsync(Guid hogarId, CancellationToken ct)
+        {
+            LastRequestedHogarId = hogarId;
+            return Task.FromResult(_entitlement);
+        }
     }
 }

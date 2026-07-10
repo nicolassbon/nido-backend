@@ -1,3 +1,5 @@
+using Nido.Application.Payments;
+
 namespace Nido.Application.Finanzas;
 
 public sealed class GetSavingsPotencialHandler
@@ -11,14 +13,20 @@ public sealed class GetSavingsPotencialHandler
     };
 
     private readonly IFinanzasRepository _repo;
+    private readonly IEntitlementService _entitlementService;
 
-    public GetSavingsPotencialHandler(IFinanzasRepository repo)
+    public GetSavingsPotencialHandler(
+        IFinanzasRepository repo,
+        IEntitlementService entitlementService)
     {
         _repo = repo;
+        _entitlementService = entitlementService;
     }
 
     public async Task<SavingsPotencialResult> Handle(Guid hogarId, CancellationToken ct)
     {
+        await _entitlementService.EnsurePremiumAsync(hogarId, ct);
+
         var now = DateTime.UtcNow;
         var primerDiaMesActual = new DateOnly(now.Year, now.Month, 1);
         var ultimoDiaMesActual = primerDiaMesActual.AddMonths(1).AddDays(-1);

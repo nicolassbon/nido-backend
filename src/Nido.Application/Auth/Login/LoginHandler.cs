@@ -2,6 +2,7 @@ using Nido.Application.Auth;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Auth.Login;
 
@@ -10,12 +11,18 @@ public sealed class LoginHandler
     private readonly IAuthRepository _repository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IEntitlementService _entitlementService;
 
-    public LoginHandler(IAuthRepository repository, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService)
+    public LoginHandler(
+        IAuthRepository repository,
+        IPasswordHasher passwordHasher,
+        IJwtTokenService jwtTokenService,
+        IEntitlementService entitlementService)
     {
         _repository = repository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _entitlementService = entitlementService;
     }
 
     public async Task<LoginResult> Handle(LoginCommand command, CancellationToken cancellationToken)
@@ -54,6 +61,8 @@ public sealed class LoginHandler
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
             ?? throw new UserNotInHouseholdException();
 
+        var entitlement = await _entitlementService.GetAsync(hogarId, cancellationToken);
+
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,
             _repository,
@@ -61,8 +70,16 @@ public sealed class LoginHandler
             hogarId,
             normalizedEmail,
             user.Nombre,
+            entitlement,
             cancellationToken);
 
-        return new LoginResult(user.Id, hogarId, accessToken, refreshToken);
+        return new LoginResult(
+            user.Id,
+            hogarId,
+            accessToken,
+            refreshToken,
+            entitlement.Plan,
+            entitlement.SubscriptionStatus,
+            entitlement.TrialEndsAt);
     }
 }

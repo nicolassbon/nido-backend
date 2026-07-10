@@ -178,7 +178,12 @@ public sealed class GoogleLoginEndpointTests : IClassFixture<NidoTestWebAppFacto
         }
     }
 
-    private sealed record GoogleLoginBody(string AccessToken, bool IsNewUser);
+    private sealed record GoogleLoginBody(
+        string AccessToken,
+        bool IsNewUser,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
     private sealed record ProfileBody(string Nombre, string? FotoUrl);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

@@ -13,6 +13,7 @@ using Nido.Application.Auth.ResetPassword;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Register;
 using Nido.Application.Common.Security;
+using Nido.Application.Payments;
 using Nido.Infrastructure.Auth;
 using Nido.Infrastructure.ProfileImages;
 
@@ -113,7 +114,10 @@ public sealed class AuthController : ControllerBase
             RegisterResponse.Created(
                 result.UsuarioId!.Value,
                 result.HogarId!.Value,
-                result.AccessToken!));
+                result.AccessToken!,
+                result.Plan.ToResponseString(),
+                result.SubscriptionStatus.ToResponseString(result.Plan),
+                result.TrialEndsAt));
     }
 
     [AllowAnonymous]
@@ -125,7 +129,13 @@ public sealed class AuthController : ControllerBase
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
-        return Ok(new LoginResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+        return Ok(new LoginResponse(
+            result.UsuarioId,
+            result.HogarId,
+            result.AccessToken,
+            result.Plan.ToResponseString(),
+            result.SubscriptionStatus.ToResponseString(result.Plan),
+            result.TrialEndsAt));
     }
 
     [AllowAnonymous]
@@ -137,7 +147,14 @@ public sealed class AuthController : ControllerBase
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
-        return Ok(new GoogleLoginResponse(result.UsuarioId, result.HogarId, result.AccessToken, result.IsNewUser));
+        return Ok(new GoogleLoginResponse(
+            result.UsuarioId,
+            result.HogarId,
+            result.AccessToken,
+            result.IsNewUser,
+            result.Plan.ToResponseString(),
+            result.SubscriptionStatus.ToResponseString(result.Plan),
+            result.TrialEndsAt));
     }
 
     [AllowAnonymous]
@@ -149,7 +166,11 @@ public sealed class AuthController : ControllerBase
             new RefreshTokenCommand(refreshToken ?? string.Empty),
             cancellationToken);
 
-        return Ok(new RefreshResponse(result.AccessToken));
+        return Ok(new RefreshResponse(
+            result.AccessToken,
+            result.Plan.ToResponseString(),
+            result.SubscriptionStatus.ToResponseString(result.Plan),
+            result.TrialEndsAt));
     }
 
     [AllowAnonymous]
@@ -174,7 +195,13 @@ public sealed class AuthController : ControllerBase
             cancellationToken);
 
         SetRefreshTokenCookie(result.RefreshToken);
-        return Ok(new LinkGoogleResponse(result.UsuarioId, result.HogarId, result.AccessToken));
+        return Ok(new LinkGoogleResponse(
+            result.UsuarioId,
+            result.HogarId,
+            result.AccessToken,
+            result.Plan.ToResponseString(),
+            result.SubscriptionStatus.ToResponseString(result.Plan),
+            result.TrialEndsAt));
     }
 
     [AllowAnonymous]
