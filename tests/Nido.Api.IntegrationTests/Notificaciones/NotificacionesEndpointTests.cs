@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
+using Nido.Infrastructure.Persistence.Entities;
 using Xunit;
 
 namespace Nido.Api.IntegrationTests.Notificaciones;
@@ -122,6 +123,123 @@ public sealed class NotificacionesEndpointTests : IClassFixture<NidoTestWebAppFa
 
         var expiredNotif3 = notifList3!.Find(n => n.Tipo == "producto_vencido" && n.ReferenciaId == expiredProd.Id);
         Assert.Null(expiredNotif3); // Limpiada
+    }
+
+    [Fact]
+    public async Task ProductoPorAgotarse_SeGeneraNoSeDuplicaYSeSuprimeConStockBajo()
+    {
+        var email = $"notif-agotarse-{Guid.NewGuid():N}@test.com";
+        using var registerContent = RegisterMultipartRequest.Create("Test User", email, "Password123!", "U");
+        var register = await _client.PostAsync("/api/auth/register", registerContent);
+        var regBody = await register.Content.ReadFromJsonAsync<RegisterBody>();
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", regBody!.AccessToken);
+
+        var cafeResponse = await _client.PostAsJsonAsync("/api/alacena/productos", new
+        {
+            nombre = "Café",
+            ubicacion = "Alacena",
+            cantidad = 1,
+            estaAbierto = false,
+            porcentajeConsumido = 0
+        });
+        Assert.Equal(HttpStatusCode.Created, cafeResponse.StatusCode);
+        var cafeProd = await cafeResponse.Content.ReadFromJsonAsync<StockItemBody>();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+
+            var cafeStock = await db.StockHogars.SingleAsync(s => s.Id == cafeProd!.Id);
+            cafeStock.CreatedAt = DateTime.UtcNow.AddDays(-8);
+
+            db.StockHogars.Add(new StockHogar
+            {
+                Id = Guid.NewGuid(),
+                HogarId = regBody.HogarId,
+                ProductoId = cafeProd!.ProductoId,
+                CargadoPor = regBody.UsuarioId,
+                UpdatedBy = regBody.UsuarioId,
+                CreatedAt = DateTime.UtcNow.AddDays(-20),
+                Ubicacion = "Alacena",
+                CantidadActual = 0,
+                EstaAbierto = false,
+                PorcentajeConsumido = 100
+            });
+
+            db.ConsumosProducto.Add(new ConsumoProducto
+            {
+                Id = Guid.NewGuid(),
+                HogarId = regBody.HogarId,
+                ProductoId = cafeProd.ProductoId,
+                ProductoNombre = "Café",
+                Cantidad = 1,
+                UnidadMedida = "unidad",
+                Motivo = "Cocinado",
+                FechaConsumo = DateTime.UtcNow.AddDays(-3),
+                UsuarioId = regBody.UsuarioId
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var notifResponse = await _client.GetAsync("/api/notificaciones");
+        Assert.Equal(HttpStatusCode.OK, notifResponse.StatusCode);
+        var notifList = await notifResponse.Content.ReadFromJsonAsync<List<NotificacionBody>>();
+        var agotarseNotif = notifList!.Find(n => n.Tipo == "producto_por_agotarse" && n.ReferenciaId == cafeProd!.Id);
+
+        Assert.NotNull(agotarseNotif);
+        Assert.Equal("alacena", agotarseNotif.ReferenciaTipo);
+        Assert.Contains("Café", agotarseNotif.Mensaje);
+
+        var patchUbicacion = await _client.PatchAsJsonAsync($"/api/alacena/productos/{cafeProd!.Id}", new
+        {
+            nombre = "Café",
+            cantidad = 1,
+            ubicacion = "Heladera",
+            estaAbierto = false,
+            porcentajeConsumido = 0
+        });
+        Assert.Equal(HttpStatusCode.OK, patchUbicacion.StatusCode);
+
+        var notifResponse2 = await _client.GetAsync("/api/notificaciones");
+        var notifList2 = await notifResponse2.Content.ReadFromJsonAsync<List<NotificacionBody>>();
+        var agotarseNotifs2 = notifList2!.FindAll(n => n.Tipo == "producto_por_agotarse" && n.ReferenciaId == cafeProd.Id);
+        Assert.Single(agotarseNotifs2);
+
+        var patchStockBajo = await _client.PatchAsJsonAsync($"/api/alacena/productos/{cafeProd.Id}", new
+        {
+            nombre = "Café",
+            cantidad = 1,
+            ubicacion = "Heladera",
+            estaAbierto = true,
+            porcentajeConsumido = 80
+        });
+        Assert.Equal(HttpStatusCode.OK, patchStockBajo.StatusCode);
+
+        var notifResponse3 = await _client.GetAsync("/api/notificaciones");
+        var notifList3 = await notifResponse3.Content.ReadFromJsonAsync<List<NotificacionBody>>();
+        var stockBajoNotif = notifList3!.Find(n => n.Tipo == "stock_bajo" && n.ReferenciaId == cafeProd.Id);
+        var agotarseNotif3 = notifList3!.Find(n => n.Tipo == "producto_por_agotarse" && n.ReferenciaId == cafeProd.Id);
+
+        Assert.NotNull(stockBajoNotif);
+        Assert.Null(agotarseNotif3);
+
+        var patchRevertir = await _client.PatchAsJsonAsync($"/api/alacena/productos/{cafeProd.Id}", new
+        {
+            nombre = "Café",
+            cantidad = 1,
+            ubicacion = "Heladera",
+            estaAbierto = false,
+            porcentajeConsumido = 0
+        });
+        Assert.Equal(HttpStatusCode.OK, patchRevertir.StatusCode);
+
+        var notifResponse4 = await _client.GetAsync("/api/notificaciones");
+        var notifList4 = await notifResponse4.Content.ReadFromJsonAsync<List<NotificacionBody>>();
+        var agotarseNotif4 = notifList4!.Find(n => n.Tipo == "producto_por_agotarse" && n.ReferenciaId == cafeProd.Id);
+
+        Assert.NotNull(agotarseNotif4);
     }
 
     [Fact]

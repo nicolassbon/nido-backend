@@ -38,6 +38,7 @@ public partial class NidoDbContext : DbContext
                     "producto_vencido" => "Producto Vencido",
                     "producto_por_vencer" => "Producto por Vencer",
                     "stock_bajo" => "Stock Bajo",
+                    "producto_por_agotarse" => "Predicción de Faltante",
                     "asignacion_tarea" => "Aviso de tareas asignadas",
                     _ => "Nueva Notificación"
                 };
@@ -75,7 +76,7 @@ public partial class NidoDbContext : DbContext
                 }, CancellationToken.None);
 
                 // Send Telegram notification in background if it matches target types
-                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "tarea_vencida")
+                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "producto_por_agotarse" || targetTipo == "tarea_vencida")
                 {
                     _ = Task.Run(async () =>
                     {

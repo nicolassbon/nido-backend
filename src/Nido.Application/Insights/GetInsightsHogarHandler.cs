@@ -94,37 +94,7 @@ public sealed class GetInsightsHogarHandler
                 x.Dias))
             .ToList();
 
-        var comprarPronto = stock
-            .Where(s => s.Cantidad > 0)
-            .Select(s =>
-            {
-                var clave = Normalizar(s.Nombre);
-                if (!compraIdx.TryGetValue(clave, out var compraInfo)) return null;
-                if (!consumoIdx.TryGetValue(clave, out var consumoInfo) || consumoInfo.VecesCocinado == 0) return null;
-
-                var frecuenciaDias = FrecuenciaMedianaDias(compraInfo.FechasCompra);
-                if (frecuenciaDias <= 0) return null;
-
-                var diasDesdeUltimaCompra = (int)Math.Round((DateTime.UtcNow - compraInfo.FechasCompra[^1]).TotalDays);
-                var diasParaAgotar = Math.Max(0, frecuenciaDias - diasDesdeUltimaCompra);
-
-                if (diasParaAgotar > DiasUmbralComprarPronto) return null;
-
-                var categoria = clasifPorNombre.GetValueOrDefault(clave) ?? "Recurrente";
-
-                return new ComprarProntoItem(
-                    s.Nombre,
-                    s.Cantidad,
-                    s.UnidadMedida,
-                    diasParaAgotar,
-                    frecuenciaDias,
-                    categoria);
-            })
-            .Where(x => x is not null)
-            .Cast<ComprarProntoItem>()
-            .OrderBy(x => x.DiasParaAgotar)
-            .Take(10)
-            .ToList();
+        var comprarPronto = ComputeComprarPronto(stock, compraIdx, consumoIdx, clasifPorNombre);
 
         var desperdicios = consumos
             .Where(c => c.VecesVencido >= VencidosUmbralDesperdicio)
@@ -182,6 +152,70 @@ public sealed class GetInsightsHogarHandler
 
         return new GetInsightsHogarResult(
             comprarPronto, porVencer, desperdicios, envasesZombies, clasificacion, patrones, resumen);
+    }
+
+    /// <summary>
+    /// Predicción de agotamiento por producto, para consumo fuera de la pantalla de Insights
+    /// (ej. alertas proactivas). Reusa la misma lógica de mediana de días entre compras.
+    /// </summary>
+    public async Task<IReadOnlyList<ComprarProntoItem>> GetComprarProntoAsync(Guid hogarId, CancellationToken ct)
+    {
+        var stock = await _alacena.GetByHogarAsync(hogarId, ct);
+        var consumos = await _consumos.GetConsumosPorProductoAsync(hogarId, VentanaHistoricaDias, ct);
+        var compras = await _consumos.GetComprasPorProductoAsync(hogarId, VentanaHistoricaDias, ct);
+
+        var consumoIdx = consumos
+            .GroupBy(c => Normalizar(c.ProductoNombre))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var compraIdx = compras
+            .GroupBy(c => Normalizar(c.ProductoNombre))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var clasificacion = ClasificarProductos(compras, consumos);
+        var clasifPorNombre = ConstruirIndiceClasificacion(clasificacion);
+
+        return ComputeComprarPronto(stock, compraIdx, consumoIdx, clasifPorNombre);
+    }
+
+    private static IReadOnlyList<ComprarProntoItem> ComputeComprarPronto(
+        IReadOnlyList<StockItemResult> stock,
+        Dictionary<string, ComprasPorProducto> compraIdx,
+        Dictionary<string, ConsumoPorProducto> consumoIdx,
+        Dictionary<string, string> clasifPorNombre)
+    {
+        return stock
+            .Where(s => s.Cantidad > 0)
+            .Select(s =>
+            {
+                var clave = Normalizar(s.Nombre);
+                if (!compraIdx.TryGetValue(clave, out var compraInfo)) return null;
+                if (!consumoIdx.TryGetValue(clave, out var consumoInfo) || consumoInfo.VecesCocinado == 0) return null;
+
+                var frecuenciaDias = FrecuenciaMedianaDias(compraInfo.FechasCompra);
+                if (frecuenciaDias <= 0) return null;
+
+                var diasDesdeUltimaCompra = (int)Math.Round((DateTime.UtcNow - compraInfo.FechasCompra[^1]).TotalDays);
+                var diasParaAgotar = Math.Max(0, frecuenciaDias - diasDesdeUltimaCompra);
+
+                if (diasParaAgotar > DiasUmbralComprarPronto) return null;
+
+                var categoria = clasifPorNombre.GetValueOrDefault(clave) ?? "Recurrente";
+
+                return new ComprarProntoItem(
+                    s.Id,
+                    s.Nombre,
+                    s.Cantidad,
+                    s.UnidadMedida,
+                    diasParaAgotar,
+                    frecuenciaDias,
+                    categoria);
+            })
+            .Where(x => x is not null)
+            .Cast<ComprarProntoItem>()
+            .OrderBy(x => x.DiasParaAgotar)
+            .Take(10)
+            .ToList();
     }
 
     private async Task<(int Eventos, int Vencidos)> GetConsumosVentanaPasadaAsync(Guid hogarId, CancellationToken ct)
