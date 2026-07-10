@@ -6,6 +6,7 @@ using Nido.Application.Auth.Interfaces;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Storage;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Auth.Register;
 
@@ -80,6 +81,7 @@ public sealed class RegisterUserHandler
             registration.HogarId,
             normalizedEmail,
             command.Nombre,
+            new HouseholdEntitlement(HouseholdPlan.Free, SubscriptionStatus.None, null),
             cancellationToken);
 
         return RegisterUserResult.Created(registration.UsuarioId, registration.HogarId, accessToken, refreshToken);

@@ -74,6 +74,8 @@ using Nido.Infrastructure.Telegram.Messaging;
 using Resend;
 using Nido.Application.Tickets;
 using Nido.Infrastructure.Tickets;
+using Nido.Application.Payments;
+using Nido.Infrastructure.Payments;
 
 namespace Nido.Infrastructure;
 
@@ -247,6 +249,18 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddScoped<ComparePricesHandler>();
+
+        services.AddScoped<IEntitlementRepository, EntitlementRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddOptions<MercadoPagoOptions>()
+            .Bind(configuration.GetSection(MercadoPagoOptions.SectionName))
+            .Configure(options => options.ApplyFrontendRedirectDefaults(configuration["Frontend:BaseUrl"]));
+        services.AddScoped(sp => sp.GetRequiredService<IOptions<MercadoPagoOptions>>().Value);
+        services.AddHttpClient<IMercadoPagoGateway, MercadoPagoHttpGateway>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
+            MercadoPagoHttpGateway.ConfigureClient(client, options);
+        });
 
         return services;
     }

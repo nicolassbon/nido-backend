@@ -6,6 +6,7 @@ using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Tests.Auth;
 
@@ -21,7 +22,8 @@ public sealed class LoginHandlerTests
             User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
             HogarId = hogarId
         };
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var entitlementService = new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null);
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), entitlementService);
 
         var result = await handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None);
 
@@ -32,10 +34,52 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ValidCredentials_FreeHousehold_ReturnsFreePlan()
+    {
+        var userId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var repo = new FakeAuthRepository
+        {
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
+            HogarId = hogarId
+        };
+        var entitlementService = new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null);
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), entitlementService);
+
+        var result = await handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None);
+
+        Assert.Equal(HouseholdPlan.Free, result.Plan);
+        Assert.Equal(SubscriptionStatus.None, result.SubscriptionStatus);
+        Assert.Null(result.TrialEndsAt);
+        Assert.Equal(hogarId, entitlementService.LastRequestedHogarId);
+    }
+
+    [Fact]
+    public async Task Handle_ValidCredentials_PremiumHousehold_ReturnsPremiumPlan()
+    {
+        var userId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var trialEndsAt = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc);
+        var repo = new FakeAuthRepository
+        {
+            User = new User(userId, "Test", "nico@mail.com", "hashed:Password1", null, null),
+            HogarId = hogarId
+        };
+        var entitlementService = new FakeEntitlementService(HouseholdPlan.Premium, SubscriptionStatus.Active, trialEndsAt);
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), entitlementService);
+
+        var result = await handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None);
+
+        Assert.Equal(HouseholdPlan.Premium, result.Plan);
+        Assert.Equal(SubscriptionStatus.Active, result.SubscriptionStatus);
+        Assert.Equal(trialEndsAt, result.TrialEndsAt);
+    }
+
+    [Fact]
     public async Task Handle_UserNotFound_ThrowsInvalidCredentials()
     {
         var repo = new FakeAuthRepository();
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             handler.Handle(new LoginCommand("missing@mail.com", "Password1"), CancellationToken.None));
@@ -51,7 +95,7 @@ public sealed class LoginHandlerTests
         {
             User = new User(Guid.NewGuid(), "Test", "nico@mail.com", "hashed:Password1", null, null)
         };
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", "WrongPassword"), CancellationToken.None));
@@ -67,7 +111,7 @@ public sealed class LoginHandlerTests
         {
             User = new User(Guid.NewGuid(), "Test", "nico@mail.com", null, "google", "google-id-123")
         };
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<AccountLinkRequiredException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None));
@@ -80,7 +124,7 @@ public sealed class LoginHandlerTests
     public async Task Handle_EmptyEmail_ThrowsLoginCredentialsMissing()
     {
         var repo = new FakeAuthRepository();
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<LoginCredentialsMissingException>(() =>
             handler.Handle(new LoginCommand("", "Password1"), CancellationToken.None));
@@ -93,7 +137,7 @@ public sealed class LoginHandlerTests
     public async Task Handle_EmptyPassword_ThrowsLoginCredentialsMissing()
     {
         var repo = new FakeAuthRepository();
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<LoginCredentialsMissingException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", ""), CancellationToken.None));
@@ -110,7 +154,7 @@ public sealed class LoginHandlerTests
             User = new User(Guid.NewGuid(), "Test", "nico@mail.com", "hashed:Password1", null, null),
             HogarId = null
         };
-        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt());
+        var handler = new LoginHandler(repo, new FakeHasher(), new FakeJwt(), new FakeEntitlementService(HouseholdPlan.Free, SubscriptionStatus.None, null));
 
         var ex = await Assert.ThrowsAsync<UserNotInHouseholdException>(() =>
             handler.Handle(new LoginCommand("nico@mail.com", "Password1"), CancellationToken.None));
@@ -172,9 +216,35 @@ public sealed class LoginHandlerTests
     private sealed class FakeJwt : IJwtTokenService
     {
         public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan) => CreateToken(usuarioId, hogarId, email, nombre);
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement) => CreateToken(usuarioId, hogarId, email, nombre);
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
         public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
             => ("token", "refresh", DateTime.UtcNow.AddDays(7));
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
+    }
+
+    private sealed class FakeEntitlementService : IEntitlementService
+    {
+        private readonly HouseholdEntitlement _entitlement;
+
+        public FakeEntitlementService(HouseholdPlan plan, SubscriptionStatus status, DateTime? trialEndsAt)
+        {
+            _entitlement = new HouseholdEntitlement(plan, status, trialEndsAt);
+        }
+
+        public Guid LastRequestedHogarId { get; private set; }
+
+        public Task EnsurePremiumAsync(Guid hogarId, CancellationToken ct) => Task.CompletedTask;
+
+        public Task<HouseholdEntitlement> GetAsync(Guid hogarId, CancellationToken ct)
+        {
+            LastRequestedHogarId = hogarId;
+            return Task.FromResult(_entitlement);
+        }
     }
 }

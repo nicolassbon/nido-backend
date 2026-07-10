@@ -1,3 +1,5 @@
+using Nido.Application.Payments;
+
 namespace Nido.Application.Auth.Register;
 
 public sealed record RegisterUserResult(
@@ -5,7 +7,10 @@ public sealed record RegisterUserResult(
     Guid? HogarId,
     string? AccessToken,
     string? RefreshToken,
-    bool IsSilentSuccess)
+    bool IsSilentSuccess,
+    HouseholdPlan Plan = HouseholdPlan.Free,
+    SubscriptionStatus SubscriptionStatus = SubscriptionStatus.None,
+    DateTime? TrialEndsAt = null)
 {
     public static RegisterUserResult Created(Guid usuarioId, Guid hogarId, string accessToken, string? refreshToken)
         => new(usuarioId, hogarId, accessToken, refreshToken, false);

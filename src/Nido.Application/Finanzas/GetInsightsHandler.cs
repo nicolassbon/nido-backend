@@ -1,3 +1,5 @@
+using Nido.Application.Payments;
+
 namespace Nido.Application.Finanzas;
 
 public sealed class GetInsightsHandler
@@ -19,14 +21,20 @@ public sealed class GetInsightsHandler
     };
 
     private readonly IFinanzasRepository _repo;
+    private readonly IEntitlementService _entitlementService;
 
-    public GetInsightsHandler(IFinanzasRepository repo)
+    public GetInsightsHandler(
+        IFinanzasRepository repo,
+        IEntitlementService entitlementService)
     {
         _repo = repo;
+        _entitlementService = entitlementService;
     }
 
     public async Task<InsightsListResult> Handle(Guid hogarId, CancellationToken ct)
     {
+        await _entitlementService.EnsurePremiumAsync(hogarId, ct);
+
         var now = DateTime.UtcNow;
         var primerDiaMesActual = new DateOnly(now.Year, now.Month, 1);
         var ultimoDiaMesActual = primerDiaMesActual.AddMonths(1).AddDays(-1);

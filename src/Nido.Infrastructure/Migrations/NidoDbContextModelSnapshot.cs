@@ -457,6 +457,25 @@ namespace Nido.Infrastructure.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<DateTime?>("GracePeriodEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("grace_period_ends_at");
+
+                    b.Property<string>("MercadoPagoCustomerId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("mercado_pago_customer_id");
+
+                    b.Property<string>("MercadoPagoPaymentId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("mercado_pago_payment_id");
+
+                    b.Property<string>("MercadoPagoSubscriptionId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("mercado_pago_subscription_id");
+
                     b.Property<bool>("ModoAhorro")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -468,6 +487,38 @@ namespace Nido.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("nombre");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("free")
+                        .HasColumnName("plan");
+
+                    b.Property<DateTime?>("PlanUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("plan_updated_at");
+
+                    b.Property<DateTime?>("ProviderTransitionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("provider_transition_at");
+
+                    b.Property<string>("SubscriptionStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("none")
+                        .HasColumnName("subscription_status");
+
+                    b.Property<DateTime?>("SuscripcionVenceEl")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suscripcion_vence_el");
+
+                    b.Property<DateTime?>("TrialEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("trial_ends_at");
 
                     b.HasKey("Id")
                         .HasName("hogares_pkey");
@@ -1250,6 +1301,72 @@ namespace Nido.Infrastructure.Migrations
                     b.HasIndex(new[] { "UsuarioId" }, "idx_password_reset_tokens_usuario");
 
                     b.ToTable("password_reset_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PaymentWebhookEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("event_type");
+
+                    b.Property<Guid>("HogarId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hogar_id");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("provider");
+
+                    b.Property<string>("ProviderEventId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("provider_event_id");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("provider_payment_id");
+
+                    b.Property<string>("ProviderSubscriptionId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("provider_subscription_id");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HogarId");
+
+                    b.HasIndex("Provider", "ProviderEventId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_payment_webhook_events_provider_event_id");
+
+                    b.ToTable("payment_webhook_events", (string)null);
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PlanificadorItem", b =>
@@ -2866,6 +2983,16 @@ namespace Nido.Infrastructure.Migrations
                         .HasConstraintName("password_reset_tokens_usuario_id_fkey");
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PaymentWebhookEvent", b =>
+                {
+                    b.HasOne("Nido.Infrastructure.Persistence.Entities.Hogare", null)
+                        .WithMany()
+                        .HasForeignKey("HogarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_payment_webhook_events_hogar_id");
                 });
 
             modelBuilder.Entity("Nido.Infrastructure.Persistence.Entities.PlanificadorItem", b =>

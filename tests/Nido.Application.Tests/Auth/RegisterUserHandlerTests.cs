@@ -8,6 +8,7 @@ using Nido.Application.Auth.Exceptions;
 using Nido.Application.Common.Notifications;
 using Nido.Application.Common.ProfileImages;
 using Nido.Application.Common.Storage;
+using Nido.Application.Payments;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Nido.Application.Tests.Auth;
@@ -26,6 +27,9 @@ public sealed class RegisterUserHandlerTests
         Assert.NotEqual(Guid.Empty, result.HogarId);
         Assert.Equal("token", result.AccessToken);
         Assert.Equal("hashed:Password1", repo.StoredHash);
+        Assert.Equal(HouseholdPlan.Free, result.Plan);
+        Assert.Equal(SubscriptionStatus.None, result.SubscriptionStatus);
+        Assert.Null(result.TrialEndsAt);
     }
 
     [Fact]
@@ -247,10 +251,16 @@ public sealed class RegisterUserHandlerTests
     private sealed class FakeJwt : IJwtTokenService
     {
         public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "token";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan) => CreateToken(usuarioId, hogarId, email, nombre);
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement) => CreateToken(usuarioId, hogarId, email, nombre);
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
         public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
             => ("token", "refresh", DateTime.UtcNow.AddDays(7));
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
     }
 
     private sealed class FakeProfileImageProcessor : IProfileImageProcessor
