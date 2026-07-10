@@ -138,10 +138,32 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             return null;
         }
 
-        var nextOrder = await QueryActive(hogarId)
+        var activeItems = await QueryActive(hogarId)
             .Where(item => item.ListaId == listaId)
-            .Select(item => (int?)item.Orden)
-            .MaxAsync(ct) ?? -1;
+            .ToListAsync(ct);
+
+        var normalizedNewName = NormalizeName(nombre);
+        var normalizedNewUnidad = NormalizeOptional(unidad);
+
+        var existingItem = activeItems.FirstOrDefault(i =>
+            NormalizeName(GetItemName(i)) == normalizedNewName &&
+            NormalizeOptional(i.Unidad) == normalizedNewUnidad);
+
+        var map = await GetProductCategoryMapAsync(ct);
+
+        if (existingItem is not null)
+        {
+            if (existingItem.Cantidad.HasValue || cantidad.HasValue)
+            {
+                existingItem.Cantidad = (existingItem.Cantidad ?? 0) + (cantidad ?? 0);
+            }
+            await _db.SaveChangesAsync(ct);
+            return ToItemResult(existingItem, map);
+        }
+
+        var nextOrder = activeItems.Count > 0
+            ? activeItems.Max(item => item.Orden)
+            : -1;
 
         var item = new ListaCompra
         {
@@ -163,7 +185,6 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         _db.ListaCompras.Add(item);
         await _db.SaveChangesAsync(ct);
-        var map = await GetProductCategoryMapAsync(ct);
         return ToItemResult(item, map);
     }
 
@@ -307,13 +328,33 @@ public sealed class ListaComprasRepository : IListaComprasRepository
         string grupoNombre,
         CancellationToken ct)
     {
+        var producto = await GetOrCreateProductoAsync(nombre, ct);
+        var lista = await EnsureDefaultListAsync(hogarId, usuarioId, ct);
+        var normalizedUnidad = NormalizeOptional(unidad);
+
+        var existingItem = await QueryActive(hogarId)
+            .FirstOrDefaultAsync(item => item.ListaId == lista.Id &&
+                                         item.ProductoId == producto.Id &&
+                                         item.GrupoNombre == grupoNombre &&
+                                         item.Unidad == normalizedUnidad, ct);
+
+        var map = await GetProductCategoryMapAsync(ct);
+
+        if (existingItem is not null)
+        {
+            if (existingItem.Cantidad.HasValue || cantidad.HasValue)
+            {
+                existingItem.Cantidad = (existingItem.Cantidad ?? 0) + (cantidad ?? 0);
+            }
+            await _db.SaveChangesAsync(ct);
+            return ToItemResult(existingItem, map);
+        }
+
         var nextOrder = await QueryActive(hogarId)
             .Where(item => item.GrupoNombre == grupoNombre)
             .Select(item => (int?)item.Orden)
             .MaxAsync(ct) ?? -1;
 
-        var producto = await GetOrCreateProductoAsync(nombre, ct);
-        var lista = await EnsureDefaultListAsync(hogarId, usuarioId, ct);
         var item = new ListaCompra
         {
             Id = Guid.NewGuid(),
@@ -323,7 +364,7 @@ public sealed class ListaComprasRepository : IListaComprasRepository
             Producto = producto,
             AgregadoPor = usuarioId,
             Cantidad = cantidad,
-            Unidad = NormalizeOptional(unidad),
+            Unidad = normalizedUnidad,
             Comprado = false,
             AgregadoAlInventario = false,
             GrupoNombre = grupoNombre,
@@ -335,7 +376,6 @@ public sealed class ListaComprasRepository : IListaComprasRepository
 
         _db.ListaCompras.Add(item);
         await _db.SaveChangesAsync(ct);
-        var map = await GetProductCategoryMapAsync(ct);
         return ToItemResult(item, map);
     }
 
