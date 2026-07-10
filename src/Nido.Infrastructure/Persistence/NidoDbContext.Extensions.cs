@@ -19,6 +19,7 @@ public partial class NidoDbContext
     public virtual DbSet<TelegramPairingCode> TelegramPairingCodes { get; set; } = null!;
     public virtual DbSet<GamificacionNivelDesbloqueado> GamificacionNivelesDesbloqueados { get; set; } = null!;
     public virtual DbSet<PaymentWebhookEvent> PaymentWebhookEvents { get; set; } = null!;
+    public virtual DbSet<GastoParticipante> GastoParticipantes { get; set; } = null!;
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
@@ -221,6 +222,33 @@ public partial class NidoDbContext
                 .HasForeignKey(e => e.HogarId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_payment_webhook_events_hogar_id");
+        });
+
+        modelBuilder.Entity<Gasto>(entity =>
+        {
+            entity.Property(e => e.EsCompartido)
+                .HasColumnName("es_compartido")
+                .HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<GastoParticipante>(entity =>
+        {
+            entity.ToTable("gasto_participantes");
+            entity.HasKey(e => new { e.GastoId, e.UsuarioId }).HasName("gasto_participantes_pkey");
+            entity.Property(e => e.GastoId).HasColumnName("gasto_id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+
+            entity.HasOne(e => e.Gasto)
+                .WithMany(g => g.Participantes)
+                .HasForeignKey(e => e.GastoId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("gasto_participantes_gasto_id_fkey");
+
+            entity.HasOne(e => e.Usuario)
+                .WithMany()
+                .HasForeignKey(e => e.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("gasto_participantes_usuario_id_fkey");
         });
     }
 }

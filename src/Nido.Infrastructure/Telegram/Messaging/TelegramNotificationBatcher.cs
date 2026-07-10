@@ -158,7 +158,7 @@ public sealed class TelegramNotificationBatcher : ITelegramNotificationBatcher
         }
 
         // Check if there is at least one target message type in the batch to apply new templating/grouping
-        var targetTypes = new[] { "asignacion_tarea", "tarea_vencida", "producto_vencido", "producto_por_vencer", "stock_bajo" };
+        var targetTypes = new[] { "asignacion_tarea", "tarea_vencida", "producto_vencido", "producto_por_vencer", "stock_bajo", "producto_por_agotarse" };
         bool hasTargetTypes = batchMessages.Any(m => targetTypes.Contains(m.MessageType));
 
         string consolidatedText;
@@ -207,6 +207,7 @@ public sealed class TelegramNotificationBatcher : ITelegramNotificationBatcher
                     "producto_vencido" => texts.Count == 1 ? "❌ Se ha vencido el siguiente producto:" : "❌ Se han vencido los siguientes productos:",
                     "producto_por_vencer" => texts.Count == 1 ? "⚠️ El siguiente producto está por vencer:" : "⚠️ Los siguientes productos están por vencer:",
                     "stock_bajo" => texts.Count == 1 ? "📉 El siguiente producto tiene stock bajo:" : "📉 Los siguientes productos tienen stock bajo:",
+                    "producto_por_agotarse" => texts.Count == 1 ? "🔮 Según tu historial, este producto se agotaría pronto:" : "🔮 Según tu historial, estos productos se agotarían pronto:",
                     _ => null
                 };
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nido.Application.Alacena;
+using Nido.Application.Common.Assets;
 using Nido.Infrastructure.Persistence;
 
 namespace Nido.Infrastructure.Alacena;
@@ -14,8 +15,13 @@ public sealed class CatalogoRepository
     };
 
     private readonly NidoDbContext _db;
+    private readonly IPublicAssetUrlResolver _assetUrlResolver;
 
-    public CatalogoRepository(NidoDbContext db) => _db = db;
+    public CatalogoRepository(NidoDbContext db, IPublicAssetUrlResolver assetUrlResolver)
+    {
+        _db = db;
+        _assetUrlResolver = assetUrlResolver;
+    }
 
     public async Task<IReadOnlyList<CategoriaResult>> GetCategoriasAsync(CancellationToken ct)
     {
@@ -29,6 +35,7 @@ public sealed class CatalogoRepository
         return categorias
             .GroupBy(c => NormalizeCatalogName(c.Nombre))
             .Select(group => group.First())
+            .Select(c => c with { Icono = _assetUrlResolver.Resolve(c.Icono) })
             .OrderBy(c => c.Nombre)
             .ToList();
     }

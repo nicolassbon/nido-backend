@@ -161,4 +161,81 @@ public sealed class OnboardingRepository : IOnboardingRepository
             .Select(x => x.MetaId)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<TutorialUsuarioResult> GetTutorialUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        var state = await GetOrCreateTutorialUsuarioAsync(usuarioId, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ToTutorialUsuarioResult(state);
+    }
+
+    public async Task<TutorialUsuarioResult> MarkTutorialCompletedAsync(Guid usuarioId, string module, CancellationToken cancellationToken)
+    {
+        var state = await GetOrCreateTutorialUsuarioAsync(usuarioId, cancellationToken);
+
+        switch (NormalizeModule(module))
+        {
+            case "home": state.HomeCompletado = true; break;
+            case "alacena": state.AlacenaCompletado = true; break;
+            case "recetas": state.RecetasCompletado = true; break;
+            case "lista-compras": state.ListaComprasCompletado = true; break;
+            case "electrodomesticos": state.ElectrodomesticosCompletado = true; break;
+            case "finanzas": state.FinanzasCompletado = true; break;
+            case "planificador": state.PlanificadorCompletado = true; break;
+            case "tareas": state.TareasCompletado = true; break;
+            case "notificaciones": state.NotificacionesCompletado = true; break;
+            case "perfil": state.PerfilCompletado = true; break;
+            case "configuracion": state.ConfiguracionCompletado = true; break;
+            default: throw new ArgumentOutOfRangeException(nameof(module), "Modulo de tutorial no soportado.");
+        }
+
+        state.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ToTutorialUsuarioResult(state);
+    }
+
+    private async Task<TutorialUsuario> GetOrCreateTutorialUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        var state = await _dbContext.TutorialUsuarios
+            .SingleOrDefaultAsync(x => x.UsuarioId == usuarioId, cancellationToken);
+
+        if (state is not null)
+        {
+            return state;
+        }
+
+        var now = DateTime.UtcNow;
+        state = new TutorialUsuario
+        {
+            Id = Guid.NewGuid(),
+            UsuarioId = usuarioId,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        _dbContext.TutorialUsuarios.Add(state);
+        return state;
+    }
+
+    private static string NormalizeModule(string module)
+    {
+        return module.Trim().ToLowerInvariant().Replace("_", "-");
+    }
+
+    private static TutorialUsuarioResult ToTutorialUsuarioResult(TutorialUsuario state)
+    {
+        return new TutorialUsuarioResult(
+            state.Id,
+            state.UsuarioId,
+            state.HomeCompletado,
+            state.AlacenaCompletado,
+            state.RecetasCompletado,
+            state.ListaComprasCompletado,
+            state.ElectrodomesticosCompletado,
+            state.FinanzasCompletado,
+            state.PlanificadorCompletado,
+            state.TareasCompletado,
+            state.NotificacionesCompletado,
+            state.PerfilCompletado,
+            state.ConfiguracionCompletado);
+    }
 }

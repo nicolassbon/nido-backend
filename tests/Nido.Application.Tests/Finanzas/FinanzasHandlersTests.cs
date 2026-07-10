@@ -531,7 +531,7 @@ public sealed class FinanzasHandlersTests
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private static GastoResult MakeGasto(decimal monto, string categoria, string fecha) =>
-        new(Guid.NewGuid(), monto, null, categoria, fecha, Guid.NewGuid(), "Usuario", DateTime.UtcNow, null);
+        new(Guid.NewGuid(), monto, null, categoria, fecha, Guid.NewGuid(), "Usuario", DateTime.UtcNow, null, true, []);
 
     private static GetGastosResult GastosParaMes(decimal monto, string categoria) =>
         new([MakeGasto(monto, categoria, "2026-01-15")], monto);
@@ -575,10 +575,10 @@ public sealed class FinanzasHandlersTests
         public DeleteGastoResult? DeleteGastoResultValue { get; set; }
 
         public Task<GastoResult> CreateGastoAsync(CreateGastoCommand command, CancellationToken ct) =>
-            Task.FromResult(new GastoResult(Guid.NewGuid(), command.Monto, command.Descripcion, command.Categoria, command.Fecha, command.PagadoPorId, "Usuario", DateTime.UtcNow, null));
+            Task.FromResult(new GastoResult(Guid.NewGuid(), command.Monto, command.Descripcion, command.Categoria, command.Fecha, command.PagadoPorId, "Usuario", DateTime.UtcNow, null, command.EsCompartido, command.ParticipantesIds ?? []));
 
         public Task<GetBalanceResult> GetBalanceAsync(GetBalanceQuery query, CancellationToken ct) =>
-            Task.FromResult(new GetBalanceResult([], 0));
+            Task.FromResult(new GetBalanceResult([], 0, 0, []));
 
         public Task<bool?> GetModoAhorroAsync(Guid hogarId, CancellationToken ct) =>
             Task.FromResult<bool?>(false);

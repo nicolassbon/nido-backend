@@ -46,6 +46,7 @@ public sealed class ProductRepository : IProductManualRepository
                 stock.PorcentajeConsumido,
                 stock.CantidadEnvases,
                 stock.Producto.Categoria != null ? stock.Producto.Categoria.IconoSvg : null,
+                _assetUrlResolver.Resolve(stock.Producto.Categoria != null ? stock.Producto.Categoria.Icono : null),
                 stock.Producto.CantidadCompraEstandar,
                 stock.Producto.UnidadCompraEstandar
             ))

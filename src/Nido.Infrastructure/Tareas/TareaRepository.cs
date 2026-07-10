@@ -83,9 +83,12 @@ public sealed class TareaRepository(
                 FechaAsignacion = DateTime.UtcNow,
             });
 
+            var isSelfAssign = asignadoA.Value == creadoPor;
             var creador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == creadoPor, ct);
             var creadorNombre = creador?.Nombre ?? "Alguien";
-            var messageText = $"{creadorNombre} te asignó la tarea \"{titulo}\"";
+            var messageText = isSelfAssign
+                ? $"Te asignaste la tarea \"{titulo}\""
+                : $"{creadorNombre} te asignó la tarea \"{titulo}\"";
 
             db.Notificaciones.Add(new Notificacione
             {
@@ -99,16 +102,19 @@ public sealed class TareaRepository(
             });
             await db.SaveChangesAsync(ct);
 
-            var activeLink = await GetActiveTelegramLinkForCurrentMemberAsync(asignadoA.Value, hogarId, ct);
-            if (activeLink != null)
+            if (!isSelfAssign)
             {
-                var payloadJson = BuildTelegramPayload(messageText, tarea.Id);
-                await TryEnqueueTelegramNotificationAsync(
-                    hogarId,
-                    activeLink.ChatId,
-                    "asignacion_tarea",
-                    payloadJson,
-                    ct);
+                var activeLink = await GetActiveTelegramLinkForCurrentMemberAsync(asignadoA.Value, hogarId, ct);
+                if (activeLink != null)
+                {
+                    var payloadJson = BuildTelegramPayload(messageText, tarea.Id);
+                    await TryEnqueueTelegramNotificationAsync(
+                        hogarId,
+                        activeLink.ChatId,
+                        "asignacion_tarea",
+                        payloadJson,
+                        ct);
+                }
             }
         }
 
@@ -165,39 +171,43 @@ public sealed class TareaRepository(
                 UsuarioId = usuarioId.Value,
                 FechaAsignacion = DateTime.UtcNow,
             });
-            if (usuarioId.Value != asignadoPor)
-            {
-                var asignador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == asignadoPor, ct);
-                var asignadorNombre = asignador?.Nombre ?? "Alguien";
-                messageText = $"{asignadorNombre} te asignó la tarea \"{tarea.Titulo}\"";
+            var isSelfAssign = usuarioId.Value == asignadoPor;
+            var asignador = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == asignadoPor, ct);
+            var asignadorNombre = asignador?.Nombre ?? "Alguien";
+            messageText = isSelfAssign
+                ? $"Te asignaste la tarea \"{tarea.Titulo}\""
+                : $"{asignadorNombre} te asignó la tarea \"{tarea.Titulo}\"";
 
-                db.Notificaciones.Add(new Notificacione
-                {
-                    UsuarioId = usuarioId.Value,
-                    Tipo = "asignacion_tarea",
-                    ReferenciaTipo = "tarea",
-                    ReferenciaId = tarea.Id,
-                    Mensaje = messageText,
-                    Leida = false,
-                    CreatedAt = DateTime.UtcNow,
-                });
-            }
+            db.Notificaciones.Add(new Notificacione
+            {
+                UsuarioId = usuarioId.Value,
+                Tipo = "asignacion_tarea",
+                ReferenciaTipo = "tarea",
+                ReferenciaId = tarea.Id,
+                Mensaje = messageText,
+                Leida = false,
+                CreatedAt = DateTime.UtcNow,
+            });
         }
 
         await db.SaveChangesAsync(ct);
 
         if (usuarioId.HasValue && messageText != null)
         {
-            var activeLink = await GetActiveTelegramLinkForCurrentMemberAsync(usuarioId.Value, hogarId, ct);
-            if (activeLink != null)
+            var isSelfAssign = usuarioId.Value == asignadoPor;
+            if (!isSelfAssign)
             {
-                var payloadJson = BuildTelegramPayload(messageText, tarea.Id);
-                await TryEnqueueTelegramNotificationAsync(
-                    hogarId,
-                    activeLink.ChatId,
-                    "asignacion_tarea",
-                    payloadJson,
-                    ct);
+                var activeLink = await GetActiveTelegramLinkForCurrentMemberAsync(usuarioId.Value, hogarId, ct);
+                if (activeLink != null)
+                {
+                    var payloadJson = BuildTelegramPayload(messageText, tarea.Id);
+                    await TryEnqueueTelegramNotificationAsync(
+                        hogarId,
+                        activeLink.ChatId,
+                        "asignacion_tarea",
+                        payloadJson,
+                        ct);
+                }
             }
         }
 
