@@ -21,9 +21,13 @@ public partial class Gasto
 
     public Guid? FacturaId { get; set; }
 
+    public bool EsCompartido { get; set; } = true;
+
     public DateTime CreatedAt { get; set; }
 
     public virtual Hogare Hogar { get; set; } = null!;
 
     public virtual Usuario PagadoPorNavigation { get; set; } = null!;
+
+    public virtual ICollection<GastoParticipante> Participantes { get; set; } = new List<GastoParticipante>();
 }

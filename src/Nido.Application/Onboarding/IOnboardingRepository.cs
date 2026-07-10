@@ -11,4 +11,6 @@ public interface IOnboardingRepository
     Task MarkStepAsync(Guid usuarioId, Guid hogarId, int stepNumber, bool skipped, CancellationToken cancellationToken);
     Task<IReadOnlyList<Guid>> GetUserRestriccionesAsync(Guid usuarioId, CancellationToken cancellationToken);
     Task<IReadOnlyList<Guid>> GetHogarMetasAsync(Guid hogarId, CancellationToken cancellationToken);
+    Task<TutorialUsuarioResult> GetTutorialUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken);
+    Task<TutorialUsuarioResult> MarkTutorialCompletedAsync(Guid usuarioId, string module, CancellationToken cancellationToken);
 }

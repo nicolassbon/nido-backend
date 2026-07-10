@@ -368,20 +368,22 @@ public sealed class PlanificadorRepository : IPlanificadorRepository
         var usuario = await _db.Usuarios.FirstAsync(u => u.Id == usuarioId, ct);
         asignacionEntity.Usuario = usuario;
 
-        if (usuarioId != asignadoPor)
+        var isSelfAssign = usuarioId == asignadoPor;
+        var asignadorNombre = await GetUserNameAsync(asignadoPor, ct);
+        var messageText = isSelfAssign
+            ? $"Te asignaste la tarea \"{titulo}\""
+            : $"{asignadorNombre} te asignó la tarea \"{titulo}\"";
+
+        _db.Notificaciones.Add(new Notificacione
         {
-            var asignadorNombre = await GetUserNameAsync(asignadoPor, ct);
-            _db.Notificaciones.Add(new Notificacione
-            {
-                UsuarioId = usuarioId,
-                Tipo = "asignacion_tarea",
-                ReferenciaTipo = "tarea",
-                ReferenciaId = tarea.Id,
-                Mensaje = $"{asignadorNombre} te asignó la tarea \"{titulo}\"",
-                Leida = false,
-                CreatedAt = DateTime.UtcNow,
-            });
-        }
+            UsuarioId = usuarioId,
+            Tipo = "asignacion_tarea",
+            ReferenciaTipo = "tarea",
+            ReferenciaId = tarea.Id,
+            Mensaje = messageText,
+            Leida = false,
+            CreatedAt = DateTime.UtcNow,
+        });
 
         return new AsignacionResult(usuario.Id, usuario.Nombre, usuario.FotoStorageKey);
     }

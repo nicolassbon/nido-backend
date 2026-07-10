@@ -220,7 +220,15 @@ public sealed class LinkGoogleEndpointTests : IClassFixture<NidoTestWebAppFactor
         }
     }
 
-    private sealed record LinkGoogleBody(string AccessToken);
-    private sealed record LoginBody(string AccessToken);
+    private sealed record LinkGoogleBody(
+        string AccessToken,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
+    private sealed record LoginBody(
+        string AccessToken,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

@@ -30,8 +30,15 @@ public sealed class FinanzasRepository : IFinanzasRepository
             Descripcion = command.Descripcion,
             Categoria = command.Categoria,
             Fecha = fecha,
+            EsCompartido = command.EsCompartido,
             FacturaId = command.FacturaId,
         };
+
+        if (command.EsCompartido && command.ParticipantesIds is { Count: > 0 } participantes)
+        {
+            foreach (var uid in participantes)
+                gasto.Participantes.Add(new GastoParticipante { GastoId = gasto.Id, UsuarioId = uid });
+        }
 
         _db.Gastos.Add(gasto);
         await _db.SaveChangesAsync(ct);
@@ -45,6 +52,7 @@ public sealed class FinanzasRepository : IFinanzasRepository
         var q = _db.Gastos
             .AsNoTracking()
             .Include(g => g.PagadoPorNavigation)
+            .Include(g => g.Participantes)
             .Where(g => g.HogarId == query.HogarId);
 
         if (!string.IsNullOrWhiteSpace(query.Desde) && DateOnly.TryParse(query.Desde, out var desde))
@@ -84,6 +92,7 @@ public sealed class FinanzasRepository : IFinanzasRepository
     {
         var q = _db.Gastos
             .AsNoTracking()
+            .Include(g => g.Participantes)
             .Where(g => g.HogarId == query.HogarId);
 
         if (!string.IsNullOrWhiteSpace(query.Desde) && DateOnly.TryParse(query.Desde, out var desde))
@@ -100,30 +109,99 @@ public sealed class FinanzasRepository : IFinanzasRepository
             .Where(m => m.HogarId == query.HogarId)
             .ToListAsync(ct);
 
-        var totalPeriodo = gastos.Sum(g => g.Monto);
-        var cantidadMiembros = miembros.Count;
-        var montoCorrespondido = cantidadMiembros > 0
-            ? Math.Round(totalPeriodo / cantidadMiembros, 2)
-            : 0m;
+        var todosLosIds = miembros.Select(m => m.UsuarioId).ToHashSet();
+        var gastosCompartidos = gastos.Where(g => g.EsCompartido).ToList();
+        var gastosPersonales = gastos.Where(g => !g.EsCompartido).ToList();
 
-        var aportadoPorUsuario = gastos
-            .GroupBy(g => g.PagadoPor)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Monto));
+        var totalPeriodo = gastosCompartidos.Sum(g => g.Monto);
+        var totalPersonal = gastosPersonales.Sum(g => g.Monto);
 
-        var balances = miembros.Select(m =>
+        // Para cada miembro: cuánto aportó y cuánto le correspondía según los gastos compartidos en que participó
+        var montoAportado = miembros.ToDictionary(m => m.UsuarioId, _ => 0m);
+        var montoCorrespondido = miembros.ToDictionary(m => m.UsuarioId, _ => 0m);
+
+        foreach (var gasto in gastosCompartidos)
         {
-            var aportado = aportadoPorUsuario.GetValueOrDefault(m.UsuarioId, 0m);
-            return new BalanceMiembroResult(
-                m.UsuarioId,
-                m.Usuario.Nombre,
-                _urlResolver.Resolve(m.Usuario.FotoStorageKey),
-                aportado,
-                montoCorrespondido,
-                Math.Round(aportado - montoCorrespondido, 2)
-            );
-        }).ToList();
+            // Quiénes participan: si no hay participantes explícitos → todos los miembros del hogar
+            var participantesIds = gasto.Participantes.Count > 0
+                ? gasto.Participantes.Select(p => p.UsuarioId).Where(id => todosLosIds.Contains(id)).ToList()
+                : todosLosIds.ToList();
 
-        return new GetBalanceResult(balances, totalPeriodo);
+            if (participantesIds.Count == 0) continue;
+
+            var cuota = Math.Round(gasto.Monto / participantesIds.Count, 2);
+
+            foreach (var uid in participantesIds)
+                if (montoCorrespondido.ContainsKey(uid))
+                    montoCorrespondido[uid] += cuota;
+
+            if (montoAportado.ContainsKey(gasto.PagadoPor))
+                montoAportado[gasto.PagadoPor] += gasto.Monto;
+        }
+
+        var balances = miembros.Select(m => new BalanceMiembroResult(
+            m.UsuarioId,
+            m.Usuario.Nombre,
+            _urlResolver.Resolve(m.Usuario.FotoStorageKey),
+            montoAportado[m.UsuarioId],
+            Math.Round(montoCorrespondido[m.UsuarioId], 2),
+            Math.Round(montoAportado[m.UsuarioId] - montoCorrespondido[m.UsuarioId], 2)
+        )).ToList();
+
+        var deudas = CalcularDeudas(balances, miembros, _urlResolver);
+
+        return new GetBalanceResult(balances, totalPeriodo, totalPersonal, deudas);
+    }
+
+    private static IReadOnlyList<DeudaResult> CalcularDeudas(
+        List<BalanceMiembroResult> balances,
+        List<MiembrosHogar> miembros,
+        IPublicAssetUrlResolver urlResolver)
+    {
+        // Algoritmo greedy: acreedores (balance > 0) y deudores (balance < 0)
+        var acreedores = balances
+            .Where(b => b.Balance > 0)
+            .Select(b => (Id: b.UsuarioId, Monto: b.Balance))
+            .OrderByDescending(x => x.Monto)
+            .ToList();
+
+        var deudores = balances
+            .Where(b => b.Balance < 0)
+            .Select(b => (Id: b.UsuarioId, Monto: Math.Abs(b.Balance)))
+            .OrderByDescending(x => x.Monto)
+            .ToList();
+
+        var infoMiembro = miembros.ToDictionary(
+            m => m.UsuarioId,
+            m => (m.Usuario.Nombre, FotoUrl: urlResolver.Resolve(m.Usuario.FotoStorageKey)));
+
+        var deudas = new List<DeudaResult>();
+
+        int i = 0, j = 0;
+        while (i < acreedores.Count && j < deudores.Count)
+        {
+            var acreedor = acreedores[i];
+            var deudor = deudores[j];
+            var monto = Math.Min(acreedor.Monto, deudor.Monto);
+
+            if (monto > 0.01m)
+            {
+                var infoAcreedor = infoMiembro.GetValueOrDefault(acreedor.Id);
+                var infoDeudor = infoMiembro.GetValueOrDefault(deudor.Id);
+                deudas.Add(new DeudaResult(
+                    deudor.Id, infoDeudor.Nombre, infoDeudor.FotoUrl,
+                    acreedor.Id, infoAcreedor.Nombre, infoAcreedor.FotoUrl,
+                    Math.Round(monto, 2)));
+            }
+
+            acreedores[i] = (acreedor.Id, acreedor.Monto - monto);
+            deudores[j] = (deudor.Id, deudor.Monto - monto);
+
+            if (acreedores[i].Monto <= 0.01m) i++;
+            if (deudores[j].Monto <= 0.01m) j++;
+        }
+
+        return deudas;
     }
 
     public async Task<FacturaResult> CreateFacturaAsync(
@@ -216,6 +294,7 @@ public sealed class FinanzasRepository : IFinanzasRepository
     {
         var gasto = await _db.Gastos
             .Include(g => g.PagadoPorNavigation)
+            .Include(g => g.Participantes)
             .FirstOrDefaultAsync(g => g.Id == command.Id && g.HogarId == command.HogarId, ct);
 
         if (gasto is null) return null;
@@ -225,9 +304,19 @@ public sealed class FinanzasRepository : IFinanzasRepository
         gasto.Categoria = command.Categoria;
         gasto.Fecha = DateOnly.Parse(command.Fecha);
         gasto.PagadoPor = command.PagadoPorId;
+        gasto.EsCompartido = command.EsCompartido;
+
+        // Reemplazar participantes
+        _db.GastoParticipantes.RemoveRange(gasto.Participantes);
+        gasto.Participantes.Clear();
+
+        if (command.EsCompartido && command.ParticipantesIds is { Count: > 0 } participantes)
+        {
+            foreach (var uid in participantes)
+                gasto.Participantes.Add(new GastoParticipante { GastoId = gasto.Id, UsuarioId = uid });
+        }
 
         await _db.SaveChangesAsync(ct);
-        await _db.Entry(gasto).Reference(g => g.PagadoPorNavigation).LoadAsync(ct);
 
         return ToGastoResult(gasto);
     }
@@ -319,6 +408,8 @@ public sealed class FinanzasRepository : IFinanzasRepository
         gasto.PagadoPor,
         gasto.PagadoPorNavigation?.Nombre ?? string.Empty,
         gasto.CreatedAt,
-        gasto.FacturaId
+        gasto.FacturaId,
+        gasto.EsCompartido,
+        gasto.Participantes.Select(p => p.UsuarioId).ToList()
     );
 }

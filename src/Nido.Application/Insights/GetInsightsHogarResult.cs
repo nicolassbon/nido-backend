@@ -10,6 +10,7 @@ public sealed record GetInsightsHogarResult(
     ResumenInsights Resumen);
 
 public sealed record ComprarProntoItem(
+    Guid StockHogarId,
     string ProductoNombre,
     decimal StockActual,
     string? UnidadMedida,

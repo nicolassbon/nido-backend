@@ -99,7 +99,13 @@ public sealed class ExternalLookupEndpointTests : IClassFixture<NidoTestWebAppFa
         }
     }
 
-    private sealed record RegisterBody(Guid? UsuarioId, Guid? HogarId, string AccessToken);
+    private sealed record RegisterBody(
+        Guid? UsuarioId,
+        Guid? HogarId,
+        string AccessToken,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
 
     private sealed class ExternalLookupResponseShape
     {

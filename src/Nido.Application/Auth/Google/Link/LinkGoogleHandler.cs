@@ -3,6 +3,7 @@ using Nido.Application.Auth.Exceptions;
 using Nido.Application.Auth.Google.Login;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Auth.Google.Link;
 
@@ -11,12 +12,18 @@ public sealed class LinkGoogleHandler
     private readonly IAuthRepository _repository;
     private readonly IGoogleTokenValidator _googleValidator;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IEntitlementService _entitlementService;
 
-    public LinkGoogleHandler(IAuthRepository repository, IGoogleTokenValidator googleValidator, IJwtTokenService jwtTokenService)
+    public LinkGoogleHandler(
+        IAuthRepository repository,
+        IGoogleTokenValidator googleValidator,
+        IJwtTokenService jwtTokenService,
+        IEntitlementService entitlementService)
     {
         _repository = repository;
         _googleValidator = googleValidator;
         _jwtTokenService = jwtTokenService;
+        _entitlementService = entitlementService;
     }
 
     public async Task<LinkGoogleResult> Handle(LinkGoogleCommand command, CancellationToken cancellationToken)
@@ -63,6 +70,8 @@ public sealed class LinkGoogleHandler
         var hogarId = await _repository.GetUserHogarIdAsync(user.Id, cancellationToken)
             ?? throw new NoHouseholdAssociatedException();
 
+        var entitlement = await _entitlementService.GetAsync(hogarId, cancellationToken);
+
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,
             _repository,
@@ -70,8 +79,16 @@ public sealed class LinkGoogleHandler
             hogarId,
             user.Email,
             user.Nombre,
+            entitlement,
             cancellationToken);
 
-        return new LinkGoogleResult(user.Id, hogarId, accessToken, refreshToken);
+        return new LinkGoogleResult(
+            user.Id,
+            hogarId,
+            accessToken,
+            refreshToken,
+            entitlement.Plan,
+            entitlement.SubscriptionStatus,
+            entitlement.TrialEndsAt);
     }
 }

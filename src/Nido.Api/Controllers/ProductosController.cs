@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Alacena;
 using Nido.Api.Contracts.Productos;
+using Nido.Api.Security;
 using Nido.Application.Alacena;
 using Nido.Application.Common.Security;
 using Nido.Application.Productos;
@@ -114,8 +115,10 @@ public sealed class ProductoController : ControllerBase
     }
 
     [HttpGet("comparar")]
+    [RequirePremium]
     public async Task<IActionResult> CompararPrecios(
         [FromQuery] string q,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(q))
@@ -125,7 +128,7 @@ public sealed class ProductoController : ControllerBase
 
         try
         {
-            var result = await _comparePricesHandler.Handle(new ComparePricesQuery(q), ct);
+            var result = await _comparePricesHandler.Handle(new ComparePricesQuery(q, currentUser.HogarId), ct);
             return Ok(result);
         }
         catch (ArgumentException ex)

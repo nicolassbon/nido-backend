@@ -5,5 +5,7 @@ public sealed record CreateGastoRequest(
     string? Descripcion,
     string? Categoria,
     string Fecha,
-    Guid? PagadoPorId
+    Guid? PagadoPorId,
+    bool EsCompartido = true,
+    List<Guid>? ParticipantesIds = null
 );

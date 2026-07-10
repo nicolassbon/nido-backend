@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Finanzas;
+using Nido.Api.Security;
 using Nido.Application.Common.Security;
 using Nido.Application.Finanzas;
 
@@ -62,6 +63,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro")]
+    [RequirePremium]
     public async Task<IActionResult> GetModoAhorro(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -72,6 +74,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpPatch("modo-ahorro")]
+    [RequirePremium]
     public async Task<IActionResult> ToggleModoAhorro(
         [FromBody] ModoAhorroRequest request,
         [FromServices] ICurrentUserContext currentUser,
@@ -87,6 +90,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro/potencial")]
+    [RequirePremium]
     public async Task<IActionResult> GetSavingsPotencial(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -100,6 +104,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro/insights")]
+    [RequirePremium]
     public async Task<IActionResult> GetInsights(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -111,6 +116,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro/alacena")]
+    [RequirePremium]
     public async Task<IActionResult> GetAlacenaOportunidades(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -165,7 +171,12 @@ public sealed class FinanzasController : ControllerBase
                 m.MontoAportado,
                 m.MontoCorrespondido,
                 m.Balance)).ToList(),
-            result.TotalPeriodo));
+            result.TotalPeriodo,
+            result.TotalPersonal,
+            result.Deudas.Select(d => new DeudaResponse(
+                d.DeudorId, d.DeudorNombre, d.DeudorFotoUrl,
+                d.AcreedorId, d.AcreedorNombre, d.AcreedorFotoUrl,
+                d.Monto)).ToList()));
     }
 
     [HttpGet("gastos")]
@@ -200,7 +211,9 @@ public sealed class FinanzasController : ControllerBase
                 request.Monto,
                 request.Descripcion,
                 request.Categoria,
-                request.Fecha),
+                request.Fecha,
+                request.EsCompartido,
+                request.ParticipantesIds),
             ct);
 
         return CreatedAtAction(nameof(CreateGasto), ToResponse(result));
@@ -216,7 +229,7 @@ public sealed class FinanzasController : ControllerBase
         var pagadoPorId = request.PagadoPorId ?? currentUser.UsuarioId;
 
         var result = await _updateGastoHandler.Handle(
-            new UpdateGastoCommand(id, currentUser.HogarId, request.Monto, request.Descripcion, request.Categoria, request.Fecha, pagadoPorId),
+            new UpdateGastoCommand(id, currentUser.HogarId, request.Monto, request.Descripcion, request.Categoria, request.Fecha, pagadoPorId, request.EsCompartido, request.ParticipantesIds),
             ct);
 
         return Ok(ToResponse(result));
@@ -321,6 +334,8 @@ public sealed class FinanzasController : ControllerBase
         result.PagadoPorId,
         result.PagadoPorNombre,
         result.CreatedAt,
-        result.FacturaId
+        result.FacturaId,
+        result.EsCompartido,
+        result.ParticipantesIds
     );
 }

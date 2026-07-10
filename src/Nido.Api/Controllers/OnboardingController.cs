@@ -102,4 +102,25 @@ public sealed class OnboardingController : ControllerBase
         var metaIds = await repository.GetHogarMetasAsync(currentUser.HogarId, cancellationToken);
         return Ok(new WellnessOnboardingResponse(restriccionIds, metaIds));
     }
+
+    [HttpGet("tutorial")]
+    public async Task<IActionResult> GetTutorialState(
+        [FromServices] IOnboardingRepository repository,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await repository.GetTutorialUsuarioAsync(currentUser.UsuarioId, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPatch("tutorial/{module}")]
+    public async Task<IActionResult> CompleteTutorial(
+        string module,
+        [FromServices] IOnboardingRepository repository,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken cancellationToken)
+    {
+        var result = await repository.MarkTutorialCompletedAsync(currentUser.UsuarioId, module, cancellationToken);
+        return Ok(result);
+    }
 }

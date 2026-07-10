@@ -1,6 +1,8 @@
 ﻿using Nido.Application.Auth.RefreshToken;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
@@ -49,6 +51,58 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var body = await response.Content.ReadFromJsonAsync<RefreshBody>();
         Assert.NotNull(body);
         Assert.False(string.IsNullOrEmpty(body!.AccessToken));
+    }
+
+    [Fact]
+    public async Task Refresh_WhenPlanChangedAfterLogin_ReturnsCurrentFreePlanStateAndTokenClaim()
+    {
+        var email = $"refresh-plan-{Guid.NewGuid()}@test.com";
+        const string password = "Password123!";
+        Guid hogarId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            (_, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Plan User", email, hasher.Hash(password), "U", null, true, CancellationToken.None);
+
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var hogar = await db.Hogares.SingleAsync(x => x.Id == hogarId);
+            hogar.Plan = "premium";
+            hogar.SubscriptionStatus = "active";
+            hogar.PlanUpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var hogar = await db.Hogares.SingleAsync(x => x.Id == hogarId);
+            hogar.Plan = "free";
+            hogar.SubscriptionStatus = "free";
+            hogar.PlanUpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        var cookieValue = ExtractRefreshTokenCookie(loginResponse);
+        Assert.NotNull(cookieValue);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        request.Headers.Add("Cookie", $"refreshToken={cookieValue}");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<RefreshBody>();
+        Assert.NotNull(body);
+        Assert.Equal("free", body!.Plan);
+        Assert.Equal("free", body.SubscriptionStatus);
+        Assert.Null(body.TrialEndsAt);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(body.AccessToken);
+        Assert.Contains(token.Claims, c => c.Type == "plan" && c.Value == "Básico");
     }
 
     [Fact]
@@ -124,6 +178,10 @@ public sealed class RefreshEndpointTests : IClassFixture<NidoTestWebAppFactory>
         return null;
     }
 
-    private sealed record RefreshBody(string AccessToken);
+    private sealed record RefreshBody(
+        string AccessToken,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

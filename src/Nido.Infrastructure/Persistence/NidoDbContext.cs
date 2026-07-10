@@ -38,6 +38,7 @@ public partial class NidoDbContext : DbContext
                     "producto_vencido" => "Producto Vencido",
                     "producto_por_vencer" => "Producto por Vencer",
                     "stock_bajo" => "Stock Bajo",
+                    "producto_por_agotarse" => "Predicción de Faltante",
                     "asignacion_tarea" => "Aviso de tareas asignadas",
                     _ => "Nueva Notificación"
                 };
@@ -75,7 +76,7 @@ public partial class NidoDbContext : DbContext
                 }, CancellationToken.None);
 
                 // Send Telegram notification in background if it matches target types
-                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "tarea_vencida")
+                if (targetTipo == "producto_vencido" || targetTipo == "producto_por_vencer" || targetTipo == "stock_bajo" || targetTipo == "producto_por_agotarse" || targetTipo == "tarea_vencida")
                 {
                     _ = Task.Run(async () =>
                     {
@@ -198,6 +199,8 @@ public partial class NidoDbContext : DbContext
     public virtual DbSet<OnboardingState> OnboardingStates { get; set; }
 
     public virtual DbSet<OnboardingGoal> OnboardingGoals { get; set; }
+
+    public virtual DbSet<TutorialUsuario> TutorialUsuarios { get; set; }
 
     public virtual DbSet<ReseniasRecetum> ReseniasReceta { get; set; }
 
@@ -919,6 +922,38 @@ public partial class NidoDbContext : DbContext
                 .HasForeignKey(d => d.HogarId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("onboarding_state_hogar_id_fkey");
+        });
+
+        modelBuilder.Entity<TutorialUsuario>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("tutorial_usuario_pkey");
+            entity.ToTable("tutorial_usuario");
+            entity.HasIndex(e => e.UsuarioId, "ux_tutorial_usuario_usuario").IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.Property(e => e.HomeCompletado).HasDefaultValue(false).HasColumnName("home_completado");
+            entity.Property(e => e.AlacenaCompletado).HasDefaultValue(false).HasColumnName("alacena_completado");
+            entity.Property(e => e.RecetasCompletado).HasDefaultValue(false).HasColumnName("recetas_completado");
+            entity.Property(e => e.ListaComprasCompletado).HasDefaultValue(false).HasColumnName("lista_compras_completado");
+            entity.Property(e => e.ElectrodomesticosCompletado).HasDefaultValue(false).HasColumnName("electrodomesticos_completado");
+            entity.Property(e => e.FinanzasCompletado).HasDefaultValue(false).HasColumnName("finanzas_completado");
+            entity.Property(e => e.PlanificadorCompletado).HasDefaultValue(false).HasColumnName("planificador_completado");
+            entity.Property(e => e.TareasCompletado).HasDefaultValue(false).HasColumnName("tareas_completado");
+            entity.Property(e => e.NotificacionesCompletado).HasDefaultValue(false).HasColumnName("notificaciones_completado");
+            entity.Property(e => e.PerfilCompletado).HasDefaultValue(false).HasColumnName("perfil_completado");
+            entity.Property(e => e.ConfiguracionCompletado).HasDefaultValue(false).HasColumnName("configuracion_completado");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+            entity.HasOne(d => d.Usuario).WithMany()
+                .HasForeignKey(d => d.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("tutorial_usuario_usuario_id_fkey");
         });
 
         modelBuilder.Entity<Producto>(entity =>

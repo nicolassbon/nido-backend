@@ -58,6 +58,7 @@ public sealed class ProductsController : ControllerBase
             product.PorcentajeConsumido,
             product.CantidadEnvases,
             product.IconoSvg,
+            product.Icono,
             product.CantidadCompraEstandar,
             product.UnidadCompraEstandar
         ));

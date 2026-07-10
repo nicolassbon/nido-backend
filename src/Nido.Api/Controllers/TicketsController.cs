@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Tickets;
 using Nido.Api.ImageUploads;
+using Nido.Api.Security;
+using Nido.Application.Common.Security;
 using Nido.Application.Tickets;
 
 namespace Nido.Api.Controllers;
@@ -21,14 +23,16 @@ public sealed class TicketsController : ControllerBase
 
     [HttpPost("scan")]
     [Consumes("multipart/form-data")]
+    [RequirePremium]
     public async Task<IActionResult> Scan(
         IFormFile? file,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         var image = await ImageUploadFormReader.ReadAsync(file, MaxTicketImageBytes, ct);
 
         var result = await _scanTicketHandler.Handle(
-            new ScanTicketCommand(image),
+            new ScanTicketCommand(currentUser.HogarId, image),
             ct);
 
         return Ok(ToResponse(result));

@@ -1,6 +1,8 @@
 ﻿using Nido.Application.Auth.Login;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nido.Application.Auth;
 using Nido.Application.Auth.Helpers;
@@ -44,6 +46,41 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.False(string.IsNullOrEmpty(body!.AccessToken));
 
         Assert.True(HasRefreshTokenCookie(response));
+    }
+
+    [Fact]
+    public async Task Login_WhenHouseholdIsPremium_ReturnsPremiumPlanStateAndTokenClaim()
+    {
+        var email = $"login-premium-{Guid.NewGuid()}@test.com";
+        const string password = "Password123!";
+        Guid hogarId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<IAuthRepository>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            (_, hogarId) = await repo.CreateUserWithPasswordAsync(Guid.NewGuid(), Guid.NewGuid(), "Premium User", email, hasher.Hash(password), "U", null, true, CancellationToken.None);
+
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var hogar = await db.Hogares.SingleAsync(x => x.Id == hogarId);
+            hogar.Plan = "premium";
+            hogar.SubscriptionStatus = "active";
+            hogar.PlanUpdatedAt = DateTime.UtcNow;
+            hogar.SuscripcionVenceEl = DateTime.UtcNow.AddDays(30);
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<LoginBody>();
+        Assert.NotNull(body);
+        Assert.Equal("premium", body!.Plan);
+        Assert.Equal("active", body.SubscriptionStatus);
+        Assert.Null(body.TrialEndsAt);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(body.AccessToken);
+        Assert.Contains(token.Claims, c => c.Type == "plan" && c.Value == "Hogar");
     }
 
     [Fact]
@@ -110,6 +147,10 @@ public sealed class LoginEndpointTests : IClassFixture<NidoTestWebAppFactory>
         response.Headers.TryGetValues("Set-Cookie", out var values) &&
         values.Any(v => v.StartsWith("refreshToken="));
 
-    private sealed record LoginBody(string AccessToken);
+    private sealed record LoginBody(
+        string AccessToken,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 }

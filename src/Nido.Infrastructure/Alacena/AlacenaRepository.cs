@@ -223,7 +223,7 @@ public sealed class AlacenaRepository : IAlacenaRepository
             stock.CantidadEnvases,
             string.IsNullOrWhiteSpace(stock.OrigenCarga) ? StockLoadOrigins.Manual : stock.OrigenCarga,
             producto.Categoria?.IconoSvg,
-            producto.Categoria?.Icono,
+            _assetUrlResolver.Resolve(producto.Categoria?.Icono),
             producto.CantidadCompraEstandar,
             producto.UnidadCompraEstandar,
             ToNutritionResult(producto.InfoNutricionalProductos?.FirstOrDefault()));

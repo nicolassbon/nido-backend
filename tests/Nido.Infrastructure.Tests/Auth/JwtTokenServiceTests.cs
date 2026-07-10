@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Options;
+using Nido.Application.Payments;
 using Nido.Infrastructure.Auth;
 
 namespace Nido.Infrastructure.Tests.Auth;
@@ -78,5 +79,84 @@ public sealed class JwtTokenServiceTests
         var expectedExpiry = DateTime.UtcNow.AddMinutes(60);
         Assert.True(expiry > DateTime.UtcNow.AddMinutes(55) && expiry <= DateTime.UtcNow.AddMinutes(65),
             $"Expected expiry around {expectedExpiry}, but got {expiry}");
+    }
+
+    [Fact]
+    public void CreateToken_WithPremiumPlan_IncludesHogarPlanClaim()
+    {
+        var service = new JwtTokenService(_jwtOptions);
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+
+        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com", "Test", HouseholdPlan.Premium);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        var planClaim = jwt.Claims.First(c => c.Type == "plan");
+        Assert.Equal("Hogar", planClaim.Value);
+    }
+
+    [Fact]
+    public void CreateToken_WithFreePlan_IncludesBasicoPlanClaim()
+    {
+        var service = new JwtTokenService(_jwtOptions);
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+
+        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com", "Test", HouseholdPlan.Free);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        var planClaim = jwt.Claims.First(c => c.Type == "plan");
+        Assert.Equal("Básico", planClaim.Value);
+    }
+
+    [Fact]
+    public void CreateAuthTokens_WithPremiumPlan_PassesPlanToAccessToken()
+    {
+        var service = new JwtTokenService(_jwtOptions);
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+
+        var (accessToken, _, _) = service.CreateAuthTokens(usuarioId, hogarId, "test@mail.com", "Test", HouseholdPlan.Premium);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(accessToken);
+        var planClaim = jwt.Claims.First(c => c.Type == "plan");
+        Assert.Equal("Hogar", planClaim.Value);
+    }
+
+    [Fact]
+    public void CreateToken_WithEntitlement_IncludesSubscriptionClaims()
+    {
+        var service = new JwtTokenService(_jwtOptions);
+        var usuarioId = Guid.NewGuid();
+        var hogarId = Guid.NewGuid();
+        var trialEndsAt = new DateTime(2026, 7, 20, 23, 59, 59, DateTimeKind.Utc);
+        var subscriptionEndsAt = new DateTime(2026, 8, 1, 23, 59, 59, DateTimeKind.Utc);
+        var entitlement = new HouseholdEntitlement(HouseholdPlan.Premium, SubscriptionStatus.Active, trialEndsAt, subscriptionEndsAt);
+
+        var token = service.CreateToken(usuarioId, hogarId, "test@mail.com", "Test", entitlement);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        Assert.Equal("Hogar", jwt.Claims.First(c => c.Type == "plan").Value);
+        Assert.Equal("active", jwt.Claims.First(c => c.Type == "subscriptionStatus").Value);
+        Assert.Equal(trialEndsAt.ToString("O"), jwt.Claims.First(c => c.Type == "trialEndsAt").Value);
+        Assert.Equal(subscriptionEndsAt.ToString("O"), jwt.Claims.First(c => c.Type == "subscriptionEndsAt").Value);
+    }
+
+    [Fact]
+    public void CreateToken_WithEntitlement_OmitsNullDateClaims()
+    {
+        var service = new JwtTokenService(_jwtOptions);
+        var entitlement = new HouseholdEntitlement(HouseholdPlan.Free, SubscriptionStatus.None, null);
+
+        var token = service.CreateToken(Guid.NewGuid(), Guid.NewGuid(), "test@mail.com", "Test", entitlement);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == "trialEndsAt");
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == "subscriptionEndsAt");
     }
 }

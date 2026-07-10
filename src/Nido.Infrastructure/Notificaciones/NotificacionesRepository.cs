@@ -4,13 +4,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Nido.Application.Insights;
 using Nido.Application.Notificaciones;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Notificaciones;
 
-public sealed class NotificacionesRepository(NidoDbContext db) : INotificacionesRepository
+public sealed class NotificacionesRepository(NidoDbContext db, GetInsightsHogarHandler? insightsHandler = null) : INotificacionesRepository
 {
     public async Task<List<NotificacionResult>> GetByUsuarioAsync(Guid usuarioId, CancellationToken ct)
     {
@@ -62,6 +63,7 @@ public sealed class NotificacionesRepository(NidoDbContext db) : INotificaciones
             .ToListAsync(ct);
 
         var alertasActivas = new List<(Guid ProductoStockId, string Tipo)>();
+        var stockConAlertaBaja = new HashSet<Guid>();
 
         foreach (var stock in stockItems)
         {
@@ -88,12 +90,40 @@ public sealed class NotificacionesRepository(NidoDbContext db) : INotificaciones
             if (stock.CantidadEnvases == 1 && stock.EstaAbierto && stock.PorcentajeConsumido >= 70)
             {
                 alertasActivas.Add((stock.Id, "stock_bajo"));
+                stockConAlertaBaja.Add(stock.Id);
                 await AsegurarNotificacionAsync(usuarioId, "stock_bajo", "alacena", stock.Id, $"El stock del producto \"{productoNombre}\" es bajo", ultimoCambioStock, ct);
             }
         }
 
-        // 3. Limpieza de alertas de alacena obsoletas
-        var tiposAlacena = new[] { "producto_vencido", "producto_por_vencer", "stock_bajo" };
+        // 3. Alerta de Predicción de Agotamiento (basada en mediana de días entre compras)
+        if (insightsHandler is not null)
+        {
+            var stockPorId = stockItems.ToDictionary(s => s.Id);
+
+            foreach (var hogarId in hogaresUsuario)
+            {
+                var comprarPronto = await insightsHandler.GetComprarProntoAsync(hogarId, ct);
+
+                foreach (var item in comprarPronto)
+                {
+                    if (!stockPorId.TryGetValue(item.StockHogarId, out var stockRef)) continue;
+
+                    // Si ya hay una alerta de stock bajo para esta misma fila, no sumamos una segunda señal redundante.
+                    if (stockConAlertaBaja.Contains(item.StockHogarId)) continue;
+
+                    alertasActivas.Add((item.StockHogarId, "producto_por_agotarse"));
+
+                    var mensaje = $"\"{item.ProductoNombre}\": según tu historial de compras, capaz sea hora de reponerlo";
+
+                    // Se ancla a CreatedAt (no a UpdatedAt) porque la predicción depende del historial de compras,
+                    // no de ediciones al item de stock: editar cantidad/ubicación no debe duplicar la notificación.
+                    await AsegurarNotificacionAsync(usuarioId, "producto_por_agotarse", "alacena", item.StockHogarId, mensaje, stockRef.CreatedAt, ct);
+                }
+            }
+        }
+
+        // 4. Limpieza de alertas de alacena obsoletas
+        var tiposAlacena = new[] { "producto_vencido", "producto_por_vencer", "stock_bajo", "producto_por_agotarse" };
         var notificacionesAlacenaActivas = await db.Notificaciones
             .Where(n => n.UsuarioId == usuarioId
                      && n.ReferenciaTipo == "alacena"

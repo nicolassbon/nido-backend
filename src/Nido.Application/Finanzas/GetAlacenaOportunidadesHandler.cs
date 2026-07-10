@@ -1,4 +1,5 @@
 using Nido.Application.Alacena;
+using Nido.Application.Payments;
 using Nido.Application.Recetas;
 
 namespace Nido.Application.Finanzas;
@@ -7,17 +8,22 @@ public sealed class GetAlacenaOportunidadesHandler
 {
     private readonly IAlacenaRepository _alacenaRepository;
     private readonly IRecetaRepository  _recetaRepository;
+    private readonly IEntitlementService _entitlementService;
 
     public GetAlacenaOportunidadesHandler(
         IAlacenaRepository alacenaRepository,
-        IRecetaRepository recetaRepository)
+        IRecetaRepository recetaRepository,
+        IEntitlementService entitlementService)
     {
         _alacenaRepository = alacenaRepository;
         _recetaRepository  = recetaRepository;
+        _entitlementService = entitlementService;
     }
 
     public async Task<AlacenaOportunidadesResult> Handle(Guid hogarId, CancellationToken ct)
     {
+        await _entitlementService.EnsurePremiumAsync(hogarId, ct);
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var items = await _alacenaRepository.GetByHogarAsync(hogarId, ct);
