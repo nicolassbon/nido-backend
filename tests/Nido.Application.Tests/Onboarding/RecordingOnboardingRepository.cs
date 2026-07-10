@@ -57,4 +57,26 @@ internal sealed class RecordingOnboardingRepository : IOnboardingRepository
 
     public Task<IReadOnlyList<Guid>> GetHogarMetasAsync(Guid hogarId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<Guid>>(MetasGuardadas);
+
+    public Task<TutorialUsuarioResult> GetTutorialUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken)
+        => Task.FromResult(NewTutorialState(usuarioId));
+
+    public Task<TutorialUsuarioResult> MarkTutorialCompletedAsync(Guid usuarioId, string module, CancellationToken cancellationToken)
+        => Task.FromResult(NewTutorialState(usuarioId));
+
+    private static TutorialUsuarioResult NewTutorialState(Guid usuarioId)
+        => new(
+            Guid.NewGuid(),
+            usuarioId,
+            HomeCompletado: false,
+            AlacenaCompletado: false,
+            RecetasCompletado: false,
+            ListaComprasCompletado: false,
+            ElectrodomesticosCompletado: false,
+            FinanzasCompletado: false,
+            PlanificadorCompletado: false,
+            TareasCompletado: false,
+            NotificacionesCompletado: false,
+            PerfilCompletado: false,
+            ConfiguracionCompletado: false);
 }
