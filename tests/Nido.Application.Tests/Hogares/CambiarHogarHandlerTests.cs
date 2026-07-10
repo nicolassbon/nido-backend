@@ -3,6 +3,7 @@ using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Hogares;
 using Nido.Application.Hogares.Exceptions;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Tests.Hogares;
 
@@ -71,9 +72,15 @@ public sealed class CambiarHogarHandlerTests
     private sealed class FakeJwt : IJwtTokenService
     {
         public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre) => "nuevo-jwt";
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan) => CreateToken(usuarioId, hogarId, email, nombre);
+        public string CreateToken(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement) => CreateToken(usuarioId, hogarId, email, nombre);
         public string GenerateRefreshToken() => "refresh";
         public string HashRefreshToken(string refreshToken) => $"hash:{refreshToken}";
         public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre)
             => ("nuevo-jwt", "refresh", DateTime.UtcNow.AddDays(7));
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdPlan plan)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
+        public (string AccessToken, string RefreshToken, DateTime RefreshTokenExpiresAt) CreateAuthTokens(Guid usuarioId, Guid hogarId, string email, string nombre, HouseholdEntitlement entitlement)
+            => CreateAuthTokens(usuarioId, hogarId, email, nombre);
     }
 }

@@ -356,7 +356,13 @@ public sealed class ProductosEndpointTests : IClassFixture<NidoTestWebAppFactory
         return body;
     }
 
-    private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
+    private sealed record RegisterBody(
+        Guid UsuarioId,
+        Guid HogarId,
+        string AccessToken,
+        string Plan,
+        string SubscriptionStatus,
+        DateTime? TrialEndsAt);
     private sealed record ProductoBody(Guid Id, string Nombre, string? CodigoBarras, string? Imagen, string? CategoriaNombre, int? TtlDias);
     private sealed record CreateProductoBody(Guid StockHogarId, Guid ProductoId, decimal CantidadActual, string UnidadMedida, string? FechaVencimiento, Guid UsuarioIngresoId, string Ubicacion, bool EstaAbierto, decimal PorcentajeConsumido, Guid? CategoriaId, int CantidadEnvases);
     private sealed record GetProductManualBody(Guid StockHogarId, Guid ProductoId, string Nombre, Guid? CategoriaId, string? CategoriaNombre, string? CodigoBarras, string? ImagenUrl, string Ubicacion, decimal Cantidad, string? UnidadMedida, string? FechaVencimiento, bool EstaAbierto, decimal PorcentajeConsumido, int CantidadEnvases);

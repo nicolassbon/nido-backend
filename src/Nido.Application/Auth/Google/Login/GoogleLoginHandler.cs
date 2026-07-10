@@ -3,6 +3,7 @@ using Nido.Application.Auth.Exceptions;
 using Nido.Application.Auth.Helpers;
 using Nido.Application.Auth.Interfaces;
 using Nido.Application.Common.ProfileImages;
+using Nido.Application.Payments;
 
 namespace Nido.Application.Auth.Google.Login;
 
@@ -11,16 +12,19 @@ public sealed class GoogleLoginHandler
     private readonly IAuthRepository _repository;
     private readonly IGoogleTokenValidator _googleTokenValidator;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IEntitlementService _entitlementService;
 
 
     public GoogleLoginHandler(
         IAuthRepository repository,
         IGoogleTokenValidator googleTokenValidator,
-        IJwtTokenService jwtTokenService)
+        IJwtTokenService jwtTokenService,
+        IEntitlementService entitlementService)
     {
         _repository = repository;
         _googleTokenValidator = googleTokenValidator;
         _jwtTokenService = jwtTokenService;
+        _entitlementService = entitlementService;
     }
 
     public async Task<GoogleLoginResult> Handle(GoogleLoginCommand command, CancellationToken cancellationToken)
@@ -44,6 +48,10 @@ public sealed class GoogleLoginHandler
 
         var nombre = user?.Nombre ?? ResolveDisplayName(payload, normalizedEmail);
 
+        var entitlement = isNewUser
+            ? new HouseholdEntitlement(HouseholdPlan.Free, SubscriptionStatus.None, null)
+            : await _entitlementService.GetAsync(hogarId, cancellationToken);
+
         var (accessToken, refreshToken) = await AuthTokenHelper.CreateAndPersistRefreshTokenAsync(
             _jwtTokenService,
             _repository,
@@ -51,9 +59,18 @@ public sealed class GoogleLoginHandler
             hogarId,
             user?.Email ?? normalizedEmail,
             nombre,
+            entitlement,
             cancellationToken);
 
-        return new GoogleLoginResult(usuarioId, hogarId, accessToken, isNewUser, refreshToken);
+        return new GoogleLoginResult(
+            usuarioId,
+            hogarId,
+            accessToken,
+            isNewUser,
+            refreshToken,
+            entitlement.Plan,
+            entitlement.SubscriptionStatus,
+            entitlement.TrialEndsAt);
     }
 
     private async Task<User?> ResolveUserAsync(GooglePayload payload, string normalizedEmail, CancellationToken cancellationToken)

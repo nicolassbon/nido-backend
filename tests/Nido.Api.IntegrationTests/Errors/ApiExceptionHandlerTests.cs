@@ -8,6 +8,7 @@ using Nido.Application.Auth.Interfaces;
 using Nido.Application.Auth.RefreshToken;
 using Nido.Application.Auth.Exceptions;
 using Nido.Application.Hogares.Exceptions;
+using Nido.Application.Payments.Exceptions;
 using Nido.Application.Productos.Exceptions;
 using Nido.Application.Telegram.Exceptions;
 using Nido.Api.Errors;
@@ -128,6 +129,22 @@ public sealed class ApiExceptionHandlerTests
         Assert.Equal(503, context.Response.StatusCode);
     }
 
+    [Fact]
+    public async Task TryHandle_MapsPremiumRequiredException_To403WithPlanUpgradeCode()
+    {
+        var problemDetails = new FakeProblemDetailsService();
+        var handler = new ApiExceptionHandler(problemDetails, NullLogger<ApiExceptionHandler>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var exception = new PremiumRequiredException();
+        var result = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(403, context.Response.StatusCode);
+        Assert.Equal("PLAN_UPGRADE_REQUIRED", problemDetails.Written?.Title);
+    }
+
     public static TheoryData<Exception, int> TelegramExceptionMappings => new()
     {
         { new TelegramChatNotLinkedException(), 404 },
@@ -158,8 +175,11 @@ public sealed class ApiExceptionHandlerTests
 
     private sealed class FakeProblemDetailsService : IProblemDetailsService
     {
+        public ProblemDetails? Written { get; private set; }
+
         public ValueTask WriteAsync(ProblemDetailsContext context)
         {
+            Written = context.ProblemDetails;
             return ValueTask.CompletedTask;
         }
 

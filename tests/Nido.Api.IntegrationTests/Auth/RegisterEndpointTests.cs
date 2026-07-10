@@ -42,10 +42,14 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
 
         var body = await response.Content.ReadFromJsonAsync<RegisterBody>();
         Assert.NotNull(body);
+        Assert.Equal("free", body!.Plan);
+        Assert.Equal("free", body.SubscriptionStatus);
+        Assert.Null(body.TrialEndsAt);
 
-        var token = new JwtSecurityTokenHandler().ReadJwtToken(body!.AccessToken);
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(body.AccessToken);
         Assert.Contains(token.Claims, c => c.Type == "usuarioId" && c.Value == body.UsuarioId.ToString());
         Assert.Contains(token.Claims, c => c.Type == "hogarId" && c.Value == body.HogarId.ToString());
+        Assert.Contains(token.Claims, c => c.Type == "plan" && c.Value == "Básico");
     }
 
     [Fact]
@@ -285,7 +289,15 @@ public sealed class RegisterEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(1, count);
     }
 
-    private sealed record RegisterBody(Guid? UsuarioId, Guid? HogarId, string? AccessToken, string Message, bool IsSilentSuccess);
+    private sealed record RegisterBody(
+        Guid? UsuarioId,
+        Guid? HogarId,
+        string? AccessToken,
+        string Message,
+        bool IsSilentSuccess,
+        string? Plan,
+        string? SubscriptionStatus,
+        DateTime? TrialEndsAt);
     private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
 
     private sealed class ThrowingCurrentUserContext : ICurrentUserContext

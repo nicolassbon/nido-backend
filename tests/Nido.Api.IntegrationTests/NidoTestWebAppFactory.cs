@@ -21,6 +21,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
     private readonly Action<IServiceCollection>? _configureStorage;
     private readonly Action<IApplicationBuilder>? _configureAfterApp;
     private readonly IReadOnlyDictionary<string, string?>? _extraConfiguration;
+    private readonly string _environment;
     private readonly TestLogCapture? _logCapture;
     private readonly PostgresTestDatabase _testDatabase;
     private readonly bool _ownsTestDatabase;
@@ -30,6 +31,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
             configureStorage: null,
             configureAfterApp: null,
             extraConfiguration: null,
+            environment: "Testing",
             logCapture: null,
             testDatabase: CreateDatabase("api_factory"),
             ownsTestDatabase: true)
@@ -40,6 +42,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
         Action<IServiceCollection>? configureStorage,
         Action<IApplicationBuilder>? configureAfterApp,
         IReadOnlyDictionary<string, string?>? extraConfiguration,
+        string environment,
         TestLogCapture? logCapture,
         PostgresTestDatabase testDatabase,
         bool ownsTestDatabase)
@@ -47,6 +50,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
         _configureStorage = configureStorage;
         _configureAfterApp = configureAfterApp;
         _extraConfiguration = extraConfiguration;
+        _environment = environment;
         _logCapture = logCapture;
         _testDatabase = testDatabase;
         _ownsTestDatabase = ownsTestDatabase;
@@ -54,7 +58,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(_environment);
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testDatabase.ConnectionString);
 
@@ -65,6 +69,10 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
         builder.UseSetting("Telegram:BotToken", "default-test-bot-token");
         builder.UseSetting("Telegram:WebhookSecretToken", "default-test-webhook-secret");
+        builder.UseSetting("MercadoPago:AccessToken", "TEST-mercadopago-access-token");
+        builder.UseSetting("MercadoPago:WebhookSecret", "test-mercadopago-webhook-secret");
+        builder.UseSetting("MercadoPago:PublicKey", "TEST-mercadopago-public-key");
+        builder.UseSetting("MercadoPago:ApiBaseUrl", "https://api.mercadopago.test");
 
         if (_extraConfiguration is not null)
         {
@@ -88,7 +96,11 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 ["ProfileImages:MaxBytes"] = "5242880",
                 ["ProfileImages:MaxDimension"] = "512",
                 ["ProfileImages:WebpQuality"] = "80",
-                ["ProfileImages:PublicBaseUrl"] = "https://cdn.test.local"
+                ["ProfileImages:PublicBaseUrl"] = "https://cdn.test.local",
+                ["MercadoPago:AccessToken"] = "TEST-mercadopago-access-token",
+                ["MercadoPago:WebhookSecret"] = "test-mercadopago-webhook-secret",
+                ["MercadoPago:PublicKey"] = "TEST-mercadopago-public-key",
+                ["MercadoPago:ApiBaseUrl"] = "https://api.mercadopago.test"
             };
 
             if (_extraConfiguration is not null)
@@ -143,10 +155,10 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
 
 
     public NidoTestWebAppFactory WithStorageOverride(Action<IServiceCollection> configureStorage)
-        => new(configureStorage, _configureAfterApp, _extraConfiguration, _logCapture, _testDatabase, ownsTestDatabase: false);
+        => new(configureStorage, _configureAfterApp, _extraConfiguration, _environment, _logCapture, _testDatabase, ownsTestDatabase: false);
 
     public NidoTestWebAppFactory WithAfterAppConfiguration(Action<IApplicationBuilder> configureAfterApp)
-        => new(_configureStorage, configureAfterApp, _extraConfiguration, _logCapture, _testDatabase, ownsTestDatabase: false);
+        => new(_configureStorage, configureAfterApp, _extraConfiguration, _environment, _logCapture, _testDatabase, ownsTestDatabase: false);
 
     public NidoTestWebAppFactory WithConfiguration(IReadOnlyDictionary<string, string?> configuration)
     {
@@ -160,6 +172,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
             configureStorage: _configureStorage,
             configureAfterApp: _configureAfterApp,
             extraConfiguration: merged,
+            environment: _environment,
             logCapture: _logCapture,
             testDatabase: _testDatabase,
             ownsTestDatabase: false);
@@ -183,13 +196,17 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
             configureStorage: _configureStorage,
             configureAfterApp: _configureAfterApp,
             extraConfiguration: merged,
+            environment: _environment,
             logCapture: _logCapture,
             testDatabase: _testDatabase,
             ownsTestDatabase: false);
     }
 
     public NidoTestWebAppFactory WithLogCapture(TestLogCapture capture)
-        => new(_configureStorage, _configureAfterApp, _extraConfiguration, capture, _testDatabase, ownsTestDatabase: false);
+        => new(_configureStorage, _configureAfterApp, _extraConfiguration, _environment, capture, _testDatabase, ownsTestDatabase: false);
+
+    public NidoTestWebAppFactory WithEnvironment(string environment)
+        => new(_configureStorage, _configureAfterApp, _extraConfiguration, environment, _logCapture, _testDatabase, ownsTestDatabase: false);
 
     protected override void Dispose(bool disposing)
     {

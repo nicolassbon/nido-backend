@@ -1,6 +1,8 @@
 using Nido.Application.Alacena;
 using Nido.Application.Finanzas;
 using Nido.Application.Finanzas.Exceptions;
+using Nido.Application.Payments;
+using Nido.Application.Payments.Exceptions;
 using Nido.Application.Recetas;
 
 namespace Nido.Application.Tests.Finanzas;
@@ -122,7 +124,7 @@ public sealed class FinanzasHandlersTests
         var repo = new FakeFinanzasRepository();
         repo.EnqueueGastos(new GetGastosResult([], 0)); // mes actual
         repo.EnqueueGastos(new GetGastosResult([], 0)); // histórico vacío
-        var handler = new GetSavingsPotencialHandler(repo);
+        var handler = new GetSavingsPotencialHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -144,7 +146,7 @@ public sealed class FinanzasHandlersTests
             MakeGasto(1000, "Comida", "2025-11-15"),
             MakeGasto(1000, "Comida", "2025-12-15"),
         ], 3000));
-        var handler = new GetSavingsPotencialHandler(repo);
+        var handler = new GetSavingsPotencialHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -166,7 +168,7 @@ public sealed class FinanzasHandlersTests
             MakeGasto(1000, "Comida", "2025-11-15"),
             MakeGasto(1000, "Comida", "2025-12-15"),
         ], 3000));
-        var handler = new GetSavingsPotencialHandler(repo);
+        var handler = new GetSavingsPotencialHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -192,7 +194,7 @@ public sealed class FinanzasHandlersTests
             MakeGasto(1000, "Comida",     "2025-12-15"),
             MakeGasto(400,  "Transporte", "2025-12-15"),
         ], 4200));
-        var handler = new GetSavingsPotencialHandler(repo);
+        var handler = new GetSavingsPotencialHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -212,7 +214,7 @@ public sealed class FinanzasHandlersTests
         repo.EnqueueGastos(GastosParaMes(1000, "Comida")); // mes -1
         repo.EnqueueGastos(new GetGastosResult([], 0));    // mes -2
         repo.EnqueueGastos(new GetGastosResult([], 0));    // mes -3
-        var handler = new GetInsightsHandler(repo);
+        var handler = new GetInsightsHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -230,7 +232,7 @@ public sealed class FinanzasHandlersTests
         repo.EnqueueGastos(GastosParaMes(1000, "Transporte")); // mes -1
         repo.EnqueueGastos(new GetGastosResult([], 0));
         repo.EnqueueGastos(new GetGastosResult([], 0));
-        var handler = new GetInsightsHandler(repo);
+        var handler = new GetInsightsHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -248,7 +250,7 @@ public sealed class FinanzasHandlersTests
         repo.EnqueueGastos(GastosParaMes(1000, "Servicios")); // mes -1
         repo.EnqueueGastos(new GetGastosResult([], 0));
         repo.EnqueueGastos(new GetGastosResult([], 0));
-        var handler = new GetInsightsHandler(repo);
+        var handler = new GetInsightsHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -266,7 +268,7 @@ public sealed class FinanzasHandlersTests
         repo.EnqueueGastos(GastosParaMes(500, "Transporte")); // mes -1 sin Comida
         repo.EnqueueGastos(new GetGastosResult([], 0));
         repo.EnqueueGastos(new GetGastosResult([], 0));
-        var handler = new GetInsightsHandler(repo);
+        var handler = new GetInsightsHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -282,7 +284,7 @@ public sealed class FinanzasHandlersTests
         repo.EnqueueGastos(GastosParaMes(900,  "Otros")); // mes -1
         repo.EnqueueGastos(GastosParaMes(800,  "Otros")); // mes -2
         repo.EnqueueGastos(GastosParaMes(700,  "Otros")); // mes -3
-        var handler = new GetInsightsHandler(repo);
+        var handler = new GetInsightsHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -303,7 +305,7 @@ public sealed class FinanzasHandlersTests
             categorias.Select(c => MakeGasto(1000, c, "2025-12-15")).ToList(), 4000));
         repo.EnqueueGastos(new GetGastosResult([], 0));
         repo.EnqueueGastos(new GetGastosResult([], 0));
-        var handler = new GetInsightsHandler(repo);
+        var handler = new GetInsightsHandler(repo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -440,7 +442,7 @@ public sealed class FinanzasHandlersTests
                 MakeStockItem("Arroz", porcentajeConsumido: 50), // disponible: incluido
             ]
         };
-        var handler = new GetAlacenaOportunidadesHandler(alacenaRepo, new FakeRecetaRepository());
+        var handler = new GetAlacenaOportunidadesHandler(alacenaRepo, new FakeRecetaRepository(), PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -459,7 +461,7 @@ public sealed class FinanzasHandlersTests
                 MakeStockItem("Harina", porcentajeConsumido: 30), // sin vencimiento: incluido
             ]
         };
-        var handler = new GetAlacenaOportunidadesHandler(alacenaRepo, new FakeRecetaRepository());
+        var handler = new GetAlacenaOportunidadesHandler(alacenaRepo, new FakeRecetaRepository(), PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -478,7 +480,7 @@ public sealed class FinanzasHandlersTests
                 MakeReceta("Pasta bolognesa",  enStock: 3, total: 3), // 100% cobertura
             ]
         };
-        var handler = new GetAlacenaOportunidadesHandler(new FakeAlacenaRepository(), recetaRepo);
+        var handler = new GetAlacenaOportunidadesHandler(new FakeAlacenaRepository(), recetaRepo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
@@ -495,11 +497,35 @@ public sealed class FinanzasHandlersTests
                 MakeReceta("Receta sin stock", enStock: 0, total: 3),
             ]
         };
-        var handler = new GetAlacenaOportunidadesHandler(new FakeAlacenaRepository(), recetaRepo);
+        var handler = new GetAlacenaOportunidadesHandler(new FakeAlacenaRepository(), recetaRepo, PremiumEntitlement());
 
         var result = await handler.Handle(Guid.NewGuid(), CancellationToken.None);
 
         Assert.Empty(result.RecetasSugeridas);
+    }
+
+    [Fact(DisplayName = "ToggleModoAhorro: hogar free lanza PremiumRequiredException antes de guardar")]
+    public async Task ToggleModoAhorro_WhenHouseholdIsFree_ThrowsPremiumRequiredBeforeSaving()
+    {
+        var repo = new FakeFinanzasRepository();
+        var handler = new ToggleModoAhorroHandler(repo, FreeEntitlement());
+
+        await Assert.ThrowsAsync<PremiumRequiredException>(() =>
+            handler.Handle(new ToggleModoAhorroCommand(Guid.NewGuid(), true), CancellationToken.None));
+
+        Assert.False(repo.ToggleWasCalled);
+    }
+
+    [Fact(DisplayName = "GetSavingsPotencial: hogar free lanza PremiumRequiredException antes de consultar gastos")]
+    public async Task GetSavingsPotencial_WhenHouseholdIsFree_ThrowsPremiumRequiredBeforeQueryingExpenses()
+    {
+        var repo = new FakeFinanzasRepository();
+        var handler = new GetSavingsPotencialHandler(repo, FreeEntitlement());
+
+        await Assert.ThrowsAsync<PremiumRequiredException>(() =>
+            handler.Handle(Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Equal(0, repo.GetGastosCalls);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -521,6 +547,10 @@ public sealed class FinanzasHandlersTests
         return new RecetaResult(Guid.NewGuid(), nombre, null, null, null, null, null, null, null, null, null, null, ingredientes, [], [], 0, 0m, 0, false, null, null, []);
     }
 
+    private static FakeEntitlementService PremiumEntitlement() => new(HouseholdPlan.Premium);
+
+    private static FakeEntitlementService FreeEntitlement() => new(HouseholdPlan.Free);
+
     // ─── Fakes ───────────────────────────────────────────────────────────────
 
     private sealed class FakeFinanzasRepository : IFinanzasRepository
@@ -529,8 +559,15 @@ public sealed class FinanzasHandlersTests
 
         public void EnqueueGastos(GetGastosResult result) => _gastosQueue.Enqueue(result);
 
-        public Task<GetGastosResult> GetGastosAsync(GetGastosQuery query, CancellationToken ct) =>
-            Task.FromResult(_gastosQueue.Count > 0 ? _gastosQueue.Dequeue() : new GetGastosResult([], 0));
+        public int GetGastosCalls { get; private set; }
+
+        public bool ToggleWasCalled { get; private set; }
+
+        public Task<GetGastosResult> GetGastosAsync(GetGastosQuery query, CancellationToken ct)
+        {
+            GetGastosCalls++;
+            return Task.FromResult(_gastosQueue.Count > 0 ? _gastosQueue.Dequeue() : new GetGastosResult([], 0));
+        }
 
         public decimal? PresupuestoMonto { get; set; }
         public decimal UpsertedPresupuesto { get; set; }
@@ -546,8 +583,11 @@ public sealed class FinanzasHandlersTests
         public Task<bool?> GetModoAhorroAsync(Guid hogarId, CancellationToken ct) =>
             Task.FromResult<bool?>(false);
 
-        public Task<bool> ToggleModoAhorroAsync(Guid hogarId, bool activo, CancellationToken ct) =>
-            Task.FromResult(activo);
+        public Task<bool> ToggleModoAhorroAsync(Guid hogarId, bool activo, CancellationToken ct)
+        {
+            ToggleWasCalled = true;
+            return Task.FromResult(activo);
+        }
 
         public Task<FacturaResult> CreateFacturaAsync(CreateFacturaCommand command, Guid facturaId, string? storageKey, CancellationToken ct) =>
             throw new NotImplementedException();
@@ -606,5 +646,28 @@ public sealed class FinanzasHandlersTests
 
         public Task<CocinarRecetaResult?> CocinarAsync(CocinarRecetaCommand command, CancellationToken ct) =>
             Task.FromResult<CocinarRecetaResult?>(null);
+    }
+
+    private sealed class FakeEntitlementService : IEntitlementService
+    {
+        private readonly HouseholdPlan _plan;
+
+        public FakeEntitlementService(HouseholdPlan plan)
+        {
+            _plan = plan;
+        }
+
+        public Task EnsurePremiumAsync(Guid hogarId, CancellationToken ct)
+        {
+            if (_plan == HouseholdPlan.Premium)
+            {
+                return Task.CompletedTask;
+            }
+
+            throw new PremiumRequiredException();
+        }
+
+        public Task<HouseholdEntitlement> GetAsync(Guid hogarId, CancellationToken ct) =>
+            Task.FromResult(new HouseholdEntitlement(_plan, SubscriptionStatus.None, null));
     }
 }

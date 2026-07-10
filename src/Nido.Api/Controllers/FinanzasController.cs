@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Finanzas;
+using Nido.Api.Security;
 using Nido.Application.Common.Security;
 using Nido.Application.Finanzas;
 
@@ -62,6 +63,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro")]
+    [RequirePremium]
     public async Task<IActionResult> GetModoAhorro(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -72,6 +74,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpPatch("modo-ahorro")]
+    [RequirePremium]
     public async Task<IActionResult> ToggleModoAhorro(
         [FromBody] ModoAhorroRequest request,
         [FromServices] ICurrentUserContext currentUser,
@@ -87,6 +90,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro/potencial")]
+    [RequirePremium]
     public async Task<IActionResult> GetSavingsPotencial(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -100,6 +104,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro/insights")]
+    [RequirePremium]
     public async Task<IActionResult> GetInsights(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
@@ -111,6 +116,7 @@ public sealed class FinanzasController : ControllerBase
     }
 
     [HttpGet("modo-ahorro/alacena")]
+    [RequirePremium]
     public async Task<IActionResult> GetAlacenaOportunidades(
         [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)

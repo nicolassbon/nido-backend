@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Nido.Infrastructure.Persistence.Entities;
@@ -12,6 +12,24 @@ public partial class Hogare
     public DateTime CreatedAt { get; set; }
 
     public bool ModoAhorro { get; set; }
+
+    public string Plan { get; set; } = "free";
+
+    public string SubscriptionStatus { get; set; } = "none";
+
+    public DateTime? TrialEndsAt { get; set; }
+
+    public DateTime? GracePeriodEndsAt { get; set; }
+
+    public string? MercadoPagoCustomerId { get; set; }
+
+    public string? MercadoPagoSubscriptionId { get; set; }
+
+    public string? MercadoPagoPaymentId { get; set; }
+
+    public DateTime? PlanUpdatedAt { get; set; }
+    public DateTime? ProviderTransitionAt { get; set; }
+    public DateTime? SuscripcionVenceEl { get; set; }
 
     public virtual ICollection<Electrodomestico> Electrodomesticos { get; set; } = new List<Electrodomestico>();
 
