@@ -51,6 +51,179 @@ public sealed class PaymentsEndpointTests : IClassFixture<NidoTestWebAppFactory>
     }
 
     [Fact]
+    public async Task CreateCheckout_WhenMercadoPagoDisabled_ReturnsStableServiceUnavailableProblemDetails()
+    {
+        using var factory = _factory.WithConfiguration(new Dictionary<string, string?>
+        {
+            ["MercadoPago:Mode"] = "Disabled",
+            ["MercadoPago:AccessToken"] = null,
+            ["MercadoPago:WebhookSecret"] = null,
+            ["MercadoPago:PublicKey"] = null
+        });
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "payments-disabled");
+
+        var response = await client.PostAsync("/api/payments/checkout", null);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal(503, problem!.Status);
+        Assert.Equal("MERCADO_PAGO_DISABLED", problem.Title);
+        Assert.Equal("Mercado Pago payments are disabled in this environment.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task DevelopmentFixture_WhenAuthenticated_ActivatesAndResetsCurrentHouseholdOnly()
+    {
+        using var factory = _factory.WithEnvironment("Development");
+        using var firstClient = factory.CreateClient();
+        var firstUser = await AuthenticateAsync(firstClient, "payments-dev-fixture-first");
+
+        var premiumResponse = await firstClient.PutAsJsonAsync(
+            "/api/dev/fixtures/subscription",
+            new { plan = "premium", hogarId = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.OK, premiumResponse.StatusCode);
+        var premium = await premiumResponse.Content.ReadFromJsonAsync<DevelopmentFixtureBody>();
+        Assert.NotNull(premium);
+        Assert.Equal("premium", premium!.Plan);
+        Assert.Equal("active", premium.SubscriptionStatus);
+        Assert.True(premium.SubscriptionEndsAt > DateTime.UtcNow.AddDays(29));
+        Assert.Equal(HttpStatusCode.OK, (await firstClient.PatchAsJsonAsync("/api/finanzas/modo-ahorro", new { activo = true })).StatusCode);
+
+        var firstSubscription = await (await firstClient.GetAsync("/api/payments/subscription"))
+            .Content.ReadFromJsonAsync<SubscriptionBody>();
+        Assert.NotNull(firstSubscription);
+        Assert.Equal("premium", firstSubscription!.Plan);
+        Assert.Equal("active", firstSubscription.SubscriptionStatus);
+        Assert.Null(firstSubscription.TrialEndsAt);
+        Assert.NotNull(firstSubscription.SubscriptionEndsAt);
+
+        using var secondClient = factory.CreateClient();
+        var secondUser = await AuthenticateAsync(secondClient, "payments-dev-fixture-second");
+        var seededTrialEndsAt = DateTime.UtcNow.AddDays(7);
+        var seededSubscriptionEndsAt = DateTime.UtcNow.AddDays(30);
+        using (var setupScope = factory.Services.CreateScope())
+        {
+            var setupDb = setupScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var hogar = await setupDb.Hogares.SingleAsync(h => h.Id == secondUser.HogarId);
+            hogar.Plan = "premium";
+            hogar.SubscriptionStatus = "active";
+            hogar.TrialEndsAt = seededTrialEndsAt;
+            hogar.GracePeriodEndsAt = DateTime.UtcNow.AddDays(3);
+            hogar.SuscripcionVenceEl = seededSubscriptionEndsAt;
+            hogar.MercadoPagoCustomerId = "customer-fixture";
+            hogar.MercadoPagoSubscriptionId = "subscription-fixture";
+            hogar.MercadoPagoPaymentId = "payment-fixture";
+            hogar.ProviderTransitionAt = DateTime.UtcNow.AddHours(-1);
+            await setupDb.SaveChangesAsync();
+        }
+
+        var freeResponse = await secondClient.PutAsJsonAsync("/api/dev/fixtures/subscription", new { plan = "free" });
+
+        Assert.Equal(HttpStatusCode.OK, freeResponse.StatusCode);
+        var free = await freeResponse.Content.ReadFromJsonAsync<DevelopmentFixtureBody>();
+        Assert.NotNull(free);
+        Assert.Equal("free", free!.Plan);
+        Assert.Equal("free", free.SubscriptionStatus);
+        Assert.Null(free.SubscriptionEndsAt);
+
+        var secondSubscription = await (await secondClient.GetAsync("/api/payments/subscription"))
+            .Content.ReadFromJsonAsync<SubscriptionBody>();
+        Assert.NotNull(secondSubscription);
+        Assert.Equal("free", secondSubscription!.Plan);
+        Assert.Equal("free", secondSubscription.SubscriptionStatus);
+        Assert.Null(secondSubscription.TrialEndsAt);
+        Assert.Null(secondSubscription.SubscriptionEndsAt);
+
+        var isolatedFirstSubscription = await (await firstClient.GetAsync("/api/payments/subscription"))
+            .Content.ReadFromJsonAsync<SubscriptionBody>();
+        Assert.NotNull(isolatedFirstSubscription);
+        Assert.Equal("premium", isolatedFirstSubscription!.Plan);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var resetHogar = await db.Hogares.AsNoTracking().SingleAsync(h => h.Id == secondUser.HogarId);
+        Assert.Null(resetHogar.TrialEndsAt);
+        Assert.Null(resetHogar.GracePeriodEndsAt);
+        Assert.Null(resetHogar.SuscripcionVenceEl);
+        Assert.Null(resetHogar.MercadoPagoCustomerId);
+        Assert.Null(resetHogar.MercadoPagoSubscriptionId);
+        Assert.Null(resetHogar.MercadoPagoPaymentId);
+        Assert.Null(resetHogar.ProviderTransitionAt);
+        Assert.NotNull(resetHogar.PlanUpdatedAt);
+        Assert.Equal("premium", (await db.Hogares.AsNoTracking().SingleAsync(h => h.Id == firstUser.HogarId)).Plan);
+    }
+
+    [Fact]
+    public async Task DevelopmentFixture_WhenMembershipWasRemoved_ReturnsForbiddenAndDoesNotMutateEntitlement()
+    {
+        using var factory = _factory.WithEnvironment("Development");
+        using var client = factory.CreateClient();
+        var user = await AuthenticateAsync(client, "payments-dev-fixture-removed-member");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+            var memberships = await db.MiembrosHogars
+                .Where(member => member.UsuarioId == user.UsuarioId && member.HogarId == user.HogarId)
+                .ToListAsync();
+            db.MiembrosHogars.RemoveRange(memberships);
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.PutAsJsonAsync("/api/dev/fixtures/subscription", new { plan = "premium" });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var hogar = await verificationDb.Hogares.AsNoTracking().SingleAsync(h => h.Id == user.HogarId);
+        Assert.Equal("free", hogar.Plan);
+        Assert.Equal("none", hogar.SubscriptionStatus);
+        Assert.Null(hogar.SuscripcionVenceEl);
+    }
+
+    [Fact]
+    public async Task DevelopmentFixture_OutsideDevelopment_IsNotMapped()
+    {
+        using var client = _factory.CreateClient();
+        await AuthenticateAsync(client, "payments-dev-fixture-unmapped");
+
+        var response = await client.PutAsJsonAsync("/api/dev/fixtures/subscription", new { plan = "premium" });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DevelopmentFixture_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var factory = _factory.WithEnvironment("Development");
+        using var client = factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync("/api/dev/fixtures/subscription", new { plan = "premium" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DevelopmentFixture_WithInvalidPlan_ReturnsValidationProblemDetails()
+    {
+        using var factory = _factory.WithEnvironment("Development");
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "payments-dev-fixture-invalid");
+
+        var response = await client.PutAsJsonAsync("/api/dev/fixtures/subscription", new { plan = "enterprise" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(problem);
+        Assert.Equal("Validation error", problem!.Title);
+        Assert.Contains("premium", problem.Detail);
+        Assert.Contains("free", problem.Detail);
+    }
+
+    [Fact]
     public async Task GetSubscription_WhenAuthenticated_ReturnsCurrentHouseholdPlanState()
     {
         using var client = _factory.CreateClient();
@@ -120,6 +293,26 @@ public sealed class PaymentsEndpointTests : IClassFixture<NidoTestWebAppFactory>
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Webhook_WhenMercadoPagoDisabled_AcknowledgesWithoutValidationOrBodyLimitRetries()
+    {
+        using var factory = _factory.WithConfiguration(new Dictionary<string, string?>
+        {
+            ["MercadoPago:Mode"] = "Disabled",
+            ["MercadoPago:AccessToken"] = "",
+            ["MercadoPago:WebhookSecret"] = ""
+        });
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/webhooks/mercadopago")
+        {
+            Content = new StringContent(new string('x', 64 * 1024 + 1))
+        };
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -959,4 +1152,6 @@ public sealed class PaymentsEndpointTests : IClassFixture<NidoTestWebAppFactory>
     private sealed record CheckoutPreferenceBody(string PreferenceId, string InitPoint);
     private sealed record SubscriptionBody(string Plan, string SubscriptionStatus, DateTime? TrialEndsAt, DateTime? SubscriptionEndsAt);
     private sealed record RefreshBody(string AccessToken, string Plan, string SubscriptionStatus, DateTime? TrialEndsAt);
+    private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
+    private sealed record DevelopmentFixtureBody(string Plan, string SubscriptionStatus, DateTime? SubscriptionEndsAt);
 }

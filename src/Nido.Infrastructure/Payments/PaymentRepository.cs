@@ -5,7 +5,7 @@ using Nido.Infrastructure.Persistence.Entities;
 
 namespace Nido.Infrastructure.Payments;
 
-public sealed class PaymentRepository : IPaymentRepository
+public sealed class PaymentRepository : IPaymentRepository, IDevelopmentEntitlementRepository
 {
     private readonly NidoDbContext _context;
 
@@ -110,6 +110,39 @@ public sealed class PaymentRepository : IPaymentRepository
             await transaction.RollbackAsync(ct);
             throw;
         }
+    }
+
+    public async Task<HouseholdEntitlement> SetAsync(
+        Guid hogarId,
+        HouseholdPlan plan,
+        DateTime nowUtc,
+        DateTime? subscriptionEndsAt,
+        CancellationToken ct)
+    {
+        var affected = await _context.Hogares
+            .Where(h => h.Id == hogarId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(h => h.Plan, plan.ToResponseString())
+                .SetProperty(h => h.SubscriptionStatus, plan == HouseholdPlan.Premium ? "active" : "none")
+                .SetProperty(h => h.TrialEndsAt, (DateTime?)null)
+                .SetProperty(h => h.GracePeriodEndsAt, (DateTime?)null)
+                .SetProperty(h => h.MercadoPagoCustomerId, (string?)null)
+                .SetProperty(h => h.MercadoPagoSubscriptionId, (string?)null)
+                .SetProperty(h => h.MercadoPagoPaymentId, (string?)null)
+                .SetProperty(h => h.ProviderTransitionAt, (DateTime?)null)
+                .SetProperty(h => h.PlanUpdatedAt, nowUtc)
+                .SetProperty(h => h.SuscripcionVenceEl, subscriptionEndsAt), ct);
+
+        if (affected == 0)
+        {
+            throw new InvalidOperationException($"Household (Hogar) with ID '{hogarId}' was not found.");
+        }
+
+        return new HouseholdEntitlement(
+            plan,
+            plan == HouseholdPlan.Premium ? SubscriptionStatus.Active : SubscriptionStatus.None,
+            null,
+            subscriptionEndsAt);
     }
 
     private static HouseholdPlan ParsePlan(string value) => value.ToLowerInvariant() switch

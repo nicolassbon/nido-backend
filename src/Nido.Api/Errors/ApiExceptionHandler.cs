@@ -124,6 +124,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         // Payment plan exceptions
         PremiumRequiredException => (StatusCodes.Status403Forbidden, "Forbidden"),
+        MercadoPagoDisabledException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
 
         // Preferencias exceptions
         MissingPreferenceFieldException => (StatusCodes.Status400BadRequest, "Validation error"),

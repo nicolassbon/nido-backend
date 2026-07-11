@@ -70,6 +70,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("Telegram:BotToken", "default-test-bot-token");
         builder.UseSetting("Telegram:WebhookSecretToken", "default-test-webhook-secret");
         builder.UseSetting("MercadoPago:AccessToken", "TEST-mercadopago-access-token");
+        builder.UseSetting("MercadoPago:Mode", "Sandbox");
         builder.UseSetting("MercadoPago:WebhookSecret", "test-mercadopago-webhook-secret");
         builder.UseSetting("MercadoPago:PublicKey", "TEST-mercadopago-public-key");
         builder.UseSetting("MercadoPago:ApiBaseUrl", "https://api.mercadopago.test");
@@ -98,6 +99,7 @@ public sealed class NidoTestWebAppFactory : WebApplicationFactory<Program>
                 ["ProfileImages:WebpQuality"] = "80",
                 ["ProfileImages:PublicBaseUrl"] = "https://cdn.test.local",
                 ["MercadoPago:AccessToken"] = "TEST-mercadopago-access-token",
+                ["MercadoPago:Mode"] = "Sandbox",
                 ["MercadoPago:WebhookSecret"] = "test-mercadopago-webhook-secret",
                 ["MercadoPago:PublicKey"] = "TEST-mercadopago-public-key",
                 ["MercadoPago:ApiBaseUrl"] = "https://api.mercadopago.test"

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Nido.Application.Payments;
 
 namespace Nido.Api.Middleware;
 
@@ -14,9 +16,9 @@ public sealed class MercadoPagoWebhookPayloadSizeMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context, IOptions<MercadoPagoOptions> options)
     {
-        if (!IsWebhookRequest(context.Request))
+        if (!IsWebhookRequest(context.Request) || options.Value.Mode == MercadoPagoMode.Disabled)
         {
             await _next(context);
             return;

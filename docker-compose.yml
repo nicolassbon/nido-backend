@@ -70,11 +70,11 @@ services:
       - Telegram__BotUsername=${Telegram__BotUsername}
       - Telegram__WebhookUrl=${Telegram__WebhookUrl:-}
       - ExternalServices__ComparatorUrl=http://nido-comparator:3000/
-      - MercadoPago__AccessToken=${MercadoPago__AccessToken:?MercadoPago__AccessToken is required}
+      - MercadoPago__AccessToken=${MercadoPago__AccessToken:-}
       - MercadoPago__PublicKey=${MercadoPago__PublicKey:-}
-      - MercadoPago__WebhookSecret=${MercadoPago__WebhookSecret:?MercadoPago__WebhookSecret is required}
-      - MercadoPago__Mode=${MercadoPago__Mode:?MercadoPago__Mode is required (use Sandbox or Production)}
-      - MercadoPago__UnitPrice=${MercadoPago__UnitPrice:?MercadoPago__UnitPrice is required}
+      - MercadoPago__WebhookSecret=${MercadoPago__WebhookSecret:-}
+      - MercadoPago__Mode=${MercadoPago__Mode:-Disabled}
+      - MercadoPago__UnitPrice=${MercadoPago__UnitPrice:-}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

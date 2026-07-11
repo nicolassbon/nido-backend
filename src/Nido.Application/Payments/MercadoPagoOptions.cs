@@ -47,6 +47,16 @@ public sealed class MercadoPagoOptions
     public static bool HasValidMode(MercadoPagoOptions options)
         => options.Mode is not null && Enum.IsDefined(options.Mode.Value);
 
+    public static bool HasEnabledMode(MercadoPagoOptions options)
+        => options.Mode is MercadoPagoMode.Sandbox or MercadoPagoMode.Production;
+
+    public static bool HasRequiredEnabledConfiguration(MercadoPagoOptions options)
+        => options.Mode == MercadoPagoMode.Disabled
+           || (HasEnabledMode(options)
+               && !string.IsNullOrWhiteSpace(options.AccessToken)
+               && !string.IsNullOrWhiteSpace(options.WebhookSecret)
+               && options.UnitPrice > 0);
+
     private static string UseConfiguredOrDerived(string configuredUrl, string frontendBaseUrl, string path)
         => string.IsNullOrWhiteSpace(configuredUrl)
             ? BuildFrontendUrl(frontendBaseUrl, path) ?? string.Empty
@@ -65,6 +75,7 @@ public sealed class MercadoPagoOptions
 
 public enum MercadoPagoMode
 {
+    Disabled,
     Sandbox,
     Production
 }
