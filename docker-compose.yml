@@ -63,7 +63,7 @@ services:
       - GoogleDocumentAi__ProcessorId=${GoogleDocumentAi__ProcessorId}
       - GoogleDocumentAi__ReceiptProcessorId=${GoogleDocumentAi__ReceiptProcessorId}
       - GoogleDocumentAi__NutritionProcessorId=${GoogleDocumentAi__NutritionProcessorId}
-      - Ia__BaseUrl=${Ia__BaseUrl:-http://host.docker.internal:5000}
+      - Ia__BaseUrl=${Ia__BaseUrl:-http://nido-ia:5000}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/nido-document-ai.json}
       - Telegram__BotToken=${Telegram__BotToken}
       - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
@@ -74,7 +74,7 @@ services:
       - MercadoPago__PublicKey=${MercadoPago__PublicKey:-}
       - MercadoPago__WebhookSecret=${MercadoPago__WebhookSecret:-}
       - MercadoPago__Mode=${MercadoPago__Mode:-Disabled}
-      - MercadoPago__UnitPrice=${MercadoPago__UnitPrice:-}
+      - MercadoPago__UnitPrice=${MercadoPago__UnitPrice:-1}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -91,6 +91,8 @@ services:
         condition: service_completed_successfully
       nido-comparator:
         condition: service_healthy
+      nido-ia:
+        condition: service_started
 
   nido-caddy:
     profiles:
@@ -147,6 +149,28 @@ services:
       start_period: 10s
     depends_on:
       nido-redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nido-ia:
+    image: ${NIDO_IA_IMAGE:-nicolasbon/nido-ia:latest}
+    build:
+      context: ../nido-ia-backend
+      dockerfile: Dockerfile
+    container_name: nido-ia
+    environment:
+      - GOOGLE_GENAI_API_KEY=${GOOGLE_GENAI_API_KEY}
+      - NIDO_DB_HOST=postgres
+      - NIDO_DB_PORT=5432
+      - NIDO_DB_USER=${POSTGRES_USER}
+      - NIDO_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - NIDO_DB_NAME=${POSTGRES_DB}
+    expose:
+      - "5000"
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 
