@@ -63,7 +63,7 @@ services:
       - GoogleDocumentAi__ProcessorId=${GoogleDocumentAi__ProcessorId}
       - GoogleDocumentAi__ReceiptProcessorId=${GoogleDocumentAi__ReceiptProcessorId}
       - GoogleDocumentAi__NutritionProcessorId=${GoogleDocumentAi__NutritionProcessorId}
-      - Ia__BaseUrl=${Ia__BaseUrl:-http://nido-ia:5000}
+      - Ia__BaseUrl=http://nido-ia:5000
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/nido-document-ai.json}
       - Telegram__BotToken=${Telegram__BotToken}
       - Telegram__WebhookSecretToken=${Telegram__WebhookSecretToken}
@@ -92,7 +92,7 @@ services:
       nido-comparator:
         condition: service_healthy
       nido-ia:
-        condition: service_started
+        condition: service_healthy
 
   nido-caddy:
     profiles:
@@ -153,10 +153,11 @@ services:
     restart: unless-stopped
 
   nido-ia:
-    image: ${NIDO_IA_IMAGE:-nicolasbon/nido-ia:latest}
+    image: ${NIDO_IA_IMAGE:-javier073/nido-ia:recetas-ia-nido-v1}
     container_name: nido-ia
     environment:
-      - GOOGLE_GENAI_API_KEY=${GOOGLE_GENAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
       - NIDO_DB_HOST=postgres
       - NIDO_DB_PORT=5432
       - NIDO_DB_USER=${POSTGRES_USER}
@@ -164,8 +165,12 @@ services:
       - NIDO_DB_NAME=${POSTGRES_DB}
     expose:
       - "5000"
-    ports:
-      - "127.0.0.1:5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
