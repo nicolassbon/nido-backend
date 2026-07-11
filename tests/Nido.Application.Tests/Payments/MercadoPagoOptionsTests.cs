@@ -4,12 +4,15 @@ namespace Nido.Application.Tests.Payments;
 
 public sealed class MercadoPagoOptionsTests
 {
-    [Fact]
-    public void HasApprovedProductionBaseUrl_WithCanonicalHost_ReturnsTrue()
+    [Theory]
+    [InlineData("https://nidoapp.online")]
+    [InlineData("https://www.nidoapp.online")]
+    [InlineData("https://frontend.example.com/app")]
+    public void HasApprovedProductionBaseUrl_WithExternalHttpsUrl_ReturnsTrue(string baseUrl)
     {
         Assert.True(FrontendOptions.HasApprovedProductionBaseUrl(new FrontendOptions
         {
-            BaseUrl = "https://nidoapp.online"
+            BaseUrl = baseUrl
         }));
     }
 
@@ -18,7 +21,7 @@ public sealed class MercadoPagoOptionsTests
     [InlineData("not-a-url")]
     [InlineData("http://nidoapp.online")]
     [InlineData("https://localhost:4200")]
-    [InlineData("https://nidoapp.online.attacker.test")]
+    [InlineData("https://user:password@nidoapp.online")]
     public void HasApprovedProductionBaseUrl_WithUnsafeOrMissingUrl_ReturnsFalse(string baseUrl)
     {
         Assert.False(FrontendOptions.HasApprovedProductionBaseUrl(new FrontendOptions

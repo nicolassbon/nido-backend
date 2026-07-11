@@ -10,6 +10,5 @@ public sealed class FrontendOptions
         => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri)
            && uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
            && !uri.IsLoopback
-           && uri.Host.Equals("nidoapp.online", StringComparison.OrdinalIgnoreCase)
            && uri.UserInfo.Length == 0;
 }
