@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddScoped<IEntitlementService>(sp => sp.GetRequiredService<EntitlementService>());
         services.AddScoped<CreateCheckoutPreferenceHandler>();
         services.AddScoped<GetSubscriptionHandler>();
+        services.AddScoped<SetDevelopmentEntitlementHandler>();
         services.AddScoped<ProcessWebhookHandler>();
         services.AddSingleton<MercadoPagoWebhookSignatureVerifier>();
         return services;

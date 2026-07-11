@@ -187,6 +187,37 @@ Run the API project:
 dotnet run --project src/Nido.Api
 ```
 
+Mercado Pago is disabled by default in local development. Checkout requests return
+`503 MERCADO_PAGO_DISABLED`, and provider webhooks are acknowledged with `200 OK`
+without validation or processing so a stale provider configuration cannot create retries.
+Set `MercadoPago__Mode=Sandbox` and provide sandbox credentials only when testing the
+real checkout/webhook flow.
+
+To test Premium feature gates without Mercado Pago, Development exposes this
+authenticated fixture for the signed-in user's current household only:
+
+```http
+PUT /api/dev/fixtures/subscription
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{ "plan": "premium" }
+```
+
+Use `"premium"` to activate Premium for 30 days or `"free"` to reset the household.
+The response contract is:
+
+```json
+{
+  "plan": "premium",
+  "subscriptionStatus": "active",
+  "subscriptionEndsAt": "2026-08-09T12:00:00Z"
+}
+```
+
+Invalid plan values return the API's `400` Problem Details response. The route accepts
+no household ID and is not mapped outside the `Development` environment.
+
 ### 5. Verify Health
 Check if the API is up and running by hitting the integration smoke endpoint:
 

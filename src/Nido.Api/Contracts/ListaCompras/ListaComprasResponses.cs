@@ -24,6 +24,14 @@ public sealed record ListaCompraItemResponse(
     string? IconoSvg = null,
     string? Icono = null);
 
+public sealed record SugerenciaNidoResponse(
+    Guid StockHogarId,
+    Guid ProductoId,
+    string ProductoNombre,
+    decimal StockActual,
+    string? UnidadMedida,
+    string Icono);
+
 public sealed record ListaCompraHistorialItemResponse(
     Guid Id,
     Guid? ProductoId,

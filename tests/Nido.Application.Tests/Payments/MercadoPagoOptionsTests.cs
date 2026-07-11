@@ -53,6 +53,7 @@ public sealed class MercadoPagoOptionsTests
     }
 
     [Theory]
+    [InlineData(MercadoPagoMode.Disabled)]
     [InlineData(MercadoPagoMode.Sandbox)]
     [InlineData(MercadoPagoMode.Production)]
     public void HasValidMode_WithSupportedMode_ReturnsTrue(MercadoPagoMode mode)
@@ -64,5 +65,63 @@ public sealed class MercadoPagoOptionsTests
     public void HasValidMode_WithoutExplicitMode_ReturnsFalse()
     {
         Assert.False(MercadoPagoOptions.HasValidMode(new MercadoPagoOptions()));
+    }
+
+    [Theory]
+    [InlineData(MercadoPagoMode.Sandbox, true)]
+    [InlineData(MercadoPagoMode.Production, true)]
+    [InlineData(MercadoPagoMode.Disabled, false)]
+    public void HasEnabledMode_WithConfiguredMode_ReturnsExpectedResult(MercadoPagoMode mode, bool expected)
+    {
+        Assert.Equal(expected, MercadoPagoOptions.HasEnabledMode(new MercadoPagoOptions { Mode = mode }));
+    }
+
+    [Fact]
+    public void HasEnabledMode_WithoutExplicitMode_ReturnsFalse()
+    {
+        Assert.False(MercadoPagoOptions.HasEnabledMode(new MercadoPagoOptions()));
+    }
+
+    [Fact]
+    public void HasRequiredEnabledConfiguration_WhenDisabledWithoutCredentials_ReturnsTrue()
+    {
+        Assert.True(MercadoPagoOptions.HasRequiredEnabledConfiguration(new MercadoPagoOptions
+        {
+            Mode = MercadoPagoMode.Disabled
+        }));
+    }
+
+    [Theory]
+    [InlineData(MercadoPagoMode.Sandbox)]
+    [InlineData(MercadoPagoMode.Production)]
+    public void HasRequiredEnabledConfiguration_WhenEnabledWithCredentials_ReturnsTrue(MercadoPagoMode mode)
+    {
+        Assert.True(MercadoPagoOptions.HasRequiredEnabledConfiguration(new MercadoPagoOptions
+        {
+            Mode = mode,
+            AccessToken = "intentional-access-token",
+            WebhookSecret = "intentional-webhook-secret",
+            UnitPrice = 1m
+        }));
+    }
+
+    [Theory]
+    [InlineData(MercadoPagoMode.Sandbox, "", "secret", 1)]
+    [InlineData(MercadoPagoMode.Sandbox, "token", "", 1)]
+    [InlineData(MercadoPagoMode.Sandbox, "token", "secret", 0)]
+    [InlineData(MercadoPagoMode.Production, "", "secret", 1)]
+    public void HasRequiredEnabledConfiguration_WhenEnabledConfigurationIsIncomplete_ReturnsFalse(
+        MercadoPagoMode mode,
+        string accessToken,
+        string webhookSecret,
+        decimal unitPrice)
+    {
+        Assert.False(MercadoPagoOptions.HasRequiredEnabledConfiguration(new MercadoPagoOptions
+        {
+            Mode = mode,
+            AccessToken = accessToken,
+            WebhookSecret = webhookSecret,
+            UnitPrice = unitPrice
+        }));
     }
 }

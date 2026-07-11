@@ -14,19 +14,28 @@ public sealed class PaymentsWebhookController : ControllerBase
 {
     private readonly ProcessWebhookHandler _handler;
     private readonly ILogger<PaymentsWebhookController> _logger;
+    private readonly MercadoPagoOptions _options;
 
     public PaymentsWebhookController(
         ProcessWebhookHandler handler,
-        ILogger<PaymentsWebhookController> logger)
+        ILogger<PaymentsWebhookController> logger,
+        MercadoPagoOptions options)
     {
         _handler = handler;
         _logger = logger;
+        _options = options;
     }
 
     [HttpPost]
     [RequestSizeLimit(MercadoPagoWebhookPayloadSizeMiddleware.MaxPayloadBytes)]
     public async Task<IActionResult> Post(CancellationToken ct)
     {
+        if (_options.Mode == MercadoPagoMode.Disabled)
+        {
+            _logger.LogInformation("Acknowledged and ignored Mercado Pago webhook because the integration is disabled.");
+            return Ok();
+        }
+
         using var reader = new StreamReader(Request.Body);
         var payload = await reader.ReadToEndAsync(ct);
         var signature = Request.Headers["x-signature"].ToString();

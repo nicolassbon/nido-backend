@@ -121,9 +121,10 @@ jobs:
             export NIDO_MIGRATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-migrator:${{ github.sha }}'
             export NIDO_CADDY_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-caddy:latest'
             export NIDO_COMPARATOR_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-comparator:comparador-precios-nido-v1'
+            export NIDO_IA_IMAGE='${{ secrets.DOCKERHUB_USERNAME }}/nido-ia:recetas-ia-nido-v1'
             export ASPNETCORE_ENVIRONMENT=Production
 
-            docker compose pull nido-api nido-migrator nido-comparator nido-redis
+            docker compose pull nido-api nido-migrator nido-comparator nido-redis nido-ia
             docker compose --profile production pull nido-caddy
             docker compose run --rm nido-migrator
 
@@ -135,7 +136,7 @@ jobs:
                 AND column_name = '\''tarea_id'\'';
             "' | grep -qx 1
 
-            docker compose --profile production up -d --remove-orphans nido-api nido-caddy
+            docker compose --profile production up -d --remove-orphans nido-api nido-caddy nido-ia
 
             attempts=10
             for attempt in $(seq 1 "$attempts"); do

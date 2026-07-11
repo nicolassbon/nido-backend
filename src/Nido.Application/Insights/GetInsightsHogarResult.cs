@@ -18,6 +18,15 @@ public sealed record ComprarProntoItem(
     int FrecuenciaCompraDias,
     string Categoria);
 
+public sealed record SugerenciaNidoItem(
+    Guid StockHogarId,
+    Guid ProductoId,
+    string ProductoNombre,
+    decimal StockActual,
+    string? UnidadMedida,
+    string Icono,
+    double Score);
+
 public sealed record PorVencerItem(
     Guid StockHogarId,
     string ProductoNombre,

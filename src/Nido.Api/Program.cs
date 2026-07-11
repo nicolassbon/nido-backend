@@ -35,6 +35,7 @@ using Nido.Api.Controllers;
 using Scalar.AspNetCore;
 using Nido.Application.Tickets;
 using Nido.Application.Payments;
+using Nido.Api.Contracts;
 
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -79,7 +80,7 @@ if (builder.Environment.IsProduction())
             options => !string.IsNullOrWhiteSpace(options.WebhookSecret),
             "MercadoPago:WebhookSecret is required in Production.")
         .Validate(
-            MercadoPagoOptions.HasValidMode,
+            MercadoPagoOptions.HasEnabledMode,
             "MercadoPago:Mode must be explicitly set to Sandbox or Production in Production.")
         .Validate(
             options => options.UnitPrice > 0,
@@ -221,7 +222,11 @@ builder.Services.AddHttpClient("NidoIa", client =>
 var app = builder.Build();
 
 var mercadoPagoOptions = app.Services.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
-if (mercadoPagoOptions.Mode == MercadoPagoMode.Sandbox)
+if (mercadoPagoOptions.Mode == MercadoPagoMode.Disabled)
+{
+    app.Logger.LogInformation("Mercado Pago is disabled. Checkout is unavailable and webhooks are acknowledged without processing.");
+}
+else if (mercadoPagoOptions.Mode == MercadoPagoMode.Sandbox)
 {
     app.Logger.LogWarning(
         "Mercado Pago is configured for Sandbox mode. Mode: {Mode}, Currency: {Currency}, UnitPrice: {UnitPrice}, DashboardManagedWebhooksExpected: {DashboardManagedWebhooksExpected}. Real charging is disabled.",
@@ -273,6 +278,24 @@ app.UseMiddleware<TelegramWebhookSecretMiddleware>();
 app.UseMiddleware<TelegramWebhookPayloadSizeMiddleware>();
 app.UseRateLimiter();
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapPut("/api/dev/fixtures/subscription", async (
+        DevelopmentSubscriptionFixtureRequest request,
+        ICurrentUserContext currentUser,
+        SetDevelopmentEntitlementHandler handler,
+        CancellationToken ct) =>
+    {
+        var entitlement = await handler.Handle(request.Plan, currentUser.UsuarioId, currentUser.HogarId, ct);
+        return Results.Ok(new DevelopmentSubscriptionFixtureResponse(
+            entitlement.Plan.ToResponseString(),
+            entitlement.SubscriptionStatus.ToResponseString(entitlement.Plan),
+            entitlement.SubscriptionEndsAt));
+    })
+    .RequireAuthorization()
+    .WithTags("Development fixtures");
+}
 
 app.Run();
 

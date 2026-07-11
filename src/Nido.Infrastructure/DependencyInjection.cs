@@ -251,15 +251,29 @@ public static class DependencyInjection
         services.AddScoped<ComparePricesHandler>();
 
         services.AddScoped<IEntitlementRepository, EntitlementRepository>();
-        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<PaymentRepository>();
+        services.AddScoped<IPaymentRepository>(sp => sp.GetRequiredService<PaymentRepository>());
+        services.AddScoped<IDevelopmentEntitlementRepository>(sp => sp.GetRequiredService<PaymentRepository>());
         services.AddOptions<MercadoPagoOptions>()
             .Bind(configuration.GetSection(MercadoPagoOptions.SectionName))
-            .Configure(options => options.ApplyFrontendRedirectDefaults(configuration["Frontend:BaseUrl"]));
+            .Configure(options => options.ApplyFrontendRedirectDefaults(configuration["Frontend:BaseUrl"]))
+            .Validate(MercadoPagoOptions.HasValidMode, "MercadoPago:Mode must be Disabled, Sandbox, or Production.")
+            .Validate(
+                MercadoPagoOptions.HasRequiredEnabledConfiguration,
+                "MercadoPago enabled modes require AccessToken, WebhookSecret, and a UnitPrice greater than zero.")
+            .ValidateOnStart();
         services.AddScoped(sp => sp.GetRequiredService<IOptions<MercadoPagoOptions>>().Value);
-        services.AddHttpClient<IMercadoPagoGateway, MercadoPagoHttpGateway>((sp, client) =>
+        services.AddHttpClient<MercadoPagoHttpGateway>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
             MercadoPagoHttpGateway.ConfigureClient(client, options);
+        });
+        services.AddScoped<IMercadoPagoGateway>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
+            return options.Mode == MercadoPagoMode.Disabled
+                ? new DisabledMercadoPagoGateway()
+                : sp.GetRequiredService<MercadoPagoHttpGateway>();
         });
 
         return services;
