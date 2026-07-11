@@ -154,9 +154,6 @@ services:
 
   nido-ia:
     image: ${NIDO_IA_IMAGE:-nicolasbon/nido-ia:latest}
-    build:
-      context: ../nido-ia-backend
-      dockerfile: Dockerfile
     container_name: nido-ia
     environment:
       - GOOGLE_GENAI_API_KEY=${GOOGLE_GENAI_API_KEY}
