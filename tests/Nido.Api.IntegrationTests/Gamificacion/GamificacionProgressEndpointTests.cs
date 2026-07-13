@@ -33,12 +33,15 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         Assert.Equal(user.UsuarioId, body!.UsuarioId);
         Assert.Equal(0, body.CurrentXp);
         Assert.Equal(0, body.CurrentLevel);
+        Assert.Equal(0, body.CurrentLevelThresholdXp);
         Assert.True(body.HasNextLevel);
         Assert.Equal(1, body.NextLevel);
         Assert.Equal(20, body.NextThresholdXp);
         Assert.Equal(20, body.XpToNextLevel);
 
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(json.RootElement.TryGetProperty("currentLevelThresholdXp", out var currentLevelThresholdXp));
+        Assert.Equal(0, currentLevelThresholdXp.GetInt32());
         Assert.False(json.RootElement.TryGetProperty("currentLevelAvatarUrl", out _));
         Assert.False(json.RootElement.TryGetProperty("nextLevelAvatarUrl", out _));
         Assert.False(json.RootElement.TryGetProperty("currentLevelNombre", out _));
@@ -111,6 +114,7 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         Assert.NotNull(body);
         Assert.Equal(60, body!.CurrentXp);
         Assert.Equal(2, body.CurrentLevel);
+        Assert.Equal(60, body.CurrentLevelThresholdXp);
         using var scope = customFactory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
         var levels = await db.GamificacionNivelesDesbloqueados
@@ -135,6 +139,28 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         Assert.Equal(user.UsuarioId, body!.UsuarioId);
         Assert.Equal(0, body.CurrentXp);
         Assert.Equal(1, body.CurrentLevel);
+    }
+
+    [Fact]
+    public async Task GetProgreso_AtHighestConfiguredLevel_ReturnsMaxLevelAndCumulativeXp()
+    {
+        var user = await AuthenticateAsync(_client, "gami-progress-max-level");
+        for (var completedTasks = 0; completedTasks < 17; completedTasks++)
+        {
+            var task = await CreateTaskAsync(_client, $"Max level task {completedTasks}");
+            await _client.PostAsJsonAsync($"/api/tareas/{task.Id}/completar", new { });
+        }
+
+        var body = await _client.GetFromJsonAsync<GamificacionProgresoBody>("/api/gamificacion/progreso");
+
+        Assert.NotNull(body);
+        Assert.Equal(user.UsuarioId, body!.UsuarioId);
+        Assert.Equal(340, body.CurrentXp);
+        Assert.Equal(5, body.CurrentLevel);
+        Assert.Equal(340, body.CurrentLevelThresholdXp);
+        Assert.False(body.HasNextLevel);
+        Assert.Null(body.NextLevel);
+        Assert.Null(body.NextThresholdXp);
     }
 
     [Fact]
@@ -223,6 +249,7 @@ public sealed class GamificacionProgressEndpointTests : IClassFixture<NidoTestWe
         Guid UsuarioId,
         int CurrentXp,
         int CurrentLevel,
+        int CurrentLevelThresholdXp,
         int? NextLevel,
         int? NextThresholdXp,
         int? XpToNextLevel,

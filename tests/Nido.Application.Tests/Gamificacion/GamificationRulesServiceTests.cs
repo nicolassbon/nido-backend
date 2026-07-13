@@ -96,6 +96,18 @@ public sealed class GamificationRulesServiceTests
         Assert.Equal(new[] { 1, 2 }, eligible.OrderBy(x => x));
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 20)]
+    [InlineData(2, 60)]
+    [InlineData(3, 120)]
+    public void LevelThreshold_ReturnsConfiguredThresholdOrZeroForTheInitialLevel(int level, int expectedThreshold)
+    {
+        var service = CreateService();
+
+        Assert.Equal(expectedThreshold, service.GetLevelThreshold(level));
+    }
+
     [Fact]
     public void NextLevel_BelowThreshold_ReturnsLevelThresholdAndRemainingXp()
     {
