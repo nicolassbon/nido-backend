@@ -4,6 +4,7 @@ public sealed record GamificacionProgresoResponse(
     Guid UsuarioId,
     int CurrentXp,
     int CurrentLevel,
+    int CurrentLevelThresholdXp,
     int? NextLevel,
     int? NextThresholdXp,
     int? XpToNextLevel,

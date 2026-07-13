@@ -1,8 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nido.Api.IntegrationTests.Auth;
 using Nido.Infrastructure.Persistence;
 using Nido.Infrastructure.Persistence.Entities;
@@ -35,10 +39,27 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         return body;
     }
 
+    private static async Task MakePremiumAsync(WebApplicationFactory<Program> factory, Guid hogarId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
+        var hogar = await db.Hogares.SingleAsync(x => x.Id == hogarId);
+        hogar.Plan = "premium";
+        hogar.SubscriptionStatus = "active";
+        hogar.SuscripcionVenceEl = DateTime.UtcNow.AddDays(30);
+        hogar.PlanUpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
     private async Task<Guid> SeedRecetaAsync(string nombre = "Arroz blanco")
     {
+        return await SeedRecetaAsync(_factory, nombre);
+    }
+
+    private static async Task<Guid> SeedRecetaAsync(WebApplicationFactory<Program> factory, string nombre = "Arroz blanco")
+    {
         var id = Guid.NewGuid();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NidoDbContext>();
         db.Recetas.Add(new Receta
         {
@@ -132,6 +153,87 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.NotNull(lista);
         Assert.NotEmpty(lista!);
         Assert.All(lista!, r => Assert.True(r.VecesCocinada >= 0));
+    }
+
+    [Fact]
+    public async Task AsistentePorIa_CuandoHogarEsFree_Returns403YNoInvocaClienteIa()
+    {
+        StubHttpClientFactory? iaClientFactory = null;
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IHttpClientFactory>();
+            iaClientFactory = new StubHttpClientFactory(_ => throw new InvalidOperationException("IA client should not be used for free households."));
+            services.AddSingleton<IHttpClientFactory>(iaClientFactory);
+        }));
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/recetas/ia/asistente", new { pregunta = "¿Qué puedo cocinar?" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(body);
+        Assert.Equal("PLAN_UPGRADE_REQUIRED", body!.Title);
+        Assert.NotNull(iaClientFactory);
+        Assert.DoesNotContain(iaClientFactory!.RequestedUris, uri => uri.Contains("/api/ia/", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AsistentePorIa_CuandoHogarEsPremium_ReturnsAssistantResponse()
+    {
+        using var factory = WithIaClient(_ => JsonResponse("""{"respuesta":"Podés cocinar una tortilla rápida."}"""));
+        using var client = factory.CreateClient();
+        var auth = await AuthenticateAsync(client);
+        await MakePremiumAsync(factory, auth.HogarId);
+
+        var response = await client.PostAsJsonAsync("/api/recetas/ia/asistente", new { pregunta = "¿Qué puedo cocinar?" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AsistenteIaBody>();
+        Assert.NotNull(body);
+        Assert.Equal("Podés cocinar una tortilla rápida.", body!.Respuesta);
+    }
+
+    [Fact]
+    public async Task RecomendarPorIa_CuandoHogarEsFree_Returns403YNoInvocaClienteIa()
+    {
+        StubHttpClientFactory? iaClientFactory = null;
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IHttpClientFactory>();
+            iaClientFactory = new StubHttpClientFactory(_ => throw new InvalidOperationException("IA client should not be used for free households."));
+            services.AddSingleton<IHttpClientFactory>(iaClientFactory);
+        }));
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.GetAsync("/api/recetas/ia/recomendar?busqueda=pollo&objetivo=alta-proteina");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>();
+        Assert.NotNull(body);
+        Assert.Equal("PLAN_UPGRADE_REQUIRED", body!.Title);
+        Assert.NotNull(iaClientFactory);
+        Assert.DoesNotContain(iaClientFactory!.RequestedUris, uri => uri.Contains("/api/ia/", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task RecomendarPorIa_CuandoHogarEsPremium_ReturnsMatchedRecipes()
+    {
+        using var factory = WithIaClient(_ => JsonResponse("""{"recetas":[{"nombre":"Tarta de ricota"}]}"""));
+        using var client = factory.CreateClient();
+        var auth = await AuthenticateAsync(client);
+        await MakePremiumAsync(factory, auth.HogarId);
+        var recetaId = await SeedRecetaAsync(factory, "Tarta de ricota");
+
+        var response = await client.GetAsync("/api/recetas/ia/recomendar?busqueda=ricota");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<RecetaBody>>();
+        Assert.NotNull(body);
+        var receta = Assert.Single(body!);
+        Assert.Equal(recetaId, receta.Id);
+        Assert.Equal("Tarta de ricota", receta.Nombre);
     }
 
     [Fact]
@@ -1623,7 +1725,22 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         Assert.Equal(1, await verifyDb.RecetasCocinadas.CountAsync(rc => rc.RecetaId == recetaId && rc.HogarId == auth.HogarId));
     }
 
+    private static WebApplicationFactory<Program> WithIaClient(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) =>
+        new NidoTestWebAppFactory().WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IHttpClientFactory>();
+            services.AddSingleton<IHttpClientFactory>(new StubHttpClientFactory(responseFactory));
+        }));
+
+    private static HttpResponseMessage JsonResponse(string json) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+
     private sealed record RegisterBody(Guid UsuarioId, Guid HogarId, string AccessToken);
+    private sealed record AsistenteIaBody(string Respuesta);
+    private sealed record ProblemDetailsBody(int Status, string? Title, string? Detail);
     private sealed record RecetaBody(
         Guid Id,
         string Nombre,
@@ -1652,4 +1769,43 @@ public sealed class RecetasEndpointTests : IClassFixture<NidoTestWebAppFactory>
         bool EnStock,
         List<string> Alergenos);
     private sealed record CocinarBody(Guid RecetaId, int VecesCocinada);
+
+    private sealed class StubHttpClientFactory : IHttpClientFactory
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responseFactory;
+
+        public StubHttpClientFactory(Func<HttpRequestMessage, HttpResponseMessage> responseFactory)
+        {
+            _responseFactory = responseFactory;
+        }
+
+        public int CreateClientCalls { get; private set; }
+        public List<string> RequestedUris { get; } = [];
+
+        public HttpClient CreateClient(string name)
+        {
+            CreateClientCalls++;
+            return new HttpClient(new StubHttpMessageHandler(request =>
+            {
+                RequestedUris.Add(request.RequestUri?.ToString() ?? string.Empty);
+                return _responseFactory(request);
+            }))
+            {
+                BaseAddress = new Uri("http://localhost/")
+            };
+        }
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responseFactory;
+
+        public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory)
+        {
+            _responseFactory = responseFactory;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_responseFactory(request));
+    }
 }

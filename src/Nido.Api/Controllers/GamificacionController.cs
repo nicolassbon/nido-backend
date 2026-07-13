@@ -22,6 +22,7 @@ public sealed class GamificacionController : ControllerBase
             result.UsuarioId,
             result.CurrentXp,
             result.CurrentLevel,
+            result.CurrentLevelThresholdXp,
             result.NextLevel,
             result.NextThresholdXp,
             result.XpToNextLevel,

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nido.Api.Contracts.Recetas;
+using Nido.Api.Security;
 using Nido.Application.Common.Security;
 using Nido.Application.Recetas;
 using System.Net.Http.Json;
@@ -77,6 +78,7 @@ public sealed class RecetasController : ControllerBase
     }
 
     [HttpPost("ia/asistente")]
+    [RequirePremium]
     public async Task<IActionResult> AsistentePorIa(
         [FromBody] AsistenteIaRequest request,
         CancellationToken ct)
@@ -104,6 +106,7 @@ public sealed class RecetasController : ControllerBase
     }
 
     [HttpGet("ia/recomendar")]
+    [RequirePremium]
     public async Task<IActionResult> RecomendarPorIa(
         [FromQuery] string? busqueda,
         [FromQuery] string? objetivo,

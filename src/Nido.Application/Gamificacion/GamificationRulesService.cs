@@ -51,6 +51,13 @@ public sealed class GamificationRulesService : IGamificationRulesService
         return eligible;
     }
 
+    public int GetLevelThreshold(int level)
+        => _normalizedLevels
+            .Where(configuredLevel => configuredLevel.Level == level)
+            .Select(configuredLevel => configuredLevel.RequiredXp)
+            .DefaultIfEmpty(0)
+            .Single();
+
     public NextLevelInfo? GetNextLevel(int currentXp)
     {
         foreach (var level in _normalizedLevels)

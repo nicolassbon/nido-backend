@@ -7,5 +7,6 @@ public interface IGamificationRulesService
     int ComputeCurrentXp(int completedTaskCount);
     int? TaskXpOtorgado(bool isCompleted);
     IReadOnlyList<int> ComputeEligibleLevels(int currentXp);
+    int GetLevelThreshold(int level);
     NextLevelInfo? GetNextLevel(int currentXp);
 }

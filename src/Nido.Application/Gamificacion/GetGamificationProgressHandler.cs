@@ -44,6 +44,7 @@ public sealed class GetGamificationProgressHandler
             usuarioId,
             currentXp,
             currentLevel,
+            _rules.GetLevelThreshold(currentLevel),
             nextLevel?.Level,
             nextLevel?.ThresholdXp,
             nextLevel?.XpToNextLevel,
