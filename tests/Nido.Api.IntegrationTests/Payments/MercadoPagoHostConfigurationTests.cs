@@ -1,4 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Nido.Application.Payments;
 
 namespace Nido.Api.IntegrationTests.Payments;
 
@@ -25,6 +27,35 @@ public sealed class MercadoPagoHostConfigurationTests : IClassFixture<NidoTestWe
         var exception = Record.Exception(() => _ = factory.Services);
 
         Assert.Null(exception);
+    }
+
+    [Fact]
+    public void ShippedAppsettings_UsesUnitPriceFallback()
+    {
+        var options = _factory.Services.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
+
+        Assert.Equal(15000.00m, options.UnitPrice);
+    }
+
+    [Fact]
+    public void MercadoPagoUnitPrice_EnvironmentOverrideWinsOverShippedFallback()
+    {
+        const string environmentVariable = "MercadoPago__UnitPrice";
+        var originalValue = Environment.GetEnvironmentVariable(environmentVariable);
+        Environment.SetEnvironmentVariable(environmentVariable, "17500.50");
+
+        try
+        {
+            using var factory = _factory.WithConfiguration(new Dictionary<string, string?>());
+
+            var options = factory.Services.GetRequiredService<IOptions<MercadoPagoOptions>>().Value;
+
+            Assert.Equal(17500.50m, options.UnitPrice);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(environmentVariable, originalValue);
+        }
     }
 
     [Fact]
